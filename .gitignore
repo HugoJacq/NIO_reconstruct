@@ -7,3 +7,8 @@ src/models/__pycache__/__init__.cpython-310.pyc
 src/models/__pycache__/jslab.cpython-310.pyc
 tests_models/png_tests_models/jslab_-50.0E_35.0N.png
 tests_models/__pycache__/tests_functions.cpython-310.pyc
+regrid_croco/__pycache__/filters.cpython-310.pyc
+regrid_croco/__pycache__/plot_functions.cpython-310.pyc
+regrid_croco/__pycache__/regridder.cpython-310.pyc
+src/__pycache__/constants.cpython-310.pyc
+data_regrid/croco_1h_inst_surf_2006-02-01-2006-02-28_0.1deg_bilinear.nc
