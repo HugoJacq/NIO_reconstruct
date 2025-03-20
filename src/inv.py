@@ -12,24 +12,38 @@ import scipy
 class Variational_diffrax:
     """
     """
-    def __init__(self, model, observations, is_difx=True):
+    def __init__(self, model, observations, filter_at_fc=False):
         self.observations = observations
         self.obs_period = observations.obs_period
         self.dt_forcing = model.dt_forcing
         self.model = model
-        self.is_difx = is_difx
+        self.filter_at_fc = filter_at_fc
 
     def loss_fn(self, obs, sol):
         return jnp.mean( (sol[0]-obs[0])**2 + (sol[1]-obs[1])**2 )
     
-    def cost(self, dynamic_model, static_model, call_args):
+    def cost(self, dynamic_model, static_model):
         mymodel = eqx.combine(dynamic_model, static_model)
         dtime_obs = self.observations.obs_period
         obs = self.observations.get_obs()
-        if self.is_difx:
-            sol = mymodel(call_args, save_traj_at=dtime_obs).ys # use diffrax and equinox
+        if self.filter_at_fc:
+            Ua,Va = mymodel().ys
+            # here filter at fc
+            TAcplx = mymodel.TAx+1j*mymodel.TAy
+            Cacplx = Ua + 1j*Va
+            Ca, _ = self.my_fc_filter(Cacplx,TAcplx,mymodel.fc) #  jnp.zeros(len(obs)) # WIP
+            # Ufiltered = jnp.real(C_filtered), jnp.imag(C_filtered)
+            
+            # lets create now an array of size 'obs', with the value from the filtered estimate
+            Uffc = jnp.zeros(len(obs[0]))
+            Vffc = jnp.zeros(len(obs[0]))
+            step = jnp.array(self.obs_period//self.model.dt,int)
+            for k in range(len(Uffc)):
+                Uffc = Uffc.at[k].set(Ca[0][k*step])  
+                Vffc = Vffc.at[k].set(Ca[1][k*step])            
+            sol = Uffc,Vffc
         else:
-            sol = mymodel(call_args, save_traj_at=dtime_obs) # only equinox
+            sol = mymodel(save_traj_at=dtime_obs).ys # use diffrax and equinox
         return self.loss_fn(sol, obs)
         
    
@@ -40,25 +54,22 @@ class Variational_diffrax:
         return eqx.partition(mymodel, filter_spec)          
     
     @eqx.filter_jit
-    def grad_cost(self, dynamic_model, static_model, call_args):
-        def cost_for_grad(dynamic_model, static_model, call_args):
-            y = self.cost(dynamic_model, static_model, call_args)
+    def grad_cost(self, dynamic_model, static_model):
+        def cost_for_grad(dynamic_model, static_model):
+            y = self.cost(dynamic_model, static_model)
             if static_model.AD_mode=='F':
                 return y,y # <- trick to have a similar behavior than value_and_grad (but here returns grad, value)
             else:
                 return y
         
         if self.model.AD_mode=='F':
-            val1, val2 =  eqx.filter_jacfwd(cost_for_grad, has_aux=True)(dynamic_model, static_model, call_args)
+            val1, val2 =  eqx.filter_jacfwd(cost_for_grad, has_aux=True)(dynamic_model, static_model)
             return val2, val1
         else:
-            val1, val2 = eqx.filter_value_and_grad(cost_for_grad)(dynamic_model, static_model, call_args)
+            val1, val2 = eqx.filter_value_and_grad(cost_for_grad)(dynamic_model, static_model)
             return val1, val2
     
-    
-    
-
-    def my_minimizer(self, opti, mymodel, itmax, call_args, gtol=1e-5, verbose=False):
+    def my_minimizer(self, opti, mymodel, itmax, gtol=1e-5, verbose=False):
         """
         wrapper of optax minimizer, updating 'model' as the loop goes
         """
@@ -69,9 +80,9 @@ class Variational_diffrax:
             opt_state = solver.init(mymodel)
             
             @eqx.filter_jit
-            def step_minimize(model, opt, opt_state, call_args):
+            def step_minimize(model, opt, opt_state):
                 dynamic_model, static_model = self.my_partition(mymodel)
-                value, grad = self.grad_cost(dynamic_model, static_model, call_args)
+                value, grad = self.grad_cost(dynamic_model, static_model)
                 value_grad = grad.pk 
                 updates, opt_state = opt.update(grad, opt_state)
                 model = eqx.apply_updates(model, updates)
@@ -99,7 +110,7 @@ class Variational_diffrax:
                 def value_and_grad_fn(params): # L-BFGS expects a function that returns both value and gradient
                         dynamic_model, static_model = self.my_partition(mymodel)
                         new_dynamic_model = eqx.tree_at(lambda m: m.pk, dynamic_model, params) # replace new pk
-                        value, grad = self.grad_cost(new_dynamic_model, static_model, call_args)
+                        value, grad = self.grad_cost(new_dynamic_model, static_model)
                         return value, grad.pk
                 
                 def cost_fn(params):
@@ -145,22 +156,22 @@ class Variational_diffrax:
                 print('Final pk is:',mymodel.pk)
                 return mymodel
     
-    def scipy_lbfgs_wrapper(self, mymodel, maxiter, call_args, verbose=False):
+    def scipy_lbfgs_wrapper(self, mymodel, maxiter, gtol=1e-5, verbose=False):
         
         # L-BFGS expects a function that returns both value and gradient
         def value_and_grad_for_scipy(params): 
                     dynamic_model, static_model = self.my_partition(mymodel)
                     new_dynamic_model = eqx.tree_at(lambda m: m.pk, dynamic_model, params) # replace new pk
-                    value, grad = self.grad_cost(new_dynamic_model, static_model, call_args)
+                    value, grad = self.grad_cost(new_dynamic_model, static_model)
                     return value, grad.pk
             
 
         vector_k = mymodel.pk
-        print('intial pk',vector_k)
+        print(' intial pk',vector_k)
         
         res = scipy.optimize.minimize(value_and_grad_for_scipy, 
                                             vector_k,
-                                            options={'maxiter':maxiter},
+                                            options={'maxiter':maxiter, 'gtol':gtol},
                                             method='L-BFGS-B',
                                             jac=True)
         
@@ -169,10 +180,24 @@ class Variational_diffrax:
 
         if verbose:
             dynamic_model, static_model = self.my_partition(mymodel)
-            value, gradtree = self.grad_cost(dynamic_model, static_model, call_args)
+            value, gradtree = self.grad_cost(dynamic_model, static_model)
             grad = gradtree.pk
             print(' final cost, grad',value, grad)
             print('     vector K solution ('+str(res.nit)+' iterations)',res['x'])
             print('     cost function value with K solution:',value)
         
         return mymodel
+    
+    def my_fc_filter(self, Uag, TA, fc):
+        Ndays = 3
+        time_conv = jnp.arange(-Ndays*86400,Ndays*86400+self.model.dt_forcing,self.model.dt_forcing)
+        # taul=3*fc[jr,ir]**-1
+        Unio = Uag*0.
+        TAfc = TA*0.
+        taul=4*fc**-1
+        gl = jnp.exp(-1j*fc*time_conv)*jnp.exp(-taul**-2*time_conv**2)
+        gl = (gl.T / jnp.sum(jnp.abs(gl), axis=0).T).T
+        #print(Uag.shape,gl.shape)
+        Unio = jnp.convolve(Uag,gl,'same')
+        TAfc = jnp.convolve(TA,gl,'same')
+        return (jnp.real(Unio),jnp.imag(Unio)), TAfc
