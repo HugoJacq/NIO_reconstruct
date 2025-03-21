@@ -27,7 +27,7 @@ class Variational_diffrax:
         dtime_obs = self.observations.obs_period
         obs = self.observations.get_obs()
         if self.filter_at_fc:
-            Ua,Va = mymodel().ys
+            Ua,Va = mymodel(save_traj_at=mymodel.dt_forcing).ys
             # here filter at fc
             TAcplx = mymodel.TAx+1j*mymodel.TAy
             Cacplx = Ua + 1j*Va
@@ -37,7 +37,7 @@ class Variational_diffrax:
             # lets create now an array of size 'obs', with the value from the filtered estimate
             Uffc = jnp.zeros(len(obs[0]))
             Vffc = jnp.zeros(len(obs[0]))
-            step = jnp.array(self.obs_period//self.model.dt,int)
+            step = jnp.array(self.obs_period//mymodel.dt_forcing,int)
             for k in range(len(Uffc)):
                 Uffc = Uffc.at[k].set(Ca[0][k*step])  
                 Vffc = Vffc.at[k].set(Ca[1][k*step])            
@@ -160,10 +160,11 @@ class Variational_diffrax:
         
         # L-BFGS expects a function that returns both value and gradient
         def value_and_grad_for_scipy(params): 
-                    dynamic_model, static_model = self.my_partition(mymodel)
-                    new_dynamic_model = eqx.tree_at(lambda m: m.pk, dynamic_model, params) # replace new pk
-                    value, grad = self.grad_cost(new_dynamic_model, static_model)
-                    return value, grad.pk
+            dynamic_model, static_model = self.my_partition(mymodel)
+            new_dynamic_model = eqx.tree_at(lambda m: m.pk, dynamic_model, params) # replace new pk
+            value, grad = self.grad_cost(new_dynamic_model, static_model)
+            #print('new pk, grad of new pk',params, grad.pk)
+            return value, grad.pk
             
 
         vector_k = mymodel.pk
@@ -171,11 +172,12 @@ class Variational_diffrax:
         
         res = scipy.optimize.minimize(value_and_grad_for_scipy, 
                                             vector_k,
-                                            options={'maxiter':maxiter, 'gtol':gtol},
+                                            options={'maxiter':maxiter, 'gtol':gtol}, #
                                             method='L-BFGS-B',
                                             jac=True)
         
         new_k = jnp.asarray(res['x'])
+        print(res.message)
         mymodel = eqx.tree_at( lambda tree:tree.pk, mymodel, new_k)
 
         if verbose:

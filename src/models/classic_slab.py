@@ -123,36 +123,53 @@ class jslab_kt(eqx.Module):
     # control vector
     pk : jnp.array
     # parameters
-    TAx : jnp.array
-    TAy : jnp.array
-    fc : jnp.array
-    dTK : jnp.array         = eqx.static_field()
-    dt_forcing : jnp.array  = eqx.static_field()
-    nl : jnp.array          = eqx.static_field()
-    AD_mode : str           = eqx.static_field()
-    NdT : jnp.array         = eqx.static_field()
-    t0 : jnp.array          = eqx.static_field()
-    t1 : jnp.array          = eqx.static_field()
-    dt : jnp.array          = eqx.static_field()
+    # TAx : jnp.array         = eqx.static_field()
+    # TAy : jnp.array         = eqx.static_field()
+    # fc : jnp.array          = eqx.static_field()
+    # dTK : jnp.array         = eqx.static_field()
+    # dt_forcing : jnp.array  = eqx.static_field()
+    # nl : jnp.array          = eqx.static_field()
+    # AD_mode : str           = eqx.static_field()
+    # NdT : jnp.array         = eqx.static_field()
+    # t0 : jnp.array          = eqx.static_field()
+    # t1 : jnp.array          = eqx.static_field()
+    # dt : jnp.array          = eqx.static_field()
+    TAx : jnp.array         
+    TAy : jnp.array         
+    fc : jnp.array         
+    dTK : jnp.array        
+    dt_forcing : jnp.array  
+    nl : jnp.array         
+    AD_mode : str          
+    NdT : jnp.array        
+    t0 : jnp.array         
+    t1 : jnp.array         
+    dt : jnp.array         
     
     
     def __init__(self, pk, TAx, TAy, fc, dTK, dt_forcing, nl, AD_mode, call_args):
-        self.pk = pk
-        self.TAx = TAx
-        self.TAy = TAy
-        self.fc = fc
-        self.dTK = dTK
-        self.dt_forcing = dt_forcing
-        self.nl = nl
-        self.AD_mode = AD_mode
         t0,t1,dt = call_args
-        self.NdT = int((t1-t0)//dTK) # jnp.array((t1-t0)//self.dTK,int)
         self.t0 = t0
         self.t1 = t1
         self.dt = dt
         
+        self.dTK = dTK
+        self.NdT = int((t1-t0)//dTK) # jnp.array((t1-t0)//self.dTK,int)
+        self.pk = pk #self.kt_ini( jnp.asarray(pk) )
+        
+        self.TAx = TAx
+        self.TAy = TAy
+        self.fc = fc
+        
+        self.dt_forcing = dt_forcing
+        self.nl = nl
+        self.AD_mode = AD_mode
+        
+        
+        
     #@eqx.filter_jit
-    @partial(jax.jit, static_argnames=['save_traj_at'])
+    #@partial(jax.jit, static_argnames=['save_traj_at'])
+    @eqx.filter_jit
     def __call__(self, save_traj_at = None): #call_args, 
 
         # Auto-diff mode
@@ -166,12 +183,12 @@ class jslab_kt(eqx.Module):
         t0, t1, dt = self.t0, self.t1, self.dt # call_args
         nsubsteps = self.dt_forcing // dt
         # control
-        K = jnp.exp( jnp.asarray(self.pk) )
-        K = self.kt_ini(K)
-        #self.NdT = jnp.array((t1-t0)//self.dTK)
-        K = self.kt_1D_to_2D(K)
+        # K = jnp.exp( jnp.asarray(self.pk) )
+        # K = self.kt_ini(K)
+        K = jnp.exp( self.pk) 
+        K = kt_1D_to_2D(K, NdT=self.NdT, nl=self.nl)
         forcing_time = jnp.arange(t0,t1,self.dt_forcing)
-        M = self.pkt2Kt_matrix(gtime=forcing_time)
+        M = pkt2Kt_matrix(gtime=forcing_time, NdT=self.NdT, dTK=self.dTK)
         Kt = jnp.dot(M,K)
         args = self.fc, Kt, self.TAx, self.TAy
         
@@ -218,27 +235,26 @@ class jslab_kt(eqx.Module):
                            max_steps=maxstep,
                            made_jump=False) # here this is needed to be able to forward AD
     
-    # K(t)
-    def kt_ini(self,pk):
-        a_2D = jnp.repeat(pk, self.NdT)
-        return self.kt_2D_to_1D(a_2D)
-
-    def kt_1D_to_2D(self, vector_kt_1D):
-        return vector_kt_1D.reshape((self.NdT,self.nl*2))
+    """
+    Note sur pourquoi j'ai enlevé t0, t1, dt du __call__:
+    Si on veut faire des opérations sur K qui font un changement de base, il faut savoir le nombre de timestep, et donc il faut que nt=(t1-t0)//dt soit static !
+    """
     
-    def kt_2D_to_1D(self,vector_kt):
-        return vector_kt.flatten()
-
-    def __step_pkt2Kt_matrix(self, arg0, ip):
-        gtime,gptime,S,M = arg0
-        distt = (gtime-gptime[ip])
-        tmp =  jnp.exp(-distt**2/self.dTK**2)
-        S = lax.add( S, tmp )
-        M = M.at[:,ip].set( M[:,ip] + tmp )
-        arg0 = gtime,gptime,S,M
-        return arg0,arg0
     
-    def pkt2Kt_matrix(self, gtime):
+    
+# K(t)
+def kt_ini(pk, NdT):
+    a_2D = jnp.repeat(pk, NdT)
+    return kt_2D_to_1D(a_2D)
+
+def kt_1D_to_2D(vector_kt_1D, NdT, nl):
+    return vector_kt_1D.reshape((NdT,nl*2))
+
+def kt_2D_to_1D(vector_kt):
+    return vector_kt.flatten()
+
+
+def pkt2Kt_matrix(NdT, dTK, gtime):
         """
         original numpy function:
         
@@ -273,12 +289,21 @@ class jslab_kt(eqx.Module):
         vector_Kt :
             X - - - - * - - - - * - - - - * - - - - * X  # 6 values
         """
-        gptime = jnp.zeros( self.NdT) #self.ntm//step+1 )        
+        gptime = jnp.zeros(NdT) #self.ntm//step+1 )        
 
         nt = len(gtime)
         npt = len(gptime)
         M = jnp.zeros((nt,npt))
         S = jnp.zeros((nt))
+
+        def __step_pkt2Kt_matrix(arg0, ip):
+            gtime,gptime,S,M = arg0
+            distt = (gtime-gptime[ip])
+            tmp =  jnp.exp(-distt**2/dTK**2)
+            S = lax.add( S, tmp )
+            M = M.at[:,ip].set( M[:,ip] + tmp )
+            arg0 = gtime,gptime,S,M
+            return arg0,arg0
 
         # print('M.shape',M.shape)
         # print('S.shape',S.shape)
@@ -289,7 +314,7 @@ class jslab_kt(eqx.Module):
         # |
         # v
         #_, _, S, M = lax.fori_loop(0, npt, self.__step_pkt2Kt_matrix, arg0) 
-        arg0,_ = lax.scan(lambda it,arg0:self.__step_pkt2Kt_matrix(it,arg0), arg0, xs=jnp.arange(0,npt))
+        arg0,_ = lax.scan(lambda it,arg0: __step_pkt2Kt_matrix(it,arg0), arg0, xs=jnp.arange(0,npt))
         _, _, S, M = arg0
         M = (M.T / S.T).T
         return M

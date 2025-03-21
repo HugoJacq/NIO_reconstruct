@@ -11,7 +11,7 @@ import os
 #sys.path.append('..')
 sys.path.insert(0, '../src')
 
-from models.jslab import jslab,jslab_kt
+from models.classic_slab import jslab,jslab_kt, kt_ini
 import forcing
 import inv
 import observations
@@ -31,8 +31,8 @@ dTK                 = 3*86400   # how much vectork K changes with time, basis c
 AD_mode             = 'F'       # forward mode for AD 
 
 # run parameters
-t0 = 0.
-t1 = 28*86400. #
+t0                  = 0.
+t1                  = 28*86400. #
 dt                  = 60.        # timestep of the model (s) 
 
 # Minimizer
@@ -40,9 +40,9 @@ MINIMIZE            = True      # switch to do the minimisation process
 maxiter             = 100       # max number of iteration
 
 # Switches
-TEST_SLAB           = True
-TEST_SLAB_KT        = False
-TEST_SLAB_KT_FILTERED_FC = True
+TEST_SLAB                   = False
+TEST_SLAB_KT                = False
+TEST_SLAB_KT_FILTERED_FC    = True
 
 # PLOT
 dpi=200
@@ -67,7 +67,7 @@ path_regrid = '../data_regrid/'
 name_regrid = 'croco_1h_inst_surf_2006-02-01-2006-02-28_0.1deg_conservative.nc'
 
 # Observations
-period_obs          = 86400      # s, how many second between observations  
+period_obs          = 3600 #86400      # s, how many second between observations  
 
 # ============================================================
 # END PARAMETERS
@@ -144,7 +144,14 @@ if __name__ == "__main__":
     if TEST_SLAB_KT_FILTERED_FC:
         print('* test jslab_kt with filter at fc before computing cost')
         # control vector
-        pk = jnp.asarray([-11.31980127, -10.28525189])    
+        pk = jnp.asarray([-11.31980127, -10.28525189])   
+        NdT = int((t1-t0)//dTK) 
+        pk = kt_ini(pk, NdT)
+        
+        pk = jnp.asarray([-11.31980127, -11.31980127, -11.31980127, -11.31980127, -11.31980127,
+                        -11.31980127, -11.31980127, -11.31980127, -11.31980127, -10.28525189,
+                        -10.28525189, -10.28525189, -10.28525189, -10.28525189, -10.28525189,
+                        -10.28525189, -10.28525189, -10.28525189,])
         
         # parameters
         TAx = jnp.asarray(forcing1D.TAx)
@@ -155,12 +162,12 @@ if __name__ == "__main__":
         mymodel = jslab_kt(pk, TAx, TAy, fc, dTK, dt_forcing, nl=1, AD_mode=AD_mode, call_args=call_args)
         var_dfx = inv.Variational_diffrax(mymodel,observations1D, filter_at_fc=True)
         
-        run_forward_cost_grad(mymodel, var_dfx)   
+        #run_forward_cost_grad(mymodel, var_dfx)   
 
         if MINIMIZE:
             print(' minimizing ...')
             t7 = clock.time()
-            mymodel = var_dfx.scipy_lbfgs_wrapper(mymodel, maxiter, gtol=1e-6, verbose=True)   
+            mymodel = var_dfx.scipy_lbfgs_wrapper(mymodel, maxiter, gtol=1e-5, verbose=True)   
             print(' time, minimize',clock.time()-t7)
                            
         name_save = 'jslab_kt_'+namesave_loc
