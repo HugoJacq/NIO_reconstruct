@@ -204,11 +204,11 @@ class jslab_kt(eqx.Module):
             # on the fly interpolation
             it = jnp.array(t//dt, int)
             itf = jnp.array(it//nsubsteps, int)
-            
             aa = jnp.mod(it,nsubsteps)/nsubsteps
             itsup = lax.select(itf+1>=len(TAx), -1, itf+1) 
             TAx = (1-aa)*TAx[itf] + aa*TAx[itsup]
             TAy = (1-aa)*TAy[itf] + aa*TAy[itsup]
+            print(Kt.shape)
             Ktnow = (1-aa)*Kt[it-1] + aa*Kt[itsup]
             # def cond_print(it):
             #     jax.debug.print('it,itf, TA, {}, {}, {}',it,itf,(TAx,TAy))
@@ -326,12 +326,7 @@ def pkt2Kt_matrix(NdT, dTK, gtime):
             gptime = np.array([gtime[0]])
         nt=len(gtime)
         npt = len(gptime)
-        # print(gtime[-1]/86400, gtime[0]/86400,dTK/86400)
-        # print(gptime/86400)
-        # print(len(np.arange(gtime[0], gtime[-1],dTK)))
-        # print(npt)
         M = np.zeros((nt,npt))
-        # Ks=np.zeros((ny,nx))
         S=np.zeros((nt))
         for ip in range(npt):
             distt = (gtime-gptime[ip])

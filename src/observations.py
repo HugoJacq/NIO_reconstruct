@@ -38,7 +38,7 @@ class Observation1D:
         # use a fill value ?
         # or see https://stackoverflow.com/questions/71692885/handle-varying-shapes-in-jax-numpy-arrays-jit-compatible
         
-        if True:
+        if False:
             U, V = my_fc_filter(self.dt_forcing, self.U+1j*self.V, self.fc )
         else:
             U, V = self.U, self.V

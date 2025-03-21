@@ -26,7 +26,7 @@ ON_HPC      = False      # on HPC
 
 # model parameters
 Nl                  = 1         # number of layers for multilayer models
-dTK                 = 3*86400   # how much vectork K changes with time, basis change to exp
+dTK                 = 5*86400   # how much vectork K changes with time, basis change to exp
 AD_mode             = 'F'       # forward mode for AD 
 
 # run parameters
@@ -68,7 +68,7 @@ path_regrid = '../data_regrid/'
 name_regrid = 'croco_1h_inst_surf_2006-02-01-2006-02-28_0.1deg_conservative.nc'
 
 # Observations
-period_obs          = 3600 #86400      # s, how many second between observations  
+period_obs          = 86400 #86400      # s, how many second between observations  
 
 # ============================================================
 # END PARAMETERS
@@ -120,14 +120,14 @@ if __name__ == "__main__":
     if TEST_SLAB_KT:
         print('* test jslab_kt')
         # control vector
-        # pk = jnp.asarray([-11.31980127, -10.28525189])   
-        # NdT = int((t1-t0)//dTK) 
-        # pk = kt_ini(pk, NdT)
+        pk = jnp.asarray([-11.31980127, -10.28525189])   
+        NdT = len(np.arange(t0, t1+dTK,dTK)) # int((t1-t0)//dTK) 
+        pk = kt_ini(pk, NdT)
         
-        pk = jnp.asarray([-11.31980127, -11.31980127, -11.31980127, -11.31980127, -11.31980127,
-                        -11.31980127, -11.31980127, -11.31980127, -11.31980127, -10.28525189,
-                        -10.28525189, -10.28525189, -10.28525189, -10.28525189, -10.28525189,
-                        -10.28525189, -10.28525189, -10.28525189,])  
+        # pk = jnp.asarray([-11.31980127, -11.31980127, -11.31980127, -11.31980127, -11.31980127,
+        #                 -11.31980127, -11.31980127, -11.31980127, -11.31980127, -10.28525189,
+        #                 -10.28525189, -10.28525189, -10.28525189, -10.28525189, -10.28525189,
+        #                 -10.28525189, -10.28525189, -10.28525189,])  
         
         # parameters
         TAx = jnp.asarray(forcing1D.TAx)
