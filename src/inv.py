@@ -188,13 +188,12 @@ class Variational_diffrax:
                                             jac=True)
         
         new_k = jnp.asarray(res['x'])
-        print(res.message)
         mymodel = eqx.tree_at( lambda tree:tree.pk, mymodel, new_k)
-
         if verbose:
             dynamic_model, static_model = self.my_partition(mymodel)
             value, gradtree = self.grad_cost(dynamic_model, static_model)
             grad = gradtree.pk
+            print(res.message)
             print(' final cost, grad',value, grad)
             print('     vector K solution ('+str(res.nit)+' iterations)',res['x'])
             print('     cost function value with K solution:',value)
