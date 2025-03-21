@@ -11,13 +11,30 @@ import numpy as np
 import xesmf as xe
 import time as clock
 import pathlib
+import tqdm
 
 from tools import open_croco_sfx_file
 from filters import mytimefilter_over_spatialXY
 from constants import *
 
-def regridder(path_file, namefile, method, new_dx, path_save, N_CPU=8):
+def regridder(path_file, namefile, method, new_dx, path_save, N_CPU=1):
     """
+    Regridder from Croco surface file to a lower resolution 'new_dx'.
+    Also computes the geostrophic current.
+    
+    INPUTS:
+    ------------------------------------------------------
+    - path_file     : path of input file
+    - namefile      : name of input file
+    - method        : 'conservative' or 'bilinerar'
+                        for coarsening, use 'conservative'
+    - new_dx        : new resolution in degree
+    - path_save     : where to save the new file
+    - N_CPU         : number of CPU to use for filters (broken for now)
+    
+    OUTPUTS:
+    ------------------------------------------------------
+    - A netcdf file, located at path_save
     """ 
     start = clock.time()
     print('')
@@ -140,14 +157,14 @@ def regridder(path_file, namefile, method, new_dx, path_save, N_CPU=8):
         ds_out['SSH_LS'] = xr.zeros_like(ds_out['SSH'])
 
         # -> smoothing: spatial
-        print('         2D filter')
+        print('         2D filter (time loop)')
         # spatial filter is not done here
         # because SSH is already smoothed by redrid AND the following time filter (moving structures)
         # if the regrid file resolution is closer to the original resolution, you might need to add a spatial filter !
         ds_out['SSH_LS0'].data = ds_out['SSH'].data
 
         # -> smoothing: time
-        print('         time filter')
+        print('         time filter (spatial loop)')
         ds_out['SSH_LS'].data = mytimefilter_over_spatialXY(ds_out['SSH_LS0'].values, N_CPU=N_CPU, show_progress=True) 
 
         # mask invalid data
@@ -164,11 +181,8 @@ def regridder(path_file, namefile, method, new_dx, path_save, N_CPU=8):
         # plt.show()
 
         # -> getting geo current from SSH
-        print('         gradXY ssh')
+        print('         gradXY ssh (time loop)')
         glon2,glat2 = np.meshgrid(ds_out['lon'].values,ds_out['lat'].values)
-
-        # glat2 = ds_out['lat'].values
-        # glon2 = ds_out['lon'].values
         dlon = (ds_out['lon'][1]-ds_out['lon'][0]).values
         dlat = (ds_out['lat'][1]-ds_out['lat'][0]).values
         fc = 2*2*np.pi/86164*np.sin(glat2*np.pi/180)
@@ -181,7 +195,7 @@ def regridder(path_file, namefile, method, new_dx, path_save, N_CPU=8):
         dy = ((glon2 * 0) + 1) * dlat * distance_1deg_equator
                 
         # over time array
-        for it in range(len(ds_out.time)):
+        for it in tqdm.tqdm(range(len(ds_out.time))):
             # this could be vectorized ...
             # centered gradient, dSSH/dx is on SSH point
             gVg[it,:,1:-1] =  grav/fc[:,1:-1]*( ds_out['SSH_LS'][it,:,2:].values - ds_out['SSH_LS'][it,:,:-2].values ) / ( dx[:,1:-1] )/2
@@ -257,8 +271,6 @@ def regridder(path_file, namefile, method, new_dx, path_save, N_CPU=8):
         ds_out = ds_out.drop_vars(['SSH_LS0','SSH_LS','SW_rad'])
         # END COMPUTING GEOSTROPHY ---
 
-
-
         # print some stats
         print('\n   OLD DATASET\n')
         print(ds)
@@ -268,7 +280,7 @@ def regridder(path_file, namefile, method, new_dx, path_save, N_CPU=8):
         print('     * Saving ...')
         ds_out.attrs['xesmf_method'] = method
         ds_out.compute()
-        ds_out.to_netcdf(path=new_name + '.nc',mode='w')
+        ds_out.to_netcdf(path=path_save+new_name + '.nc',mode='w')
         ds.close()
         ds_out.close()
 

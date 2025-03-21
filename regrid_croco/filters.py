@@ -124,7 +124,9 @@ def mytimefilter_over_spatialXY(Hf0, N_CPU=1, show_progress=False):
         #   
         # In the end it is not very important as the full North Atlantic Croco sim
         # is like 1400 * 1900, it takes around 20min to apply this filter !
-    
+
+        # Also, I can apply the filter on the interpolated file, which is a lot smaller.
+        #
         if show_progress:
             #results = ParallelTqdm(n_jobs=N_CPU)([delayed(mytimefilter1D)(Hf0[:,ind[1],ind[0]]) for ind in list_index])
             results = []

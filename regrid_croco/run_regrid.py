@@ -10,7 +10,9 @@ L_filename = ['croco_1h_inst_surf_2005-03-01-2005-03-31.nc']
 
 path_save = '../data_regrid/'
 ON_HPC = True              
-N_CPU = 8                   # for // of spatial filter
+N_CPU = 1                   # for // of spatial filter. Bug in spatial filter if N_CPU>1 
+                            # but thats ok because this filter is applied on the new
+                            # regridded file which is way smaller than the input file
 
 
 new_dx = 0.1                # °, new resolution

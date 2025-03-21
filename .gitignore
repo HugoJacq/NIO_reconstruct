@@ -17,3 +17,5 @@ src/models/__pycache__/classic_slab.cpython-310.pyc
 NIO_reconstruct.code-workspace
 .vscode/settings.json
 ENV.txt
+data_regrid/croco_1h_inst_surf_2005-03-01-2005-03-31_0.1deg_conservative.nc
+data_regrid/regridder_0.1deg_conservative.nc
