@@ -12,7 +12,7 @@ import xesmf as xe
 import time as clock
 import pathlib
 
-from src.tools import open_croco_sfx_file
+from tools import open_croco_sfx_file
 from filters import mytimefilter_over_spatialXY
 from constants import *
 
