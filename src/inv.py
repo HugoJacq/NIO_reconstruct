@@ -4,10 +4,12 @@ import jax.numpy as jnp
 import optax
 import equinox as eqx
 import jax.tree_util as jtu
+from jax import lax
+import numpy as np
 
 import scipy
 
-
+import tools
 
 class Variational_diffrax:
     """
@@ -22,26 +24,34 @@ class Variational_diffrax:
     def loss_fn(self, obs, sol):
         return jnp.mean( (sol[0]-obs[0])**2 + (sol[1]-obs[1])**2 )
     
+    @eqx.filter_jit
     def cost(self, dynamic_model, static_model):
         mymodel = eqx.combine(dynamic_model, static_model)
         dtime_obs = self.observations.obs_period
         obs = self.observations.get_obs()
         if self.filter_at_fc:
-            Ua,Va = mymodel(save_traj_at=mymodel.dt_forcing).ys
-            # here filter at fc
-            Uf, Vf = self.my_fc_filter( Ua + 1j*Va, mymodel.fc) #  jnp.zeros(len(obs)) # WIP
-            # Ufiltered = jnp.real(C_filtered), jnp.imag(C_filtered)
             
-            # lets create now an array of size 'obs', with the value from the filtered estimate
+            # run the model at high frequency
+            Ua,Va = mymodel(save_traj_at=mymodel.dt_forcing).ys
+            Uf, Vf = tools.my_fc_filter(mymodel.dt_forcing, Ua + 1j*Va, mymodel.fc) # here filter at fc
+            
+            # lets now create an array of size 'obs', with the value from the filtered estimate
             Uffc = jnp.zeros(len(obs[0]))
             Vffc = jnp.zeros(len(obs[0]))
             step = jnp.array(self.obs_period//mymodel.dt_forcing,int)
-            for k in range(len(Uffc)):
+            
+            # for loop in JAX language  
+            def _fn_for_scan(X0, k, Uf, Vf, step):
+                Uffc,Vffc = X0
                 Uffc = Uffc.at[k].set(Uf[k*step])  
-                Vffc = Vffc.at[k].set(Vf[k*step])            
-            sol = Uffc,Vffc
+                Vffc = Vffc.at[k].set(Vf[k*step]) 
+                X0 = (Uffc,Vffc)
+                return X0, X0
+            final, _ = lax.scan(lambda X0, k:_fn_for_scan(X0, k, Uf, Vf, step), init=(Uffc,Vffc), xs=np.arange(0,len(Uffc)))     
+            sol = final
         else:
-            sol = mymodel(save_traj_at=dtime_obs).ys # use diffrax and equinox
+            sol = mymodel(save_traj_at=dtime_obs).ys # use diffrax and equinox 
+            
         return self.loss_fn(sol, obs)
         
    
@@ -53,19 +63,21 @@ class Variational_diffrax:
     
     @eqx.filter_jit
     def grad_cost(self, dynamic_model, static_model):
+        
         def cost_for_grad(dynamic_model, static_model):
             y = self.cost(dynamic_model, static_model)
-            if static_model.AD_mode=='F':
+            if static_model.AD_mode=='F': 
                 return y,y # <- trick to have a similar behavior than value_and_grad (but here returns grad, value)
             else:
                 return y
-        
-        if self.model.AD_mode=='F':
-            val1, val2 =  eqx.filter_jacfwd(cost_for_grad, has_aux=True)(dynamic_model, static_model)
-            return val2, val1
+         
+        if static_model.AD_mode=='F':
+            val2, val1 =  eqx.filter_jacfwd(cost_for_grad, has_aux=True)(dynamic_model, static_model)
         else:
             val1, val2 = eqx.filter_value_and_grad(cost_for_grad)(dynamic_model, static_model)
-            return val1, val2
+    
+        return val1, val2 
+
     
     def my_minimizer(self, opti, mymodel, itmax, gtol=1e-5, verbose=False):
         """
@@ -157,6 +169,7 @@ class Variational_diffrax:
     def scipy_lbfgs_wrapper(self, mymodel, maxiter, gtol=1e-5, verbose=False):
         
         # L-BFGS expects a function that returns both value and gradient
+        @jax.jit
         def value_and_grad_for_scipy(params): 
             dynamic_model, static_model = self.my_partition(mymodel)
             new_dynamic_model = eqx.tree_at(lambda m: m.pk, dynamic_model, params) # replace new pk
@@ -188,14 +201,4 @@ class Variational_diffrax:
         
         return mymodel
     
-    def my_fc_filter(self, VAR, fc):
-        Ndays = 3
-        time_conv = jnp.arange(-Ndays*86400,Ndays*86400+self.model.dt_forcing,self.model.dt_forcing)
-        # taul=3*fc[jr,ir]**-1
-        Unio = VAR*0.
-        taul=4*fc**-1
-        gl = jnp.exp(-1j*fc*time_conv)*jnp.exp(-taul**-2*time_conv**2)
-        gl = (gl.T / jnp.sum(jnp.abs(gl), axis=0).T).T
-        #print(Uag.shape,gl.shape)
-        Unio = jnp.convolve(VAR,gl,'same')
-        return (jnp.real(Unio),jnp.imag(Unio))
+    
