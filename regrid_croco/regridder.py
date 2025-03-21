@@ -12,7 +12,7 @@ import xesmf as xe
 import time as clock
 import pathlib
 
-from tools import open_croco_sfx_file
+from src.tools import open_croco_sfx_file
 from filters import mytimefilter_over_spatialXY
 from constants import *
 
@@ -21,9 +21,10 @@ def regridder(path_file, namefile, method, new_dx, path_save, N_CPU=8):
     """ 
     start = clock.time()
     print('')
-    print(' -> Regridding:', path_file)
+    print(' -> Regridding:', path_file+namefile)
     print('')
-    new_name = namefile+'_'+str(new_dx)+'deg'+'_'+method
+    new_name = namefile[:-3]+'_'+str(new_dx)+'deg'+'_'+method
+
     if pathlib.Path(path_save+new_name+'.nc').is_file():
         print(' -> File is here !')
         print('     '+path_save+new_name+'.nc')
@@ -31,7 +32,7 @@ def regridder(path_file, namefile, method, new_dx, path_save, N_CPU=8):
     else: 
 
         print('     * Opening file ...')
-        ds, xgrid = open_croco_sfx_file(path_file+namefile+'.nc', lazy=True, chunks={'time':100})
+        ds, xgrid = open_croco_sfx_file(path_file+namefile, lazy=True, chunks={'time':100})
 
         print('     * Getting land mask ...')
         ds['mask_valid'] = xr.where(~(np.isfinite(ds.SSH)),0.,1.).astype(np.float32).compute()
