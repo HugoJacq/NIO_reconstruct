@@ -17,10 +17,8 @@ def run_forward_cost_grad(mymodel, var_dfx):
     dynamic_model, static_model = var_dfx.my_partition(mymodel)
     
     time1 = clock.time()
-    C = mymodel() # call_args
+    _ = mymodel() # call_args
     print(' time, forward model (with compile)',clock.time()-time1)
-    
-   
 
     time2 = clock.time()
     _ = mymodel()
@@ -57,14 +55,14 @@ def plot_traj(mymodel, var_dfx, forcing1D, observations1D, name_save, path_save_
     if var_dfx.filter_at_fc:
         ax.plot(forcing1D.time/86400, U, c='k', lw=2, label='Croco', alpha=0.3)
         ax.plot(forcing1D.time/86400, Ua, c='g', label='slab', alpha = 0.3)
-        (Ut_nio,Vt_nio) = var_dfx.my_fc_filter(U+1j*V, mymodel.fc)
+        (Ut_nio,Vt_nio) = tools.my_fc_filter(mymodel.dt_forcing,U+1j*V, mymodel.fc)
         ax.plot(forcing1D.time/86400, Ut_nio, c='k', lw=2, label='Croco at fc', alpha=1)
-        (Unio,Vnio) = var_dfx.my_fc_filter(Ua+1j*Va, mymodel.fc)
+        (Unio,Vnio) = tools.my_fc_filter(mymodel.dt_forcing, Ua+1j*Va, mymodel.fc)
         ax.plot(forcing1D.time/86400, Unio, c='b', label='slab at fc')
     else:
         ax.plot(forcing1D.time/86400, U, c='k', lw=2, label='Croco', alpha=1)
         ax.plot(forcing1D.time/86400, Ua, c='g', label='slab')
-    ax.scatter(observations1D.time_obs/86400,Uo, c='r', label='obs')
+    ax.scatter(observations1D.time_obs/86400,Uo, c='r', label='obs', marker='x')
     ax.set_ylim([-0.3,0.4])
     #ax.set_title('RMSE='+str(np.round(RMSE,4))+' cost='+str(np.round(final_cost,4)))
     ax.set_xlabel('Time (days)')

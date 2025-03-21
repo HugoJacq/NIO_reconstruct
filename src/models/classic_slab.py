@@ -176,7 +176,7 @@ class jslab_kt(eqx.Module):
         if self.AD_mode=='F':
             adjoint = diffrax.ForwardMode()
         else:
-            adjoint = diffrax.RecursiveCheckpointAdjoint(checkpoints=10)
+            adjoint = diffrax.RecursiveCheckpointAdjoint(checkpoints=10) # <- number of checkpoint still WIP
 
         solver = Euler()
         y0 = 0.0,0.0 # self.U0,self.V0
@@ -251,7 +251,6 @@ def kt_1D_to_2D(vector_kt_1D, NdT, nl):
 
 def kt_2D_to_1D(vector_kt):
     return vector_kt.flatten()
-
 
 def pkt2Kt_matrix(NdT, dTK, gtime):
         """

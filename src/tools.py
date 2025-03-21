@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 from joblib import Parallel
 import tqdm
 from dask.callbacks import Callback
-
+import jax.numpy as jnp
 
 def PSD(time_vect, signal_vect):
     """This function automates the computation of the Power Spectral Density of a signal.
@@ -583,4 +583,18 @@ class ParallelTqdm(Parallel):
             self.progress_bar.refresh()
         # update progressbar
         self.progress_bar.update(self.n_completed_tasks - self.progress_bar.n)
-        
+  
+  
+def my_fc_filter(dt_timeserie, VAR, fc):
+	Ndays = 3
+	time_conv = jnp.arange(-Ndays*86400,Ndays*86400+dt_timeserie,dt_timeserie)
+	# taul=3*fc[jr,ir]**-1
+	Unio = VAR*0.
+	taul=4*fc**-1
+	gl = jnp.exp(-1j*fc*time_conv)*jnp.exp(-taul**-2*time_conv**2)
+	gl = (gl.T / jnp.sum(jnp.abs(gl), axis=0).T).T
+	#print(Uag.shape,gl.shape)
+	Unio = jnp.convolve(VAR,gl,'same')
+	return (jnp.real(Unio),jnp.imag(Unio))
+
+      
