@@ -29,9 +29,7 @@ class Variational_diffrax:
         if self.filter_at_fc:
             Ua,Va = mymodel(save_traj_at=mymodel.dt_forcing).ys
             # here filter at fc
-            TAcplx = mymodel.TAx+1j*mymodel.TAy
-            Cacplx = Ua + 1j*Va
-            Ca, _ = self.my_fc_filter(Cacplx,TAcplx,mymodel.fc) #  jnp.zeros(len(obs)) # WIP
+            Uf, Vf = self.my_fc_filter( Ua + 1j*Va, mymodel.fc) #  jnp.zeros(len(obs)) # WIP
             # Ufiltered = jnp.real(C_filtered), jnp.imag(C_filtered)
             
             # lets create now an array of size 'obs', with the value from the filtered estimate
@@ -39,8 +37,8 @@ class Variational_diffrax:
             Vffc = jnp.zeros(len(obs[0]))
             step = jnp.array(self.obs_period//mymodel.dt_forcing,int)
             for k in range(len(Uffc)):
-                Uffc = Uffc.at[k].set(Ca[0][k*step])  
-                Vffc = Vffc.at[k].set(Ca[1][k*step])            
+                Uffc = Uffc.at[k].set(Uf[k*step])  
+                Vffc = Vffc.at[k].set(Vf[k*step])            
             sol = Uffc,Vffc
         else:
             sol = mymodel(save_traj_at=dtime_obs).ys # use diffrax and equinox
@@ -190,16 +188,14 @@ class Variational_diffrax:
         
         return mymodel
     
-    def my_fc_filter(self, Uag, TA, fc):
+    def my_fc_filter(self, VAR, fc):
         Ndays = 3
         time_conv = jnp.arange(-Ndays*86400,Ndays*86400+self.model.dt_forcing,self.model.dt_forcing)
         # taul=3*fc[jr,ir]**-1
-        Unio = Uag*0.
-        TAfc = TA*0.
+        Unio = VAR*0.
         taul=4*fc**-1
         gl = jnp.exp(-1j*fc*time_conv)*jnp.exp(-taul**-2*time_conv**2)
         gl = (gl.T / jnp.sum(jnp.abs(gl), axis=0).T).T
         #print(Uag.shape,gl.shape)
-        Unio = jnp.convolve(Uag,gl,'same')
-        TAfc = jnp.convolve(TA,gl,'same')
-        return (jnp.real(Unio),jnp.imag(Unio)), TAfc
+        Unio = jnp.convolve(VAR,gl,'same')
+        return (jnp.real(Unio),jnp.imag(Unio))

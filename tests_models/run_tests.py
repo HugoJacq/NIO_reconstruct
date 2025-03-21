@@ -53,6 +53,7 @@ path_save_png = './png_tests_models/'
 # =================================
 # 1D
 point_loc = [-50.,35.]
+point_loc = [-50.,46.]
 # 2D
 R = 0.2 # °
 LON_bounds = [point_loc[0]-R,point_loc[0]+R]
@@ -67,7 +68,7 @@ path_regrid = '../data_regrid/'
 name_regrid = 'croco_1h_inst_surf_2006-02-01-2006-02-28_0.1deg_conservative.nc'
 
 # Observations
-period_obs          = 3600 #86400      # s, how many second between observations  
+period_obs          = 86400 #3600 #86400      # s, how many second between observations  
 
 # ============================================================
 # END PARAMETERS
@@ -81,7 +82,7 @@ if __name__ == "__main__":
     
     
     file = path_regrid+name_regrid 
-    forcing1D = forcing.Forcing1D(point_loc, dt_OSSE, file)
+    forcing1D = forcing.Forcing1D(point_loc, dt_forcing, file)
     observations1D = observations.Observation1D(point_loc, period_obs, dt_OSSE, file)
     # forcing2D = forcing.Forcing2D(dt_forcing, file, LON_bounds, LAT_bounds)
     # observations2D = observations.Observation2D(period_obs, dt_OSSE, file, LON_bounds, LAT_bounds)
@@ -118,7 +119,14 @@ if __name__ == "__main__":
     if TEST_SLAB_KT:
         print('* test jslab_kt')
         # control vector
-        pk = jnp.asarray([-11.31980127, -10.28525189])    
+        # pk = jnp.asarray([-11.31980127, -10.28525189])   
+        # NdT = int((t1-t0)//dTK) 
+        # pk = kt_ini(pk, NdT)
+        
+        pk = jnp.asarray([-11.31980127, -11.31980127, -11.31980127, -11.31980127, -11.31980127,
+                        -11.31980127, -11.31980127, -11.31980127, -11.31980127, -10.28525189,
+                        -10.28525189, -10.28525189, -10.28525189, -10.28525189, -10.28525189,
+                        -10.28525189, -10.28525189, -10.28525189,])  
         
         # parameters
         TAx = jnp.asarray(forcing1D.TAx)
