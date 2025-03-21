@@ -241,7 +241,6 @@ class jslab_kt(eqx.Module):
     """
     
     
-    
 # K(t)
 def kt_ini(pk, NdT):
     a_2D = jnp.repeat(pk, NdT)
