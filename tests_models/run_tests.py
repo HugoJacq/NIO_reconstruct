@@ -8,10 +8,9 @@ import time as clock
 import matplotlib.pyplot as plt
 import sys
 import os
-#sys.path.append('..')
 sys.path.insert(0, '../src')
 
-from models.classic_slab import jslab,jslab_kt, kt_ini
+from models.classic_slab import jslab, jslab_kt, kt_ini, kt_1D_to_2D, pkt2Kt_matrix
 import forcing
 import inv
 import observations
@@ -32,13 +31,13 @@ AD_mode             = 'F'       # forward mode for AD
 
 # run parameters
 t0                  = 0.
-t1                  = 28*86400. #
+t1                  = 28*86400. 
 dt                  = 60.        # timestep of the model (s) 
 
 # What to test
-FORWARD_PASS        = True      # tests forward, cost, gradcost
-MINIMIZE            = False      # switch to do the minimisation process
-maxiter             = 100       # max number of iteration
+FORWARD_PASS        = False      # tests forward, cost, gradcost
+MINIMIZE            = True      # switch to do the minimisation process
+maxiter             = 50         # max number of iteration
 
 # Switches
 TEST_SLAB                   = False
@@ -156,7 +155,7 @@ if __name__ == "__main__":
         print('* test jslab_kt with filter at fc before computing cost')
         # control vector
         pk = jnp.asarray([-11.31980127, -10.28525189])   
-        NdT = int((t1-t0)//dTK) 
+        NdT = len(np.arange(t0, t1+dTK,dTK)) # int((t1-t0)//dTK) 
         pk = kt_ini(pk, NdT)
         
         # pk = jnp.asarray([-11.31980127, -11.31980127, -11.31980127, -11.31980127, -11.31980127, # dTK = 3*86400
@@ -181,9 +180,23 @@ if __name__ == "__main__":
             t7 = clock.time()
             mymodel = var_dfx.scipy_lbfgs_wrapper(mymodel, maxiter, gtol=1e-5, verbose=True)   
             print(' time, minimize',clock.time()-t7)
-                           
+        
+        M = pkt2Kt_matrix(NdT, dTK, np.arange(t0,t1,dt_forcing))
+        kt2D = kt_1D_to_2D(mymodel.pk, NdT, Nl)
+        new_kt = np.dot(M,kt2D)
+        fig, ax = plt.subplots(1,1,figsize = (10,3),constrained_layout=True,dpi=dpi)
+        for k in range(new_kt.shape[-1]):
+            #ax.plot( M[:,k] ) 
+            ax.plot(new_kt[:,k],label='K'+str(k))
+        ax.legend()              
         name_save = 'jslab_kt_'+namesave_loc
         plot_traj(mymodel, var_dfx, forcing1D, observations1D, name_save, path_save_png, dpi)
+        
+        fig, ax = plt.subplots(1,1,figsize = (10,3),constrained_layout=True,dpi=dpi)
+        ax.plot(forcing1D.time/86400, 1/np.exp(new_kt[:,0])/1000, label='estimated')
+        ax.plot(forcing1D.time/86400, forcing1D.MLD,label='true')
+        ax.set_ylabel('MLD (m)')
+        ax.set_xlabel('time (days)')
         
     end = clock.time()
     print('Total execution time = '+str(jnp.round(end-start,2))+' s')

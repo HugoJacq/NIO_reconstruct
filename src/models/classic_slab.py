@@ -154,7 +154,7 @@ class jslab_kt(eqx.Module):
         self.dt = dt
         
         self.dTK = dTK
-        self.NdT = int((t1-t0)//dTK) # jnp.array((t1-t0)//self.dTK,int)
+        self.NdT = NdT = len(np.arange(t0, t1+dTK,dTK)) # int((t1-t0)//dTK)  
         self.pk = pk #self.kt_ini( jnp.asarray(pk) )
         
         self.TAx = TAx
@@ -183,11 +183,9 @@ class jslab_kt(eqx.Module):
         t0, t1, dt = self.t0, self.t1, self.dt # call_args
         nsubsteps = self.dt_forcing // dt
         # control
-        # K = jnp.exp( jnp.asarray(self.pk) )
-        # K = self.kt_ini(K)
         K = jnp.exp( self.pk) 
         K = kt_1D_to_2D(K, NdT=self.NdT, nl=self.nl)
-        forcing_time = jnp.arange(t0,t1,self.dt_forcing)
+        forcing_time = np.arange(t0,t1,self.dt_forcing)
         M = pkt2Kt_matrix(gtime=forcing_time, NdT=self.NdT, dTK=self.dTK)
         Kt = jnp.dot(M,K)
         args = self.fc, Kt, self.TAx, self.TAy
@@ -287,32 +285,59 @@ def pkt2Kt_matrix(NdT, dTK, gtime):
         vector_Kt :
             X - - - - * - - - - * - - - - * - - - - * X  # 6 values
         """
-        gptime = jnp.zeros(NdT) #self.ntm//step+1 )        
+        # gptime = jnp.zeros(NdT) #self.ntm//step+1 )        
+        # dt_gtime = gtime[1]-gtime[0]
+        # step = np.int32(dTK//dt_gtime)
+        # for ipt in range(len(gptime)):
+        #     gptime = gptime.at[ipt].set( gtime[ipt*step])
+        # gptime = gptime.at[-1].set( lax.select(len(gptime)>0, gtime[-1]+dTK, gtime[0]) )
+        # gptime = gptime + dTK
 
-        nt = len(gtime)
+
+        # nt = len(gtime)
+        # npt = len(gptime)
+        # M = jnp.zeros((nt,npt))
+        # S = jnp.zeros((nt))
+
+        # def __step_pkt2Kt_matrix(arg0, ip):
+        #     gtime,gptime,S,M = arg0
+        #     distt = (gtime-gptime[ip])
+        #     tmp =  jnp.exp(-distt**2/dTK**2)
+        #     S = lax.add( S, tmp )
+        #     M = M.at[:,ip].set( M[:,ip] + tmp )
+        #     arg0 = gtime,gptime,S,M
+        #     return arg0,arg0
+
+        # # print('M.shape',M.shape)
+        # # print('S.shape',S.shape)
+        # # loop over each dT
+        # arg0 = gtime, gptime, S, M
+        # # This should work but there is a bug in jax
+        # # see : https://docs.kidger.site/equinox/faq/#how-to-use-non-array-modules-as-inputs-to-scancondwhile-etc
+        # # |
+        # # v
+        # #_, _, S, M = lax.fori_loop(0, npt, self.__step_pkt2Kt_matrix, arg0) 
+        # arg0,_ = lax.scan(lambda it,arg0: __step_pkt2Kt_matrix(it,arg0), arg0, xs=jnp.arange(0,npt))
+        # _, _, S, M = arg0
+        # M = (M.T / S.T).T
+        if dTK<gtime[-1]-gtime[0] : 
+            gptime = np.arange(gtime[0], gtime[-1]+dTK,dTK)
+        else: 
+            gptime = np.array([gtime[0]])
+        nt=len(gtime)
         npt = len(gptime)
-        M = jnp.zeros((nt,npt))
-        S = jnp.zeros((nt))
-
-        def __step_pkt2Kt_matrix(arg0, ip):
-            gtime,gptime,S,M = arg0
+        # print(gtime[-1]/86400, gtime[0]/86400,dTK/86400)
+        # print(gptime/86400)
+        # print(len(np.arange(gtime[0], gtime[-1],dTK)))
+        # print(npt)
+        M = np.zeros((nt,npt))
+        # Ks=np.zeros((ny,nx))
+        S=np.zeros((nt))
+        for ip in range(npt):
             distt = (gtime-gptime[ip])
-            tmp =  jnp.exp(-distt**2/dTK**2)
-            S = lax.add( S, tmp )
-            M = M.at[:,ip].set( M[:,ip] + tmp )
-            arg0 = gtime,gptime,S,M
-            return arg0,arg0
-
-        # print('M.shape',M.shape)
-        # print('S.shape',S.shape)
-        # loop over each dT
-        arg0 = gtime, gptime, S, M
-        # This should work but there is a bug in jax
-        # see : https://docs.kidger.site/equinox/faq/#how-to-use-non-array-modules-as-inputs-to-scancondwhile-etc
-        # |
-        # v
-        #_, _, S, M = lax.fori_loop(0, npt, self.__step_pkt2Kt_matrix, arg0) 
-        arg0,_ = lax.scan(lambda it,arg0: __step_pkt2Kt_matrix(it,arg0), arg0, xs=jnp.arange(0,npt))
-        _, _, S, M = arg0
+            iit = np.where((np.abs(distt) < (3*dTK)))[0]
+            tmp = np.exp(-distt[iit]**2/dTK**2)
+            S[iit] += tmp
+            M[iit,ip] += tmp
         M = (M.T / S.T).T
         return M
