@@ -16,3 +16,4 @@ tests_models/png_tests_models/jslab_kt_-50.0E_35.0N.png
 src/models/__pycache__/classic_slab.cpython-310.pyc
 NIO_reconstruct.code-workspace
 .vscode/settings.json
+ENV.txt
