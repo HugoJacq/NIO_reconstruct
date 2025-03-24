@@ -36,7 +36,7 @@ dt                  = 60.        # timestep of the model (s)
 
 # What to test
 FORWARD_PASS        = True      # tests forward, cost, gradcost
-MINIMIZE            = True      # switch to do the minimisation process
+MINIMIZE            = False      # switch to do the minimisation process
 maxiter             = 50         # max number of iteration
 
 # Switches

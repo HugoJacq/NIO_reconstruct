@@ -35,7 +35,7 @@ class Variational_diffrax:
         if self.filter_at_fc:
             
             # run the model at high frequency
-            Ua,Va = mymodel(save_traj_at=mymodel.dt_forcing).ys
+            Ua,Va = mymodel(save_traj_at=mymodel.dt_forcing)
             Uf, Vf = tools.my_fc_filter(mymodel.dt_forcing, Ua + 1j*Va, mymodel.fc) # here filter at fc
             
             # lets now create an array of size 'obs', with the value from the filtered estimate
@@ -54,7 +54,7 @@ class Variational_diffrax:
             sol = final
         else:
             #print('eys')
-            sol = mymodel(save_traj_at=dtime_obs).ys # use diffrax and equinox 
+            sol = mymodel(save_traj_at=dtime_obs) # use diffrax and equinox 
         return self.loss_fn(sol, obs)
         
    

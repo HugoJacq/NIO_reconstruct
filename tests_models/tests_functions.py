@@ -41,7 +41,7 @@ def run_forward_cost_grad(mymodel, var_dfx):
     print(' time, gradcost (no compile)',clock.time()-time6)
     
 def plot_traj(mymodel, var_dfx, forcing1D, observations1D, name_save, path_save_png, dpi):
-    Ua,Va = mymodel(save_traj_at=mymodel.dt_forcing).ys
+    Ua,Va = mymodel(save_traj_at=mymodel.dt_forcing)
     U = forcing1D.data.U.values
     V = forcing1D.data.V.values
     Uo, _ = observations1D.get_obs()
