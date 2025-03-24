@@ -61,12 +61,13 @@ class Observation2D:
         
         # from dataset for OSSE
         ds = xr.open_dataset(path_file)
-        indxmin = nearest(ds.lon.values,LON_bounds[0])
-        indxmax = nearest(ds.lon.values,LON_bounds[1])
-        indymin = nearest(ds.lat.values,LAT_bounds[0])
-        indymax = nearest(ds.lat.values,LAT_bounds[1])
+        # indxmin = nearest(ds.lon.values,LON_bounds[0])
+        # indxmax = nearest(ds.lon.values,LON_bounds[1])
+        # indymin = nearest(ds.lat.values,LAT_bounds[0])
+        # indymax = nearest(ds.lat.values,LAT_bounds[1])
         
-        self.data = ds.isel(lon=slice(indxmin,indxmax),lat=slice(indymin,indymax))
+        # self.data = ds.isel(lon=slice(indxmin,indxmax),lat=slice(indymin,indymax))
+        self.data = ds.sel(lon=slice(LON_bounds[0],LON_bounds[1]),lat=slice(LAT_bounds[0],LAT_bounds[1]))
         self.U,self.V = self.data.U.values,self.data.V.values
         self.dt = dt_model
         self.obs_period = periode_obs
