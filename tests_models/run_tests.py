@@ -63,6 +63,7 @@ point_loc = [-50.,35.]
 point_loc = [-70., 35.]
 # 2D
 R = 10.0 # 20°x20° -> ~6.5Go of VRAM for grad
+R = 10.0 # 20°x20° -> ~6.5Go of VRAM
 LON_bounds = [point_loc[0]-R,point_loc[0]+R]
 LAT_bounds = [point_loc[1]-R,point_loc[1]+R]
 # Forcing
