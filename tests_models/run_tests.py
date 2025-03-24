@@ -9,12 +9,13 @@ import matplotlib.pyplot as plt
 import sys
 import os
 sys.path.insert(0, '../src')
+os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false" # for jax
 
-from models.classic_slab import jslab, jslab_kt, kt_ini, kt_1D_to_2D, pkt2Kt_matrix
+from models.classic_slab import jslab, jslab_kt, jslab_kt_2D, kt_ini, kt_1D_to_2D, pkt2Kt_matrix
 import forcing
 import inv
 import observations
-from tests_functions import run_forward_cost_grad, plot_traj
+from tests_functions import run_forward_cost_grad, plot_traj_1D
 import tools
 
 start = clock.time()
@@ -35,14 +36,15 @@ t1                  = 28*86400.
 dt                  = 60.        # timestep of the model (s) 
 
 # What to test
-FORWARD_PASS        = False      # tests forward, cost, gradcost
-MINIMIZE            = True      # switch to do the minimisation process
+FORWARD_PASS        = True      # tests forward, cost, gradcost
+MINIMIZE            = False      # switch to do the minimisation process
 maxiter             = 50         # max number of iteration
 
 # Switches
-TEST_SLAB                   = True
+TEST_SLAB                   = False
 TEST_SLAB_KT                = False
 TEST_SLAB_KT_FILTERED_FC    = False
+TEST_SLAB_KT_2D             = True
 
 # PLOT
 dpi=200
@@ -55,7 +57,7 @@ path_save_png = './png_tests_models/'
 point_loc = [-50.,35.]
 point_loc = [-50.,46.] # should have more NIOs
 # 2D
-R = 0.2 # °
+R = 1. # °
 LON_bounds = [point_loc[0]-R,point_loc[0]+R]
 LAT_bounds = [point_loc[1]-R,point_loc[1]+R]
 
@@ -84,8 +86,8 @@ if __name__ == "__main__":
     file = path_regrid+name_regrid 
     forcing1D = forcing.Forcing1D(point_loc, dt_forcing, file)
     observations1D = observations.Observation1D(point_loc, period_obs, dt_OSSE, file)
-    # forcing2D = forcing.Forcing2D(dt_forcing, file, LON_bounds, LAT_bounds)
-    # observations2D = observations.Observation2D(period_obs, dt_OSSE, file, LON_bounds, LAT_bounds)
+    forcing2D = forcing.Forcing2D(dt_forcing, file, LON_bounds, LAT_bounds)
+    observations2D = observations.Observation2D(period_obs, dt_OSSE, file, LON_bounds, LAT_bounds)
     
     
     
@@ -103,7 +105,7 @@ if __name__ == "__main__":
         
         #mymodel = jslab(pk, TAx, TAy, fc, dt_forcing, nl=1, AD_mode=AD_mode)
         mymodel = jslab(pk, TAx, TAy, fc, dt_forcing, nl=1, AD_mode=AD_mode, call_args=call_args)
-        var_dfx = inv.Variational_diffrax(mymodel,observations1D)
+        var_dfx = inv.Variational(mymodel,observations1D)
         
         if FORWARD_PASS:
             run_forward_cost_grad(mymodel, var_dfx)   
@@ -115,13 +117,13 @@ if __name__ == "__main__":
             print(' time, minimize',clock.time()-t7)
                            
         name_save = 'jslab_'+namesave_loc
-        plot_traj(mymodel, var_dfx, forcing1D, observations1D, name_save, path_save_png, dpi)
+        plot_traj_1D(mymodel, var_dfx, forcing1D, observations1D, name_save, path_save_png, dpi)
         
     if TEST_SLAB_KT:
         print('* test jslab_kt')
         # control vector
         pk = jnp.asarray([-11.31980127, -10.28525189])   
-        NdT = len(np.arange(t0, t1+dTK,dTK)) # int((t1-t0)//dTK) 
+        NdT = len(np.arange(t0, t1,dTK)) # int((t1-t0)//dTK) 
         pk = kt_ini(pk, NdT)
         
         # pk = jnp.asarray([-11.31980127, -11.31980127, -11.31980127, -11.31980127, -11.31980127,
@@ -137,7 +139,7 @@ if __name__ == "__main__":
         call_args = t0, t1, dt
         #NdT = int((t1-t0)//dTK) # jnp.array(int((t1-t0)//dTK))
         mymodel = jslab_kt(pk, TAx, TAy, fc, dTK, dt_forcing, nl=1, AD_mode=AD_mode, call_args=call_args)
-        var_dfx = inv.Variational_diffrax(mymodel,observations1D)
+        var_dfx = inv.Variational(mymodel,observations1D)
         
         if FORWARD_PASS:
             run_forward_cost_grad(mymodel, var_dfx)   
@@ -149,7 +151,7 @@ if __name__ == "__main__":
             print(' time, minimize',clock.time()-t7)
                            
         name_save = 'jslab_kt_'+namesave_loc
-        plot_traj(mymodel, var_dfx, forcing1D, observations1D, name_save, path_save_png, dpi)
+        plot_traj_1D(mymodel, var_dfx, forcing1D, observations1D, name_save, path_save_png, dpi)
     
     if TEST_SLAB_KT_FILTERED_FC:
         print('* test jslab_kt with filter at fc before computing cost')
@@ -170,7 +172,7 @@ if __name__ == "__main__":
         
         call_args = t0, t1, dt
         mymodel = jslab_kt(pk, TAx, TAy, fc, dTK, dt_forcing, nl=1, AD_mode=AD_mode, call_args=call_args)
-        var_dfx = inv.Variational_diffrax(mymodel,observations1D, filter_at_fc=True)
+        var_dfx = inv.Variational(mymodel,observations1D, filter_at_fc=True)
         
         # dynamic_model, static_model = var_dfx.my_partition(mymodel)
         # for _ in range(10):
@@ -203,7 +205,7 @@ if __name__ == "__main__":
         #     ax.plot(new_kt[:,k],label='K'+str(k))
         # ax.legend()              
         name_save = 'jslab_kt_'+namesave_loc
-        plot_traj(mymodel, var_dfx, forcing1D, observations1D, name_save, path_save_png, dpi)
+        plot_traj_1D(mymodel, var_dfx, forcing1D, observations1D, name_save, path_save_png, dpi)
         
         fig, ax = plt.subplots(1,1,figsize = (10,3),constrained_layout=True,dpi=dpi)
         ax.plot(forcing1D.time/86400, 1/np.exp(new_kt[:,0])/1000, label='estimated')
@@ -211,6 +213,35 @@ if __name__ == "__main__":
         ax.set_ylabel('MLD (m)')
         ax.set_xlabel('time (days)')
         
+    if TEST_SLAB_KT_2D:
+        print('* test jslab_kt_2D')
+        # control vector
+        pk = jnp.asarray([-11.31980127, -10.28525189])   
+        NdT = len(np.arange(t0, t1,dTK)) # int((t1-t0)//dTK) 
+        pk = kt_ini(pk, NdT)
+        
+        # parameters
+        TAx = jnp.asarray(forcing2D.TAx)
+        TAy = jnp.asarray(forcing2D.TAy)
+        fc = jnp.asarray(forcing2D.fc)
+        
+        call_args = t0, t1, dt
+        #NdT = int((t1-t0)//dTK) # jnp.array(int((t1-t0)//dTK))
+        mymodel = jslab_kt_2D(pk, TAx, TAy, fc, dTK, dt_forcing, nl=1, AD_mode=AD_mode, call_args=call_args,use_difx=False)
+        var_dfx = inv.Variational(mymodel,observations2D)
+        
+        if FORWARD_PASS:
+            run_forward_cost_grad(mymodel, var_dfx)   
+
+        if MINIMIZE:
+            print(' minimizing ...')
+            t7 = clock.time()
+            mymodel = var_dfx.scipy_lbfgs_wrapper(mymodel, maxiter, verbose=True)   
+            print(' time, minimize',clock.time()-t7)
+                           
+        name_save = 'jslab_kt_2D_'+namesave_loc
+        #plot_traj_1D(mymodel, var_dfx, forcing1D, observations1D, name_save, path_save_png, dpi) 
+    
     end = clock.time()
     print('Total execution time = '+str(jnp.round(end-start,2))+' s')
     plt.show()

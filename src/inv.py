@@ -11,7 +11,7 @@ import scipy
 
 import tools
 
-class Variational_diffrax:
+class Variational:
     """
     """
     def __init__(self, model, observations, filter_at_fc=False):
