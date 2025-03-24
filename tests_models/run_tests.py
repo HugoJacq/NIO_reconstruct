@@ -26,7 +26,7 @@ ON_HPC      = False      # on HPC
 
 # model parameters
 Nl                  = 1         # number of layers for multilayer models
-dTK                 = 5*86400   # how much vectork K changes with time, basis change to exp
+dTK                 = 20*86400   # how much vectork K changes with time, basis change to exp
 AD_mode             = 'F'       # forward mode for AD 
 
 # run parameters
@@ -35,14 +35,14 @@ t1                  = 28*86400.
 dt                  = 60.        # timestep of the model (s) 
 
 # What to test
-FORWARD_PASS        = True      # tests forward, cost, gradcost
-MINIMIZE            = False      # switch to do the minimisation process
+FORWARD_PASS        = False      # tests forward, cost, gradcost
+MINIMIZE            = True      # switch to do the minimisation process
 maxiter             = 50         # max number of iteration
 
 # Switches
-TEST_SLAB                   = False
+TEST_SLAB                   = True
 TEST_SLAB_KT                = False
-TEST_SLAB_KT_FILTERED_FC    = True
+TEST_SLAB_KT_FILTERED_FC    = False
 
 # PLOT
 dpi=200

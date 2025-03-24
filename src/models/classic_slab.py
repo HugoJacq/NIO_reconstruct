@@ -32,15 +32,16 @@ class jslab(eqx.Module):
     TAx : jnp.array
     TAy : jnp.array
     fc : jnp.array
-    dt_forcing : jnp.array  = eqx.static_field()
-    nl : jnp.array          = eqx.static_field()
-    AD_mode : str           = eqx.static_field()
-    t0 : jnp.array          = eqx.static_field()
-    t1 : jnp.array          = eqx.static_field()
-    dt : jnp.array          = eqx.static_field()
+    dt_forcing : jnp.array  
+    nl : jnp.array         
+    AD_mode : str           
+    t0 : jnp.array          
+    t1 : jnp.array          
+    dt : jnp.array         
     
+    use_difx : bool
     
-    def __init__(self, pk, TAx, TAy, fc, dt_forcing, nl, AD_mode, call_args):
+    def __init__(self, pk, TAx, TAy, fc, dt_forcing, nl, AD_mode, call_args, use_difx=False):
         self.pk = pk
         self.TAx = TAx
         self.TAy = TAy
@@ -53,17 +54,94 @@ class jslab(eqx.Module):
         self.t1 = t1
         self.dt = dt
         
+        self.use_difx = True # use_difx
+        
     @eqx.filter_jit
     def __call__(self, save_traj_at = None):
         t0, t1, dt = self.t0, self.t1, self.dt # call_args
         nsubsteps = self.dt_forcing // dt
         
-        def vector_field(t, C, args):
+        y0 = 0.0, 0.0 # self.U0,self.V0
+        # control
+        K = jnp.exp( jnp.asarray(self.pk) )
+  
+        args = self.fc, K, self.TAx, self.TAy, nsubsteps
+        
+        maxstep = int((t1-t0)//dt) +1 
+        
+        
+        if self.use_difx:
+            solver = Euler()
+            if save_traj_at is None:
+                saveat = diffrax.SaveAt(steps=True)
+            else:
+                saveat = diffrax.SaveAt(ts=jnp.arange(t0,t1,save_traj_at)) # slower than above (no idea why)
+            # Auto-diff mode
+            if self.AD_mode=='F':
+                adjoint = diffrax.ForwardMode()
+            else:
+                adjoint = diffrax.RecursiveCheckpointAdjoint(checkpoints=10)
+            solution = diffeqsolve(terms=ODETerm(self.vector_field), 
+                            solver=solver, 
+                            t0=t0, 
+                            t1=t1, 
+                            y0=y0, 
+                            args=args, 
+                            dt0=None, #dt, #dt, None
+                            saveat=saveat,
+                            stepsize_controller=diffrax.StepTo(jnp.arange(t0, t1+dt, dt)),
+                            adjoint=adjoint,
+                            max_steps=maxstep,
+                            made_jump=False).ys # here this is needed to be able to forward AD
+        else:
+            Nforcing = int((t1-t0)//self.dt_forcing)
+            if save_traj_at is None:
+                step_save_out = 1
+            else:
+                if save_traj_at<self.dt_forcing:
+                    raise Exception('You want to save at dt<dt_forcing, this is not available.\n Choose a bigger dt')
+                else:
+                    step_save_out = save_traj_at//self.dt_forcing
+            
+            U, V = jnp.zeros(Nforcing), jnp.zeros(Nforcing)
+             
+            def __inner_loop(carry, iin):
+                Uold, Vold, iout = carry
+                t = iout*self.dt_forcing + iin*self.dt
+                C = Uold, Vold
+                d_U,d_V = self.vector_field(t, C, args)
+                newU,newV = Uold + self.dt*d_U, Vold + self.dt*d_V # Euler hard coded
+                X1 = newU,newV,iout
+                return X1, X1
+            
+            def __outer_loop(carry, iout):
+                U,V = carry
+                X1 = U[iout], V[iout], iout
+                final, _ = lax.scan(__inner_loop, X1, jnp.arange(0,nsubsteps)) #jnp.arange(0,self.nt-1))
+                newU, newV, _ = final
+                U = U.at[iout+1].set(newU)
+                V = V.at[iout+1].set(newV)
+                X0 = U,V
+                return X0, X0
+            
+            X1 = U, V
+            final, _ = lax.scan(__outer_loop, X1, jnp.arange(0,Nforcing))
+            U,V = final
+            
+            if save_traj_at is None:
+                solution = U,V
+            else:
+                solution = U[::step_save_out], V[::step_save_out]
+            
+            
+        return solution
+
+    def vector_field(self, t, C, args):
             U,V = C
-            fc, K, TAx, TAy = args
+            fc, K, TAx, TAy, nsubsteps = args
             
             # on the fly interpolation
-            it = jnp.array(t//dt, int)
+            it = jnp.array(t//self.dt, int)
             itf = jnp.array(it//nsubsteps, int)
             
             aa = jnp.mod(it,nsubsteps)/nsubsteps
@@ -81,43 +159,6 @@ class jslab(eqx.Module):
             # jax.lax.cond(it<=10, cond_print, lambda x:None, it)
 
             return d_y
-        
-        term = ODETerm(vector_field)
-        
-        solver = Euler() #()
-        # Auto-diff mode
-        if self.AD_mode=='F':
-            adjoint = diffrax.ForwardMode()
-        else:
-            adjoint = diffrax.RecursiveCheckpointAdjoint(checkpoints=10)
-
-        y0 = jnp.array([0.0, 0.0]) # self.U0,self.V0
-        # control
-        K = jnp.exp( jnp.asarray(self.pk) )
-  
-        args = self.fc, K, self.TAx, self.TAy
-        
-        if save_traj_at is None:
-            saveat = diffrax.SaveAt(steps=True)
-        else:
-            saveat = diffrax.SaveAt(ts=jnp.arange(t0,t1,save_traj_at)) # slower than above (no idea why)
-            #saveat = diffrax.SaveAt(ts=save_traj_at)
-        
-        maxstep = int((t1-t0)//dt) +1 
-        
-        return diffeqsolve(term, 
-                           solver, 
-                           t0=t0, 
-                           t1=t1, 
-                           y0=y0, 
-                           args=args, 
-                           dt0=dt, #dt, None
-                           saveat=saveat,
-                           #stepsize_controller=diffrax.StepTo(jnp.arange(t0, t1+dt, dt)),
-                           adjoint=adjoint,
-                           max_steps=maxstep,
-                           made_jump=False).ys # here this is needed to be able to forward AD
-
         
 class jslab_kt(eqx.Module):
     # variables
@@ -158,16 +199,12 @@ class jslab_kt(eqx.Module):
         self.nl = nl
         self.AD_mode = AD_mode
         
-        self.use_difx = True #use_difx
+        self.use_difx = use_difx
         
     @eqx.filter_jit
     def __call__(self, save_traj_at = None): #call_args, 
 
-        # Auto-diff mode
-        if self.AD_mode=='F':
-            adjoint = diffrax.ForwardMode()
-        else:
-            adjoint = diffrax.RecursiveCheckpointAdjoint(checkpoints=10) # <- number of checkpoint still WIP
+        
 
         
         y0 = 0.0,0.0 # self.U0,self.V0
@@ -189,6 +226,11 @@ class jslab_kt(eqx.Module):
                 saveat = diffrax.SaveAt(steps=True)
             else:
                 saveat = diffrax.SaveAt(ts=jnp.arange(t0,t1,save_traj_at)) # slower than above (no idea why)
+            # Auto-diff mode
+            if self.AD_mode=='F':
+                adjoint = diffrax.ForwardMode()
+            else:
+                adjoint = diffrax.RecursiveCheckpointAdjoint(checkpoints=10) # <- number of checkpoint still WIP
             
             solution = diffeqsolve(terms=ODETerm(self.vector_field), 
                             solver=solver, 
@@ -237,19 +279,6 @@ class jslab_kt(eqx.Module):
             X1 = U, V
             final, _ = lax.scan(__outer_loop, X1, jnp.arange(0,Nforcing))
             U,V = final
-            # for iout in range(Nforcing-1):
-
-            #     X0 = U[iout], V[iout]
-            #     final, _ = lax.scan(lambda carry, y: __inner_loop(carry, y), X0, jnp.arange(0,nsubsteps)) #jnp.arange(0,self.nt-1))
-            #     newU, newV = final
-            #     # for iin in range(nsubsteps):
-            #     #     t = iout*self.dt_forcing + iin*self.dt
-            #     #     C = Uold, Vold
-            #     #     d_U,d_V = self.vector_field(t, C, args)
-            #     #     newU,newV = Uold + self.dt*d_U, Vold + self.dt*d_V # Euler hard coded
-            #     #print(newU,newV)
-            #     U = U.at[iout+1].set(newU)
-            #     V = V.at[iout+1].set(newV)
             
             if save_traj_at is None:
                 solution = U,V
@@ -283,6 +312,9 @@ class jslab_kt(eqx.Module):
     """
     Note sur pourquoi j'ai enlevé t0, t1, dt du __call__:
     Si on veut faire des opérations sur K qui font un changement de base, il faut savoir le nombre de timestep, et donc il faut que nt=(t1-t0)//dt soit static !
+    
+    Note sur pourquoi je n'utilise pas diffrax:
+    les perfs sont entre x3 et x5 comparé à la version sans diffrax (use_difx=False)... Mais on perd la possibilité de faire du reverse AD avec checkpoints automatiques.
     """
     
     
