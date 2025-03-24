@@ -21,3 +21,6 @@ data_regrid/croco_1h_inst_surf_2005-03-01-2005-03-31_0.1deg_conservative.nc
 data_regrid/regridder_0.1deg_conservative.nc
 tests_models/png_tests_models/jslab_kt_-50.0E_46.0N.png
 tests_models/png_tests_models/jslab_kt_-50.0E_46.0N_save.png
+tests_models/png_tests_models/jslab_-50.0E_46.0N.png
+tests_models/png_tests_models/test_pktM_jax.png
+tests_models/png_tests_models/test_pktM_np.png

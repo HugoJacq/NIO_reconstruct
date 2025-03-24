@@ -19,7 +19,7 @@ import jax.numpy as jnp
 from jax import jit, lax
 from functools import partial
 import equinox as eqx
-from diffrax import ODETerm, diffeqsolve, Euler
+from diffrax import Dopri5, ODETerm, diffeqsolve, Euler
 import diffrax
 
 class jslab(eqx.Module):
@@ -57,6 +57,7 @@ class jslab(eqx.Module):
     def __call__(self, save_traj_at = None):
         t0, t1, dt = self.t0, self.t1, self.dt # call_args
         nsubsteps = self.dt_forcing // dt
+        
         def vector_field(t, C, args):
             U,V = C
             fc, K, TAx, TAy = args
@@ -69,27 +70,28 @@ class jslab(eqx.Module):
             itsup = lax.select(itf+1>=len(TAx), -1, itf+1) 
             TAx = (1-aa)*TAx[itf] + aa*TAx[itsup]
             TAy = (1-aa)*TAy[itf] + aa*TAy[itsup]
-            # def cond_print(it):
-            #     jax.debug.print('it,itf, TA, {}, {}, {}',it,itf,(TAx,TAy))
-            
-            # jax.lax.cond(it<=10, cond_print, lambda x:None, it)
-            
             # physic
             d_U = fc*V + K[0]*TAx - K[1]*U
             d_V = -fc*U + K[0]*TAy - K[1]*V
             d_y = d_U,d_V
+            
+            # def cond_print(it):
+            #     jax.debug.print('it,itf, TA, {}, {}, {}',it,itf,(TAx,TAy))
+            
+            # jax.lax.cond(it<=10, cond_print, lambda x:None, it)
+
             return d_y
         
         term = ODETerm(vector_field)
         
-        solver = Euler()
+        solver = Euler() #()
         # Auto-diff mode
         if self.AD_mode=='F':
             adjoint = diffrax.ForwardMode()
         else:
             adjoint = diffrax.RecursiveCheckpointAdjoint(checkpoints=10)
 
-        y0 = 0.0,0.0 # self.U0,self.V0
+        y0 = jnp.array([0.0, 0.0]) # self.U0,self.V0
         # control
         K = jnp.exp( jnp.asarray(self.pk) )
   
@@ -115,6 +117,7 @@ class jslab(eqx.Module):
                            adjoint=adjoint,
                            max_steps=maxstep,
                            made_jump=False) # here this is needed to be able to forward AD
+
         
 class jslab_kt(eqx.Module):
     # variables
@@ -154,7 +157,7 @@ class jslab_kt(eqx.Module):
         self.dt = dt
         
         self.dTK = dTK
-        self.NdT = NdT = len(np.arange(t0, t1+dTK,dTK)) # int((t1-t0)//dTK)  
+        self.NdT = len(jnp.arange(t0, t1,dTK)) # int((t1-t0)//dTK)   NdT = 
         self.pk = pk #self.kt_ini( jnp.asarray(pk) )
         
         self.TAx = TAx
@@ -185,8 +188,9 @@ class jslab_kt(eqx.Module):
         # control
         K = jnp.exp( self.pk) 
         K = kt_1D_to_2D(K, NdT=self.NdT, nl=self.nl)
-        forcing_time = np.arange(t0,t1,self.dt_forcing)
-        M = pkt2Kt_matrix(gtime=forcing_time, NdT=self.NdT, dTK=self.dTK)
+        forcing_time = jnp.arange(t0,t1,self.dt_forcing)
+        # M = pkt2Kt_matrix(gtime=forcing_time, NdT=self.NdT, dTK=self.dTK)
+        M = pkt2Kt_matrix(NdT=self.NdT, dTK=self.dTK, t0=t0, t1=t1, dt_forcing=self.dt_forcing)
         Kt = jnp.dot(M,K)
         args = self.fc, Kt, self.TAx, self.TAy
         
@@ -208,7 +212,7 @@ class jslab_kt(eqx.Module):
             itsup = lax.select(itf+1>=len(TAx), -1, itf+1) 
             TAx = (1-aa)*TAx[itf] + aa*TAx[itsup]
             TAy = (1-aa)*TAy[itf] + aa*TAy[itsup]
-            print(Kt.shape)
+            #print(Kt.shape)
             Ktnow = (1-aa)*Kt[it-1] + aa*Kt[itsup]
             # def cond_print(it):
             #     jax.debug.print('it,itf, TA, {}, {}, {}',it,itf,(TAx,TAy))
@@ -250,7 +254,7 @@ def kt_1D_to_2D(vector_kt_1D, NdT, nl):
 def kt_2D_to_1D(vector_kt):
     return vector_kt.flatten()
 
-def pkt2Kt_matrix(NdT, dTK, gtime):
+def pkt2Kt_matrix(NdT, dTK, t0, t1, dt_forcing):
         """
         original numpy function:
         
@@ -285,31 +289,36 @@ def pkt2Kt_matrix(NdT, dTK, gtime):
         vector_Kt :
             X - - - - * - - - - * - - - - * - - - - * X  # 6 values
         """
-        # gptime = jnp.zeros(NdT) #self.ntm//step+1 )        
-        # dt_gtime = gtime[1]-gtime[0]
-        # step = np.int32(dTK//dt_gtime)
-        # for ipt in range(len(gptime)):
-        #     gptime = gptime.at[ipt].set( gtime[ipt*step])
-        # gptime = gptime.at[-1].set( lax.select(len(gptime)>0, gtime[-1]+dTK, gtime[0]) )
-        # gptime = gptime + dTK
-
-
+        # if dTK<gtime[-1]-gtime[0] : 
+        #     gptime = jnp.arange(gtime[0], gtime[-1]+dTK,dTK)
+        # else: 
+        #     gptime = jnp.array([gtime[0]])
+          
+        if NdT>0:    
+            gptime = jnp.arange(t0, t1,dTK)
+        else:
+            gptime = jnp.array([t0])
+        gtime = jnp.arange(t0,t1,dt_forcing)
+        
+        # MY VERSION
+        # #print('test 1')    
         # nt = len(gtime)
         # npt = len(gptime)
         # M = jnp.zeros((nt,npt))
         # S = jnp.zeros((nt))
-
+        
         # def __step_pkt2Kt_matrix(arg0, ip):
+        #     #print('test 2') 
         #     gtime,gptime,S,M = arg0
         #     distt = (gtime-gptime[ip])
-        #     tmp =  jnp.exp(-distt**2/dTK**2)
+        #     cond = jnp.abs(distt) < 3*dTK
+        #     myexp = jnp.exp(2*-distt**2/dTK**2)
+        #     tmp = jnp.where(cond, myexp, 0)
         #     S = lax.add( S, tmp )
         #     M = M.at[:,ip].set( M[:,ip] + tmp )
         #     arg0 = gtime,gptime,S,M
-        #     return arg0,arg0
+        #     return arg0, arg0
 
-        # # print('M.shape',M.shape)
-        # # print('S.shape',S.shape)
         # # loop over each dT
         # arg0 = gtime, gptime, S, M
         # # This should work but there is a bug in jax
@@ -319,20 +328,21 @@ def pkt2Kt_matrix(NdT, dTK, gtime):
         # #_, _, S, M = lax.fori_loop(0, npt, self.__step_pkt2Kt_matrix, arg0) 
         # arg0,_ = lax.scan(lambda it,arg0: __step_pkt2Kt_matrix(it,arg0), arg0, xs=jnp.arange(0,npt))
         # _, _, S, M = arg0
-        # M = (M.T / S.T).T
-        if dTK<gtime[-1]-gtime[0] : 
-            gptime = np.arange(gtime[0], gtime[-1]+dTK,dTK)
-        else: 
-            gptime = np.array([gtime[0]])
-        nt=len(gtime)
-        npt = len(gptime)
-        M = np.zeros((nt,npt))
-        S=np.zeros((nt))
-        for ip in range(npt):
-            distt = (gtime-gptime[ip])
-            iit = np.where((np.abs(distt) < (3*dTK)))[0]
-            tmp = np.exp(-distt[iit]**2/dTK**2)
-            S[iit] += tmp
-            M[iit,ip] += tmp
-        M = (M.T / S.T).T
+        # M = (M.T / S.T).T 
+        
+        # CLAUDE VERSION
+        # Vectorize the distance calculation
+        # Shape: (nt, npt)
+        distt = gtime[:, jnp.newaxis] - gptime[jnp.newaxis, :]
+        
+        # Vectorized condition and exponential calculation
+        cond = jnp.abs(distt) < 3 * dTK
+        tmp = jnp.exp(-2*distt**2 / dTK**2) * cond  # The condition zeros out values outside range
+        
+        # Sum across the appropriate axis for S
+        S = jnp.sum(tmp, axis=1)
+        
+        # Division with proper broadcasting
+        M = tmp / S[:, jnp.newaxis]      
+        
         return M

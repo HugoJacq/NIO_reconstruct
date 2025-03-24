@@ -22,6 +22,9 @@ class Variational_diffrax:
         self.filter_at_fc = filter_at_fc
 
     def loss_fn(self, obs, sol):
+        #print('sol',sol)
+        sol = jnp.asarray(sol)
+        #return jnp.mean( (sol[:,0]-obs[0])**2 + (sol[:,1]-obs[1])**2 )
         return jnp.mean( (sol[0]-obs[0])**2 + (sol[1]-obs[1])**2 )
     
     @eqx.filter_jit
@@ -50,8 +53,8 @@ class Variational_diffrax:
             final, _ = lax.scan(lambda X0, k:_fn_for_scan(X0, k, Uf, Vf, step), init=(Uffc,Vffc), xs=np.arange(0,len(Uffc)))     
             sol = final
         else:
+            #print('eys')
             sol = mymodel(save_traj_at=dtime_obs).ys # use diffrax and equinox 
-            
         return self.loss_fn(sol, obs)
         
    

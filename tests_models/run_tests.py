@@ -35,7 +35,7 @@ t1                  = 28*86400.
 dt                  = 60.        # timestep of the model (s) 
 
 # What to test
-FORWARD_PASS        = False      # tests forward, cost, gradcost
+FORWARD_PASS        = True      # tests forward, cost, gradcost
 MINIMIZE            = True      # switch to do the minimisation process
 maxiter             = 50         # max number of iteration
 
@@ -53,7 +53,7 @@ path_save_png = './png_tests_models/'
 # =================================
 # 1D
 point_loc = [-50.,35.]
-point_loc = [-50.,46.]
+point_loc = [-50.,46.] # should have more NIOs
 # 2D
 R = 0.2 # °
 LON_bounds = [point_loc[0]-R,point_loc[0]+R]
@@ -155,7 +155,7 @@ if __name__ == "__main__":
         print('* test jslab_kt with filter at fc before computing cost')
         # control vector
         pk = jnp.asarray([-11.31980127, -10.28525189])   
-        NdT = len(np.arange(t0, t1+dTK,dTK)) # int((t1-t0)//dTK) 
+        NdT = len(np.arange(t0, t1,dTK)) # int((t1-t0)//dTK) 
         pk = kt_ini(pk, NdT)
         
         # pk = jnp.asarray([-11.31980127, -11.31980127, -11.31980127, -11.31980127, -11.31980127, # dTK = 3*86400
@@ -172,6 +172,17 @@ if __name__ == "__main__":
         mymodel = jslab_kt(pk, TAx, TAy, fc, dTK, dt_forcing, nl=1, AD_mode=AD_mode, call_args=call_args)
         var_dfx = inv.Variational_diffrax(mymodel,observations1D, filter_at_fc=True)
         
+        # dynamic_model, static_model = var_dfx.my_partition(mymodel)
+        # for _ in range(10):
+        #     time1 = clock.time()
+        #     _ = mymodel() # call_args
+        #     print(' time, forward model (with compile)',clock.time()-time1)
+            
+            # time6 = clock.time()
+            # _, _ = var_dfx.grad_cost(dynamic_model, static_model)
+            # print(' time, gradcost',clock.time()-time6)
+    
+    
         if FORWARD_PASS:
             run_forward_cost_grad(mymodel, var_dfx)   
 
@@ -181,14 +192,16 @@ if __name__ == "__main__":
             mymodel = var_dfx.scipy_lbfgs_wrapper(mymodel, maxiter, gtol=1e-5, verbose=True)   
             print(' time, minimize',clock.time()-t7)
         
-        M = pkt2Kt_matrix(NdT, dTK, np.arange(t0,t1,dt_forcing))
+        #M = pkt2Kt_matrix(NdT, dTK, np.arange(t0,t1,dt_forcing))
+        M = pkt2Kt_matrix(NdT, dTK, t0, t1, dt_forcing)
         kt2D = kt_1D_to_2D(mymodel.pk, NdT, Nl)
         new_kt = np.dot(M,kt2D)
         fig, ax = plt.subplots(1,1,figsize = (10,3),constrained_layout=True,dpi=dpi)
-        for k in range(new_kt.shape[-1]):
-            #ax.plot( M[:,k] ) 
-            ax.plot(new_kt[:,k],label='K'+str(k))
-        ax.legend()              
+        for k in range(M.shape[-1]):
+            ax.plot(forcing1D.time/86400, M[:,k] ) 
+        # for k in range(new_kt.shape[-1]):
+        #     ax.plot(new_kt[:,k],label='K'+str(k))
+        # ax.legend()              
         name_save = 'jslab_kt_'+namesave_loc
         plot_traj(mymodel, var_dfx, forcing1D, observations1D, name_save, path_save_png, dpi)
         
