@@ -2,7 +2,7 @@
 Here a script that tests the models from the folder "models"
 """
 
-import jax.numpy as jnp
+
 import numpy as np
 import time as clock
 import matplotlib.pyplot as plt
@@ -10,12 +10,14 @@ import sys
 import os
 sys.path.insert(0, '../src')
 os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false" # for jax
+import jax
+import jax.numpy as jnp
 
 from models.classic_slab import jslab, jslab_kt, jslab_kt_2D, kt_ini, kt_1D_to_2D, pkt2Kt_matrix
 import forcing
 import inv
 import observations
-from tests_functions import run_forward_cost_grad, plot_traj_1D
+from tests_functions import run_forward_cost_grad, plot_traj_1D, plot_traj_2D
 import tools
 
 start = clock.time()
@@ -39,6 +41,7 @@ dt                  = 60.        # timestep of the model (s)
 FORWARD_PASS        = True      # tests forward, cost, gradcost
 MINIMIZE            = False      # switch to do the minimisation process
 maxiter             = 50         # max number of iteration
+PLOT_TRAJ           = False
 
 # Switches
 TEST_SLAB                   = False
@@ -55,9 +58,9 @@ path_save_png = './png_tests_models/'
 # =================================
 # 1D
 point_loc = [-50.,35.]
-point_loc = [-50.,46.] # should have more NIOs
+#point_loc = [-50.,46.] # should have more NIOs
 # 2D
-R = 1. # °
+R = 10.0 # °
 LON_bounds = [point_loc[0]-R,point_loc[0]+R]
 LAT_bounds = [point_loc[1]-R,point_loc[1]+R]
 
@@ -214,6 +217,8 @@ if __name__ == "__main__":
         ax.set_xlabel('time (days)')
         
     if TEST_SLAB_KT_2D:
+        #with jax.profiler.trace("/tmp/tensorboard"):
+        #with jax.profiler.trace("/tmp/jax-trace", create_perfetto_link=True):
         print('* test jslab_kt_2D')
         # control vector
         pk = jnp.asarray([-11.31980127, -10.28525189])   
@@ -230,6 +235,18 @@ if __name__ == "__main__":
         mymodel = jslab_kt_2D(pk, TAx, TAy, fc, dTK, dt_forcing, nl=1, AD_mode=AD_mode, call_args=call_args,use_difx=False)
         var_dfx = inv.Variational(mymodel,observations2D)
         
+    
+        
+        # Run the operations to be profiled
+        # U,V = mymodel()
+        # U.block_until_ready()
+        # V.block_until_ready()
+    
+        #jax.profiler.save_device_memory_profile("memory_R"+str(R)+".prof")
+        # pprof --svg memory.prof
+
+        
+        
         if FORWARD_PASS:
             run_forward_cost_grad(mymodel, var_dfx)   
 
@@ -240,7 +257,8 @@ if __name__ == "__main__":
             print(' time, minimize',clock.time()-t7)
                            
         name_save = 'jslab_kt_2D_'+namesave_loc
-        #plot_traj_1D(mymodel, var_dfx, forcing1D, observations1D, name_save, path_save_png, dpi) 
+        if PLOT_TRAJ:
+            plot_traj_2D(mymodel, var_dfx, forcing2D, observations2D, name_save, point_loc, LON_bounds, LAT_bounds, path_save_png, dpi) 
     
     end = clock.time()
     print('Total execution time = '+str(jnp.round(end-start,2))+' s')

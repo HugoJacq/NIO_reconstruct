@@ -24,3 +24,10 @@ tests_models/png_tests_models/jslab_kt_-50.0E_46.0N_save.png
 tests_models/png_tests_models/jslab_-50.0E_46.0N.png
 tests_models/png_tests_models/test_pktM_jax.png
 tests_models/png_tests_models/test_pktM_np.png
+tests_models/memory_R0.5.prof
+tests_models/memory_R0.8.prof
+tests_models/memory_R2.0.prof
+tests_models/memory_R10.0.prof
+tests_models/memory.prof
+tests_models/profile001.svg
+tests_models/png_tests_models/jslab_kt_2D_-50.0E_46.0N.png

@@ -365,7 +365,7 @@ class jslab_kt_2D(eqx.Module):
         
         self.use_difx = use_difx
         
-    #@eqx.filter_jit
+    @eqx.filter_jit
     def __call__(self, save_traj_at = None): #call_args, 
 
         y0 = jnp.zeros((self.ny,self.nx)), jnp.zeros((self.ny,self.nx)) # self.U0,self.V0
@@ -457,16 +457,16 @@ class jslab_kt_2D(eqx.Module):
         itf = jnp.array(it//nsubsteps, int)
         aa = jnp.mod(it,nsubsteps)/nsubsteps
         itsup = lax.select(itf+1>=TAx.shape[0], -1, itf+1) 
-        TAx = (1-aa)*TAx[itf] + aa*TAx[itsup]
-        TAy = (1-aa)*TAy[itf] + aa*TAy[itsup]
+        TAxt = (1-aa)*TAx[itf] + aa*TAx[itsup]
+        TAyt = (1-aa)*TAy[itf] + aa*TAy[itsup]
         Ktnow = (1-aa)*Kt[it-1] + aa*Kt[itsup]
         # def cond_print(it):
         #     jax.debug.print('it,itf, TA, {}, {}, {}',it,itf,(TAx,TAy))
         # jax.lax.cond(it<=10, cond_print, lambda x:None, it)
-        
+        # print(U.shape, TAx.shape)
         # physic
-        d_U = fc*V + Ktnow[0]*TAx - Ktnow[1]*U
-        d_V = -fc*U + Ktnow[0]*TAy - Ktnow[1]*V
+        d_U = fc*V + Ktnow[0]*TAxt - Ktnow[1]*U
+        d_V = -fc*U + Ktnow[0]*TAyt - Ktnow[1]*V
         d_y = d_U,d_V
         return d_y 
    
