@@ -35,6 +35,11 @@ def regridder(path_file, namefile, method, new_dx, path_save, N_CPU=1):
     OUTPUTS:
     ------------------------------------------------------
     - A netcdf file, located at path_save
+    
+    
+    Note: 
+        N_CPU>1 is currently bugged, use mono proc.
+    
     """ 
     start = clock.time()
     print('')
