@@ -460,6 +460,8 @@ class jslab_kt_2D(eqx.Module):
         TAxt = (1-aa)*TAx[itf] + aa*TAx[itsup]
         TAyt = (1-aa)*TAy[itf] + aa*TAy[itsup]
         Ktnow = (1-aa)*Kt[it-1] + aa*Kt[itsup]
+        
+        print(fc.shape,V.shape,U.shape)
         # def cond_print(it):
         #     jax.debug.print('it,itf, TA, {}, {}, {}',it,itf,(TAx,TAy))
         # jax.lax.cond(it<=10, cond_print, lambda x:None, it)

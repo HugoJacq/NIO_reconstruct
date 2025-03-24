@@ -8,6 +8,7 @@ import time as clock
 import matplotlib.pyplot as plt
 import sys
 import os
+import xarray as xr
 sys.path.insert(0, '../src')
 os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false" # for jax
 import jax
@@ -59,11 +60,11 @@ path_save_png = './png_tests_models/'
 # 1D
 point_loc = [-50.,35.]
 #point_loc = [-50.,46.] # should have more NIOs
+point_loc = [-70., 35.]
 # 2D
-R = 10.0 # °
+R = 10.0 # 20°x20° -> ~6.5Go of VRAM for grad
 LON_bounds = [point_loc[0]-R,point_loc[0]+R]
 LAT_bounds = [point_loc[1]-R,point_loc[1]+R]
-
 # Forcing
 dt_forcing          = 3600      # forcing timestep
 
@@ -92,7 +93,16 @@ if __name__ == "__main__":
     forcing2D = forcing.Forcing2D(dt_forcing, file, LON_bounds, LAT_bounds)
     observations2D = observations.Observation2D(period_obs, dt_OSSE, file, LON_bounds, LAT_bounds)
     
-    
+    # warning about 2D selection
+    dsfull = xr.open_mfdataset(path_regrid+name_regrid)
+    minlon, maxlon = np.amin(dsfull.lon), np.amax(dsfull.lon)
+    minlat, maxlat = np.amin(dsfull.lat), np.amax(dsfull.lat)
+    print(minlon.values,maxlon.values,minlat.values,maxlat.values)
+    # -81.95 -36.05 22.55 48.75
+    if (minlon + R > point_loc[0]) or (point_loc[0] > maxlon - R):
+        raise Exception("your choice of LON in 'point_loc' and 'R' is outside of the domain, please retry")
+    if (minlat + R > point_loc[1]) or (point_loc[1] > maxlat - R):
+        raise Exception("your choice of LAT in 'point_loc' and 'R' is outside of the domain, please retry")
     
     if TEST_SLAB:
         print('* test jslab')
