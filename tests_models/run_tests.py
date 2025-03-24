@@ -60,7 +60,7 @@ path_save_png = './png_tests_models/'
 point_loc = [-50.,35.]
 #point_loc = [-50.,46.] # should have more NIOs
 # 2D
-R = 10.0 # °
+R = 10.0 # 20°x20° -> ~6.5Go of VRAM
 LON_bounds = [point_loc[0]-R,point_loc[0]+R]
 LAT_bounds = [point_loc[1]-R,point_loc[1]+R]
 
