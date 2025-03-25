@@ -22,6 +22,8 @@ import equinox as eqx
 from diffrax import Dopri5, ODETerm, diffeqsolve, Euler
 import diffrax
 
+from constants import *
+
 class jslab(eqx.Module):
     # variables
     # U0 : np.float64
@@ -41,7 +43,7 @@ class jslab(eqx.Module):
     
     use_difx : bool
     
-    def __init__(self, pk, TAx, TAy, fc, dt_forcing, nl, AD_mode, call_args, use_difx=False):
+    def __init__(self, pk, TAx, TAy, fc, dt_forcing, nl, AD_mode, call_args=(0.0,oneday,60.), use_difx=False):
         self.pk = pk
         self.TAx = TAx
         self.TAy = TAy

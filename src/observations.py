@@ -12,13 +12,13 @@ class Observation1D:
     
     point_loc   : [LON,LAT] location (°E,°N)
     periode_obs : interval of time between obs (s)
-    dt_model    : timestep of input OSSE model (s)
+    dt_forcing    : timestep of input OSSE model (s)
     path_file   : path to regridded file with obs/forcing variables 
     """
     def __init__(self, point_loc, periode_obs, dt_forcing, path_file):
         
         # from dataset
-        ds = xr.open_dataset(path_file)
+        ds = xr.open_mfdataset(path_file)
         indx = nearest(ds.lon.values,point_loc[0])
         indy = nearest(ds.lat.values,point_loc[1])
         self.data = ds.isel(lon=indx,lat=indy)
@@ -42,8 +42,10 @@ class Observation1D:
             U, V = my_fc_filter(self.dt_forcing, self.U+1j*self.V, self.fc )
         else:
             U, V = self.U, self.V
-        self.Uo = U[::self.obs_period//self.dt_forcing]
-        self.Vo = V[::self.obs_period//self.dt_forcing]
+        print(self.U.shape)
+        step_obs = int(self.obs_period//self.dt_forcing)
+        self.Uo = U[::step_obs]
+        self.Vo = V[::step_obs]
         return self.Uo,self.Vo
     
 
@@ -52,15 +54,15 @@ class Observation2D:
     Observations of currents fields for 'Unstek1D', 2D (spatial)
     
     - period_obs : float(s) time interval between observations 
-    - dt_model : obs comes from OSSE, this is the time step of the OSSE.
+    - dt_forcing : obs comes from OSSE, this is the time step of the OSSE.
     - path_file : file with OSSE data (regridded)
     - LON_bounds : LON min and LON max of zone
     - LAT_bounds : LAT min and LAT max of zone
     """
-    def __init__(self, periode_obs, dt_model, path_file, LON_bounds, LAT_bounds):
+    def __init__(self, periode_obs, dt_forcing, path_file, LON_bounds, LAT_bounds):
         
         # from dataset for OSSE
-        ds = xr.open_dataset(path_file)
+        ds = xr.open_mfdataset(path_file)
         # indxmin = nearest(ds.lon.values,LON_bounds[0])
         # indxmax = nearest(ds.lon.values,LON_bounds[1])
         # indymin = nearest(ds.lat.values,LAT_bounds[0])
@@ -69,16 +71,17 @@ class Observation2D:
         # self.data = ds.isel(lon=slice(indxmin,indxmax),lat=slice(indymin,indymax))
         self.data = ds.sel(lon=slice(LON_bounds[0],LON_bounds[1]),lat=slice(LAT_bounds[0],LAT_bounds[1]))
         self.U,self.V = self.data.U.values,self.data.V.values
-        self.dt = dt_model
+        self.dt_forcing = dt_forcing
         self.obs_period = periode_obs
         
-        self.time_obs = np.arange(0, len(self.data.time)*dt_model,periode_obs)
+        self.time_obs = np.arange(0, len(self.data.time)*dt_forcing,periode_obs)
 
     def get_obs(self):
         """
         OSSE of current from the coupled OA model
         """
-        self.Uo = self.U[::self.obs_period//self.dt]
-        self.Vo = self.V[::self.obs_period//self.dt]
+        step_obs = int(self.obs_period//self.dt_forcing)
+        self.Uo = self.U[::step_obs]
+        self.Vo = self.V[::step_obs]
         return self.Uo,self.Vo
     

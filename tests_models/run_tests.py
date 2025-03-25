@@ -20,22 +20,23 @@ import inv
 import observations
 from tests_functions import run_forward_cost_grad, plot_traj_1D, plot_traj_2D
 import tools
+from constants import *
 
 start = clock.time()
 
 # ============================================================
 # PARAMETERS
 # ============================================================
-ON_HPC      = False      # on HPC
+#ON_HPC      = False      # on HPC
 
 # model parameters
 Nl                  = 1         # number of layers for multilayer models
-dTK                 = 20*86400   # how much vectork K changes with time, basis change to exp
+dTK                 = 20*oneday   # how much vectork K changes with time, basis change to exp
 AD_mode             = 'F'       # forward mode for AD 
 
 # run parameters
 t0                  = 0.
-t1                  = 28*86400. 
+t1                  = 360*oneday
 dt                  = 60.        # timestep of the model (s) 
 
 # What to test
@@ -45,10 +46,10 @@ maxiter             = 50         # max number of iteration
 PLOT_TRAJ           = False
 
 # Switches
-TEST_SLAB                   = False
+TEST_SLAB                   = True
 TEST_SLAB_KT                = False
 TEST_SLAB_KT_FILTERED_FC    = False
-TEST_SLAB_KT_2D             = True
+TEST_SLAB_KT_2D             = False
 
 # PLOT
 dpi=200
@@ -66,15 +67,28 @@ R = 10.0 # 20°x20° -> ~6.5Go of VRAM for grad
 LON_bounds = [point_loc[0]-R,point_loc[0]+R]
 LAT_bounds = [point_loc[1]-R,point_loc[1]+R]
 # Forcing
-dt_forcing          = 3600      # forcing timestep
+dt_forcing          = onehour      # forcing timestep
 
 # OSSE from Croco
-dt_OSSE             = 3600      # timestep of the OSSE (s)
+dt_OSSE             = onehour      # timestep of the OSSE (s)
 path_regrid = '../data_regrid/'
-name_regrid = 'croco_1h_inst_surf_2006-02-01-2006-02-28_0.1deg_conservative.nc'
+name_regrid = ['croco_1h_inst_surf_2005-01-01-2005-01-31_0.1deg_conservative.nc',
+              'croco_1h_inst_surf_2005-02-01-2005-02-28_0.1deg_conservative.nc',
+              'croco_1h_inst_surf_2005-03-01-2005-03-31_0.1deg_conservative.nc',
+              'croco_1h_inst_surf_2005-04-01-2005-04-30_0.1deg_conservative.nc',
+              'croco_1h_inst_surf_2005-05-01-2005-05-31_0.1deg_conservative.nc',
+              'croco_1h_inst_surf_2005-06-01-2005-06-30_0.1deg_conservative.nc',
+              'croco_1h_inst_surf_2005-07-01-2005-07-31_0.1deg_conservative.nc',
+              'croco_1h_inst_surf_2005-08-01-2005-08-31_0.1deg_conservative.nc',
+              'croco_1h_inst_surf_2005-09-01-2005-09-30_0.1deg_conservative.nc',
+              'croco_1h_inst_surf_2005-10-01-2005-10-31_0.1deg_conservative.nc',
+              'croco_1h_inst_surf_2005-11-01-2005-11-30_0.1deg_conservative.nc',
+              'croco_1h_inst_surf_2005-12-01-2005-12-31_0.1deg_conservative.nc']
+name_regrid = ['croco_1h_inst_surf_2005-01-01-2005-01-31_0.1deg_conservative.nc']
+name_regrid = ['croco_1h_inst_surf_2006-02-01-2006-02-28_0.1deg_conservative.nc']
 
 # Observations
-period_obs          = 86400 #86400      # s, how many second between observations  
+period_obs          = oneday #86400      # s, how many second between observations  
 
 # ============================================================
 # END PARAMETERS
@@ -86,23 +100,35 @@ os.system('mkdir -p '+path_save_png)
 
 if __name__ == "__main__": 
     
+    file = []
+    for ifile in range(len(name_regrid)):
+        file.append(path_regrid+name_regrid[ifile])
+    #file = path_regrid+name_regrid 
+    if TEST_SLAB or TEST_SLAB_KT or TEST_SLAB_KT_FILTERED_FC:
+        forcing1D = forcing.Forcing1D(point_loc, dt_forcing, file)
+        observations1D = observations.Observation1D(point_loc, period_obs, dt_OSSE, file)
+    if TEST_SLAB_KT_2D:
+        forcing2D = forcing.Forcing2D(dt_forcing, file, LON_bounds, LAT_bounds)
+        observations2D = observations.Observation2D(period_obs, dt_OSSE, file, LON_bounds, LAT_bounds)
     
-    file = path_regrid+name_regrid 
-    forcing1D = forcing.Forcing1D(point_loc, dt_forcing, file)
-    observations1D = observations.Observation1D(point_loc, period_obs, dt_OSSE, file)
-    forcing2D = forcing.Forcing2D(dt_forcing, file, LON_bounds, LAT_bounds)
-    observations2D = observations.Observation2D(period_obs, dt_OSSE, file, LON_bounds, LAT_bounds)
-    
+    ### WARNINGS
+    dsfull = xr.open_mfdataset(path_regrid+name_regrid[0])
+    # warning about t1>length of forcing
+    if t1 > len(dsfull.time)*dt_forcing:
+        print(f'You chose to run the model for t1={t1//oneday} days but the forcing is available up to t={len(dsfull.time)*dt_forcing//oneday} days\n'
+                        +f'I will use t1={len(dsfull.time)*dt_forcing//oneday} days')
+        t1 = len(dsfull.time)*dt_forcing
     # warning about 2D selection
-    dsfull = xr.open_mfdataset(path_regrid+name_regrid)
     minlon, maxlon = np.amin(dsfull.lon), np.amax(dsfull.lon)
     minlat, maxlat = np.amin(dsfull.lat), np.amax(dsfull.lat)
-    print(minlon.values,maxlon.values,minlat.values,maxlat.values)
-    # -81.95 -36.05 22.55 48.75
+    #print(minlon.values,maxlon.values,minlat.values,maxlat.values) # = -81.95 -36.05 22.55 48.75
     if (minlon + R > point_loc[0]) or (point_loc[0] > maxlon - R):
-        raise Exception("your choice of LON in 'point_loc' and 'R' is outside of the domain, please retry")
+        raise Exception(f"your choice of LON in 'point_loc'({point_loc}) and 'R'({R}) is outside of the domain, please retry")
     if (minlat + R > point_loc[1]) or (point_loc[1] > maxlat - R):
-        raise Exception("your choice of LAT in 'point_loc' and 'R' is outside of the domain, please retry")
+        raise Exception(f"your choice of LAT in 'point_loc'({point_loc}) and 'R'({R}) is outside of the domain, please retry")
+    
+    
+    
     
     if TEST_SLAB:
         print('* test jslab')
