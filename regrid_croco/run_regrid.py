@@ -7,19 +7,11 @@ path_in_local = '/home/jacqhugo/Datlas_2025/DATA_Crocco/'
 path_in_hpc = '/data2/nobackup/clement/Data/Lionel_coupled_run/'
 path_in_hpc = '/ODYSEA2/Lionel_coupled_run/'
 #L_filename = ['croco_1h_inst_surf_2006-02-01-2006-02-28']
-# L_filename = ['croco_1h_inst_surf_2005-01-01-2005-01-31.nc',
-#               'croco_1h_inst_surf_2005-02-01-2005-02-28.nc',
-#               'croco_1h_inst_surf_2005-03-01-2005-03-31.nc',
-#               'croco_1h_inst_surf_2005-04-01-2005-04-30.nc',
-#               'croco_1h_inst_surf_2005-05-01-2005-05-31.nc',
-#               'croco_1h_inst_surf_2005-06-01-2005-06-30.nc',
-#               'croco_1h_inst_surf_2005-07-01-2005-07-31.nc',
-#               'croco_1h_inst_surf_2005-08-01-2005-08-31.nc',
-#               'croco_1h_inst_surf_2005-09-01-2005-09-30.nc',
-#               'croco_1h_inst_surf_2005-10-01-2005-10-31.nc',
-#               'croco_1h_inst_surf_2005-11-01-2005-11-30.nc',
-#               'croco_1h_inst_surf_2005-12-01-2005-12-31.nc']
-L_filename = ['croco_1h_inst_surf_2005-05-01-2005-05-31.nc',
+L_filename = ['croco_1h_inst_surf_2005-01-01-2005-01-31.nc',
+              'croco_1h_inst_surf_2005-02-01-2005-02-28.nc',
+              'croco_1h_inst_surf_2005-03-01-2005-03-31.nc',
+              'croco_1h_inst_surf_2005-04-01-2005-04-30.nc',
+              'croco_1h_inst_surf_2005-05-01-2005-05-31.nc',
               'croco_1h_inst_surf_2005-06-01-2005-06-30.nc',
               'croco_1h_inst_surf_2005-07-01-2005-07-31.nc',
               'croco_1h_inst_surf_2005-08-01-2005-08-31.nc',
