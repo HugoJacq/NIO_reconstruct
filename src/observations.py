@@ -43,10 +43,8 @@ class Observation1D:
         else:
             U, V = self.U, self.V
         step_obs = int(self.obs_period)//int(self.dt_forcing)
-        print(self.obs_period, int(self.obs_period), self.dt_forcing, int(self.dt_forcing), step_obs)
         self.Uo = U[::step_obs]
         self.Vo = V[::step_obs]
-        print(self.U.shape,self.Uo.shape)
         return self.Uo,self.Vo
     
 

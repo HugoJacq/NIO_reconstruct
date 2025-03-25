@@ -52,7 +52,6 @@ class jslab(eqx.Module):
         self.nl = nl
         self.AD_mode = AD_mode
         t0,t1,dt = call_args
-        print(t0,t1,dt)
         self.t0 = t0
         self.t1 = t1
         self.dt = dt
@@ -105,10 +104,11 @@ class jslab(eqx.Module):
                     raise Exception('You want to save at dt<dt_forcing, this is not available.\n Choose a bigger dt')
                 else:
                     step_save_out = int(save_traj_at//self.dt_forcing)
-                    print(step_save_out,save_traj_at//self.dt_forcing)
             
+            # initialisation at null current
             U, V = jnp.zeros(Nforcing), jnp.zeros(Nforcing)
-             
+            
+            # inner loop at dt
             def __inner_loop(carry, iin):
                 Uold, Vold, iout = carry
                 t = iout*self.dt_forcing + iin*self.dt
@@ -118,6 +118,7 @@ class jslab(eqx.Module):
                 X1 = newU,newV,iout
                 return X1, X1
             
+            # outer loop at dt_forcing
             def __outer_loop(carry, iout):
                 U,V = carry
                 X1 = U[iout], V[iout], iout
@@ -140,6 +141,7 @@ class jslab(eqx.Module):
             
         return solution
 
+    # vector field is common whether we use diffrax or not
     def vector_field(self, t, C, args):
             U,V = C
             fc, K, TAx, TAy, nsubsteps = args
@@ -208,9 +210,6 @@ class jslab_kt(eqx.Module):
     @eqx.filter_jit
     def __call__(self, save_traj_at = None): #call_args, 
 
-        
-
-        
         y0 = 0.0,0.0 # self.U0,self.V0
         t0, t1, dt = self.t0, self.t1, self.dt # call_args
         nsubsteps = int(self.dt_forcing // dt)
@@ -464,8 +463,6 @@ class jslab_kt_2D(eqx.Module):
         TAxt = (1-aa)*TAx[itf] + aa*TAx[itsup]
         TAyt = (1-aa)*TAy[itf] + aa*TAy[itsup]
         Ktnow = (1-aa)*Kt[it-1] + aa*Kt[itsup]
-        
-        print(fc.shape,V.shape,U.shape)
         # def cond_print(it):
         #     jax.debug.print('it,itf, TA, {}, {}, {}',it,itf,(TAx,TAy))
         # jax.lax.cond(it<=10, cond_print, lambda x:None, it)
