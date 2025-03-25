@@ -36,7 +36,7 @@ AD_mode             = 'F'       # forward mode for AD
 
 # run parameters
 t0                  = 0.
-t1                  = 360*oneday
+t1                  = 28*oneday
 dt                  = 60.        # timestep of the model (s) 
 
 # What to test
@@ -46,8 +46,8 @@ maxiter             = 50         # max number of iteration
 PLOT_TRAJ           = False
 
 # Switches
-TEST_SLAB                   = True
-TEST_SLAB_KT                = False
+TEST_SLAB                   = False
+TEST_SLAB_KT                = True
 TEST_SLAB_KT_FILTERED_FC    = False
 TEST_SLAB_KT_2D             = False
 

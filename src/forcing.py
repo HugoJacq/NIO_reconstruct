@@ -18,7 +18,7 @@ class Forcing1D:
     def __init__(self, point_loc, dt_forcing, path_file):
         
         # from dataset
-        ds = xr.open_mfdataset(path_file)
+        ds = xr.open_dataset(path_file[0])
         indx = nearest(ds.lon.values,point_loc[0])
         indy = nearest(ds.lat.values,point_loc[1])
         self.data = ds.isel(lon=indx,lat=indy)

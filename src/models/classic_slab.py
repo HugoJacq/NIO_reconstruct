@@ -56,7 +56,7 @@ class jslab(eqx.Module):
         self.t1 = t1
         self.dt = dt
         
-        self.use_difx = True # use_difx
+        self.use_difx = use_difx # use_difx
         
     @eqx.filter_jit
     def __call__(self, save_traj_at = None):
@@ -103,7 +103,7 @@ class jslab(eqx.Module):
                 if save_traj_at<self.dt_forcing:
                     raise Exception('You want to save at dt<dt_forcing, this is not available.\n Choose a bigger dt')
                 else:
-                    step_save_out = save_traj_at//self.dt_forcing
+                    step_save_out = int(save_traj_at//self.dt_forcing)
             
             U, V = jnp.zeros(Nforcing), jnp.zeros(Nforcing)
              
@@ -254,7 +254,7 @@ class jslab_kt(eqx.Module):
                 if save_traj_at<self.dt_forcing:
                     raise Exception('You want to save at dt<dt_forcing, this is not available.\n Choose a bigger dt')
                 else:
-                    step_save_out = save_traj_at//self.dt_forcing
+                    step_save_out = int(save_traj_at//self.dt_forcing)
             
             U, V = jnp.zeros(Nforcing), jnp.zeros(Nforcing)
             
@@ -415,7 +415,7 @@ class jslab_kt_2D(eqx.Module):
                 if save_traj_at<self.dt_forcing:
                     raise Exception('You want to save at dt<dt_forcing, this is not available.\n Choose a bigger dt')
                 else:
-                    step_save_out = save_traj_at//self.dt_forcing
+                    step_save_out = int(save_traj_at//self.dt_forcing)
             
             U, V = jnp.zeros((Nforcing, self.ny, self.nx)), jnp.zeros((Nforcing, self.ny, self.nx))
             

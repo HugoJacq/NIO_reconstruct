@@ -18,7 +18,7 @@ class Observation1D:
     def __init__(self, point_loc, periode_obs, dt_forcing, path_file):
         
         # from dataset
-        ds = xr.open_mfdataset(path_file)
+        ds = xr.open_dataset(path_file[0])
         indx = nearest(ds.lon.values,point_loc[0])
         indy = nearest(ds.lat.values,point_loc[1])
         self.data = ds.isel(lon=indx,lat=indy)
@@ -43,7 +43,7 @@ class Observation1D:
         else:
             U, V = self.U, self.V
         print(self.U.shape)
-        step_obs = int(self.obs_period//self.dt_forcing)
+        step_obs = int(self.obs_period)//int(self.dt_forcing)
         self.Uo = U[::step_obs]
         self.Vo = V[::step_obs]
         return self.Uo,self.Vo
@@ -80,7 +80,7 @@ class Observation2D:
         """
         OSSE of current from the coupled OA model
         """
-        step_obs = int(self.obs_period//self.dt_forcing)
+        step_obs = int(self.obs_period)//int(self.dt_forcing)
         self.Uo = self.U[::step_obs]
         self.Vo = self.V[::step_obs]
         return self.Uo,self.Vo
