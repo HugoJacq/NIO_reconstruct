@@ -186,8 +186,9 @@ class jslab_kt(eqx.Module):
     dt : jnp.array         
     
     use_difx : bool 
+    k_base : str
     
-    def __init__(self, pk, TAx, TAy, fc, dTK, dt_forcing, nl, AD_mode, call_args, use_difx=False):
+    def __init__(self, pk, TAx, TAy, fc, dTK, dt_forcing, nl, AD_mode, call_args, use_difx=False, k_base='gauss'):
         t0,t1,dt = call_args
         self.t0 = t0
         self.t1 = t1
@@ -206,6 +207,7 @@ class jslab_kt(eqx.Module):
         self.AD_mode = AD_mode
         
         self.use_difx = use_difx
+        self.k_base = k_base
         
     @eqx.filter_jit
     def __call__(self, save_traj_at = None): #call_args, 
@@ -216,7 +218,7 @@ class jslab_kt(eqx.Module):
         # control
         K = jnp.exp( self.pk) 
         K = kt_1D_to_2D(K, NdT=self.NdT, nl=self.nl)
-        M = pkt2Kt_matrix(NdT=self.NdT, dTK=self.dTK, t0=t0, t1=t1, dt_forcing=self.dt_forcing)
+        M = pkt2Kt_matrix(NdT=self.NdT, dTK=self.dTK, t0=t0, t1=t1, dt_forcing=self.dt_forcing, base=self.k_base)
         Kt = jnp.dot(M,K)
         args = self.fc, Kt, self.TAx, self.TAy, nsubsteps
         
@@ -344,8 +346,9 @@ class jslab_kt_2D(eqx.Module):
     dt : jnp.array         
     
     use_difx : bool 
+    k_base : str
     
-    def __init__(self, pk, TAx, TAy, fc, dTK, dt_forcing, nl, AD_mode, call_args, use_difx=False):
+    def __init__(self, pk, TAx, TAy, fc, dTK, dt_forcing, nl, AD_mode, call_args, use_difx=False, k_base='gauss'):
         t0,t1,dt = call_args
         self.t0 = t0
         self.t1 = t1
@@ -367,6 +370,7 @@ class jslab_kt_2D(eqx.Module):
         self.ny = shape[-2]
         
         self.use_difx = use_difx
+        self.k_base = k_base
         
     @eqx.filter_jit
     def __call__(self, save_traj_at = None): #call_args, 
@@ -377,7 +381,7 @@ class jslab_kt_2D(eqx.Module):
         # control
         K = jnp.exp( self.pk) 
         K = kt_1D_to_2D(K, NdT=self.NdT, nl=self.nl)
-        M = pkt2Kt_matrix(NdT=self.NdT, dTK=self.dTK, t0=t0, t1=t1, dt_forcing=self.dt_forcing)
+        M = pkt2Kt_matrix(NdT=self.NdT, dTK=self.dTK, t0=t0, t1=t1, dt_forcing=self.dt_forcing, base=self.k_base)
         Kt = jnp.dot(M,K)
         args = self.fc, Kt, self.TAx, self.TAy, nsubsteps
         
@@ -485,7 +489,7 @@ def kt_1D_to_2D(vector_kt_1D, NdT, nl):
 def kt_2D_to_1D(vector_kt):
     return vector_kt.flatten()
 
-def pkt2Kt_matrix(NdT, dTK, t0, t1, dt_forcing):
+def pkt2Kt_matrix(NdT, dTK, t0, t1, dt_forcing, base='gauss'):
         """
         original numpy function:
         
@@ -520,60 +524,60 @@ def pkt2Kt_matrix(NdT, dTK, t0, t1, dt_forcing):
         vector_Kt :
             X - - - - * - - - - * - - - - * - - - - * X  # 6 values
         """
-        # if dTK<gtime[-1]-gtime[0] : 
-        #     gptime = jnp.arange(gtime[0], gtime[-1]+dTK,dTK)
-        # else: 
-        #     gptime = jnp.array([gtime[0]])
-          
         if NdT>0:    
+            # gptime = jnp.arange(t0+ dTK/2, t1,dTK) # here +dTK/2 so that gaussian are at the middle of dTK intervals
             gptime = jnp.arange(t0, t1,dTK)
         else:
             gptime = jnp.array([t0])
         gtime = jnp.arange(t0,t1,dt_forcing)
         
-        # MY VERSION
-        # #print('test 1')    
-        # nt = len(gtime)
-        # npt = len(gptime)
-        # M = jnp.zeros((nt,npt))
-        # S = jnp.zeros((nt))
-        
-        # def __step_pkt2Kt_matrix(arg0, ip):
-        #     #print('test 2') 
-        #     gtime,gptime,S,M = arg0
-        #     distt = (gtime-gptime[ip])
-        #     cond = jnp.abs(distt) < 3*dTK
-        #     myexp = jnp.exp(2*-distt**2/dTK**2)
-        #     tmp = jnp.where(cond, myexp, 0)
-        #     S = lax.add( S, tmp )
-        #     M = M.at[:,ip].set( M[:,ip] + tmp )
-        #     arg0 = gtime,gptime,S,M
-        #     return arg0, arg0
-
-        # # loop over each dT
-        # arg0 = gtime, gptime, S, M
-        # # This should work but there is a bug in jax
         # # see : https://docs.kidger.site/equinox/faq/#how-to-use-non-array-modules-as-inputs-to-scancondwhile-etc
-        # # |
+        # # |   so you need to use scan with a custom made lambda function
         # # v
         # #_, _, S, M = lax.fori_loop(0, npt, self.__step_pkt2Kt_matrix, arg0) 
         # arg0,_ = lax.scan(lambda it,arg0: __step_pkt2Kt_matrix(it,arg0), arg0, xs=jnp.arange(0,npt))
-        # _, _, S, M = arg0
-        # M = (M.T / S.T).T 
         
-        # CLAUDE VERSION
-        # Vectorize the distance calculation
-        # Shape: (nt, npt)
-        distt = gtime[:, jnp.newaxis] - gptime[jnp.newaxis, :]
-        
-        # Vectorized condition and exponential calculation
-        cond = jnp.abs(distt) < 3 * dTK
-        tmp = jnp.exp(-2*distt**2 / dTK**2) * cond  # The condition zeros out values outside range
-        
-        # Sum across the appropriate axis for S
-        S = jnp.sum(tmp, axis=1)
-        
-        # Division with proper broadcasting
-        M = tmp / S[:, jnp.newaxis]      
-        
+        if base=='gauss':
+            # CLAUDE VERSION
+            # Vectorize the distance calculation
+            # Shape: (nt, npt)
+            distt = gtime[:, jnp.newaxis] - gptime[jnp.newaxis, :]
+            
+            # Vectorized condition and exponential calculation
+            cond = jnp.abs(distt) < 3 * dTK
+            #tmp = jnp.exp(-2*distt**2 / dTK**2) * cond  # The condition zeros out values outside range
+            tmp = jnp.exp(-distt**2 / dTK**2) * cond
+            # Sum across the appropriate axis for S
+            S = jnp.sum(tmp, axis=1)
+            
+            # Division with proper broadcasting
+            M = tmp / S[:, jnp.newaxis]      
+        elif base=='id':
+            
+            M = jnp.zeros((len(gtime),len(gptime)))
+            
+            nsteps = int(dTK//dt_forcing)
+            slice_ones = jnp.ones(nsteps)
+            if NdT*nsteps>len(gtime):
+                last_slice = jnp.ones(len(gtime)-(NdT-1)*nsteps )
+            else:
+                last_slice = slice_ones
+            def __fn_scan(arg0, it):
+                """
+                """
+                M = arg0
+                imin = jnp.array(it*nsteps,int)
+                myslice = lax.select( it*nsteps> len(gtime), last_slice, slice_ones)
+                #jax.debug.print('M[:,it] {} \n myslice {} \n imin {}/{} \n', M[:,it], myslice, imin, len(gtime))
+                #jax.debug.print('len(myslice) {}, imin= {} / {}', len(myslice), imin, len(gtime))
+                update = lax.dynamic_update_slice(M[:,it], myslice, (imin,))                            
+                M = M.at[:,it].set(update)
+                
+                return M, M
+            
+            arg0 = M
+            final, _ = lax.scan( __fn_scan, arg0, xs=jnp.arange(0,len(gptime)))
+            
+            M = final
+            
         return M

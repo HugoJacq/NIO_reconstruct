@@ -47,6 +47,7 @@ def plot_traj_1D(mymodel, var_dfx, forcing1D, observations1D, name_save, path_sa
     Ua,Va = mymodel(save_traj_at=mymodel.dt_forcing)
     U = forcing1D.data.U.values
     V = forcing1D.data.V.values
+    t0 = mymodel.t0
     Uo, _ = observations1D.get_obs()
     RMSE = tools.score_RMSE(Ua, U) 
     dynamic_model, static_model = var_dfx.my_partition(mymodel)
@@ -56,16 +57,16 @@ def plot_traj_1D(mymodel, var_dfx, forcing1D, observations1D, name_save, path_sa
     # PLOT trajectory
     fig, ax = plt.subplots(3,1,figsize = (10,10),constrained_layout=True,dpi=dpi)
     if var_dfx.filter_at_fc:
-        ax[0].plot(forcing1D.time/86400, U, c='k', lw=2, label='Croco', alpha=0.3)
-        ax[0].plot(forcing1D.time/86400, Ua, c='g', label='slab', alpha = 0.3)
+        ax[0].plot((t0 + forcing1D.time)/oneday, U, c='k', lw=2, label='Croco', alpha=0.3)
+        ax[0].plot((t0 + forcing1D.time)/oneday, Ua, c='g', label='slab', alpha = 0.3)
         (Ut_nio,Vt_nio) = tools.my_fc_filter(mymodel.dt_forcing,U+1j*V, mymodel.fc)
-        ax[0].plot(forcing1D.time/86400, Ut_nio, c='k', lw=2, label='Croco at fc', alpha=1)
+        ax[0].plot((t0 + forcing1D.time)/oneday, Ut_nio, c='k', lw=2, label='Croco at fc', alpha=1)
         (Unio,Vnio) = tools.my_fc_filter(mymodel.dt_forcing, Ua+1j*Va, mymodel.fc)
-        ax[0].plot(forcing1D.time/86400, Unio, c='b', label='slab at fc')
+        ax[0].plot((t0 + forcing1D.time)/oneday, Unio, c='b', label='slab at fc')
     else:
-        ax[0].plot(forcing1D.time/86400, U, c='k', lw=2, label='Croco', alpha=1)
-        ax[0].plot(forcing1D.time/86400, Ua, c='g', label='slab')
-    ax[0].scatter(observations1D.time_obs/86400,Uo, c='r', label='obs', marker='x')
+        ax[0].plot((t0 + forcing1D.time)/oneday, U, c='k', lw=2, label='Croco', alpha=1)
+        ax[0].plot((t0 + forcing1D.time)/oneday, Ua, c='g', label='slab')
+    ax[0].scatter((t0 + observations1D.time_obs)/oneday,Uo, c='r', label='obs', marker='x')
     ax[0].set_ylim([-0.6,0.6])
     #ax.set_xlim([15,25])
     #ax.set_title('RMSE='+str(np.round(RMSE,4))+' cost='+str(np.round(final_cost,4)))
@@ -73,25 +74,33 @@ def plot_traj_1D(mymodel, var_dfx, forcing1D, observations1D, name_save, path_sa
     ax[0].set_ylabel('Ageo zonal current (m/s)')
     ax[0].legend(loc=1)
     # plot forcing
-    ax[1].plot(forcing1D.time/86400, forcing1D.TAx, c='b', lw=2, label=r'$\tau_x$', alpha=1)
-    ax[1].plot(forcing1D.time/86400, forcing1D.TAy, c='orange', lw=2, label=r'$\tau_y$', alpha=1)
+    ax[1].plot((t0 + forcing1D.time)/oneday, forcing1D.TAx, c='b', lw=2, label=r'$\tau_x$', alpha=1)
+    ax[1].plot((t0 + forcing1D.time)/oneday, forcing1D.TAy, c='orange', lw=2, label=r'$\tau_y$', alpha=1)
     ax[1].set_ylabel('surface stress (N/m2)')
     ax[1].legend(loc=1)
     # plot MLD
     if hasattr(mymodel, 'dTK'):
         NdT = len(np.arange(mymodel.t0, mymodel.t1, mymodel.dTK))
-        M = classic_slab.pkt2Kt_matrix(NdT, mymodel.dTK, mymodel.t0, mymodel.t1, mymodel.dt_forcing)
+        M = classic_slab.pkt2Kt_matrix(NdT, mymodel.dTK, mymodel.t0, mymodel.t1, mymodel.dt_forcing, base=mymodel.k_base)
         kt2D = classic_slab.kt_1D_to_2D(mymodel.pk, NdT, mymodel.nl)
         new_kt = np.dot(M,kt2D)
         myMLD = 1/np.exp(new_kt[:,0])/rho
-        ax[2].plot(forcing1D.time/86400, np.repeat(mymodel.pk,NdT), label='no base transform')
+        if mymodel.k_base !='id':
+            M2 = classic_slab.pkt2Kt_matrix(NdT, mymodel.dTK, mymodel.t0, mymodel.t1, mymodel.dt_forcing, base='id')
+            new_kt2 = np.dot(M2,kt2D)
+            myMLD_cst = 1/np.exp(new_kt2[:,0])/rho
+            ax[2].plot((t0 + forcing1D.time)/oneday, myMLD_cst, label='no base transform')
+        
+        fig2, ax2 = plt.subplots(1,1,figsize = (10,10),constrained_layout=True,dpi=dpi)
+        for k in range(M.shape[-1]):
+            ax2.plot(M[:,k])
+            #ax2.plot(M2[:,k], ls='--')
     else:
         myMLD = 1/np.exp(mymodel.pk[0])/rho * np.ones(len(forcing1D.time))
-    ax[2].legend(loc=1)   
-    ax[2].plot(forcing1D.time/86400, myMLD, label='estimated')
-    ax[2].plot(forcing1D.time/86400, forcing1D.MLD,label='true')
+    ax[2].plot((t0 + forcing1D.time)/oneday, myMLD, label='estimated ('+mymodel.k_base+')')
+    ax[2].plot((t0 + forcing1D.time)/oneday, forcing1D.MLD, c='k', label='true')
     ax[2].set_ylabel('MLD (m)')
-    
+    ax[2].legend(loc=1)
     ax[2].set_xlabel('Time (days)')
     fig.savefig(path_save_png+name_save+'_t'+str(int(mymodel.t0//oneday))+'_'+str(int(mymodel.t1//oneday))+'.png')
     

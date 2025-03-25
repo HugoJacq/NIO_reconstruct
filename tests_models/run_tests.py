@@ -22,6 +22,11 @@ from tests_functions import run_forward_cost_grad, plot_traj_1D, plot_traj_2D
 import tools
 from constants import *
 
+import matplotlib
+print (matplotlib.rcParams['backend']) 
+#matplotlib.use('qt5agg')
+print (matplotlib.rcParams['backend']) 
+
 start = clock.time()
 
 # ============================================================
@@ -32,6 +37,7 @@ start = clock.time()
 # model parameters
 Nl                  = 1         # number of layers for multilayer models
 dTK                 = 20*oneday   # how much vectork K changes with time, basis change to exp
+k_base              = 'gauss'   # base of K transform. 'gauss' or 'id'
 AD_mode             = 'F'       # forward mode for AD 
 
 # run parameters
@@ -40,7 +46,7 @@ t1                  = 300*oneday
 dt                  = 60.        # timestep of the model (s) 
 
 # What to test
-FORWARD_PASS        = True      # tests forward, cost, gradcost
+FORWARD_PASS        = False      # tests forward, cost, gradcost
 MINIMIZE            = True      # switch to do the minimisation process
 maxiter             = 50         # max number of iteration
 PLOT_TRAJ           = True
@@ -182,7 +188,7 @@ if __name__ == "__main__":
         
         call_args = t0, t1, dt
         #NdT = int((t1-t0)//dTK) # jnp.array(int((t1-t0)//dTK))
-        mymodel = jslab_kt(pk, TAx, TAy, fc, dTK, dt_forcing, nl=1, AD_mode=AD_mode, call_args=call_args)
+        mymodel = jslab_kt(pk, TAx, TAy, fc, dTK, dt_forcing, nl=1, AD_mode=AD_mode, call_args=call_args, k_base=k_base)
         var_dfx = inv.Variational(mymodel,observations1D)
         
         if FORWARD_PASS:
@@ -216,7 +222,7 @@ if __name__ == "__main__":
         fc = jnp.asarray(forcing1D.fc)
         
         call_args = t0, t1, dt
-        mymodel = jslab_kt(pk, TAx, TAy, fc, dTK, dt_forcing, nl=1, AD_mode=AD_mode, call_args=call_args)
+        mymodel = jslab_kt(pk, TAx, TAy, fc, dTK, dt_forcing, nl=1, AD_mode=AD_mode, call_args=call_args, k_base=k_base)
         var_dfx = inv.Variational(mymodel,observations1D, filter_at_fc=True)
         
         # dynamic_model, static_model = var_dfx.my_partition(mymodel)
@@ -259,8 +265,7 @@ if __name__ == "__main__":
         fc = jnp.asarray(forcing2D.fc)
         
         call_args = t0, t1, dt
-        #NdT = int((t1-t0)//dTK) # jnp.array(int((t1-t0)//dTK))
-        mymodel = jslab_kt_2D(pk, TAx, TAy, fc, dTK, dt_forcing, nl=1, AD_mode=AD_mode, call_args=call_args,use_difx=False)
+        mymodel = jslab_kt_2D(pk, TAx, TAy, fc, dTK, dt_forcing, nl=1, AD_mode=AD_mode, call_args=call_args,use_difx=False, k_base=k_base)
         var_dfx = inv.Variational(mymodel,observations2D)
         
     

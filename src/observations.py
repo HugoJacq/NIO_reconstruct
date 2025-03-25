@@ -21,7 +21,7 @@ class Observation1D:
         ds = xr.open_mfdataset(path_file)
         indx = nearest(ds.lon.values,point_loc[0])
         indy = nearest(ds.lat.values,point_loc[1])
-        time_a = np.arange(t0,t1,dt_forcing)
+        time_a = np.arange(t0,t1+dt_forcing,dt_forcing)
         itmin = nearest(time_a, t0)
         itmax = nearest(time_a, t1)
         self.data = ds.isel(time=slice(itmin,itmax), lon=indx,lat=indy)
@@ -65,7 +65,7 @@ class Observation2D:
         
         # from dataset for OSSE
         ds = xr.open_mfdataset(path_file) 
-        time_a = np.arange(t0,t1,dt_forcing)
+        time_a = np.arange(t0,t1+dt_forcing,dt_forcing)
         itmin = nearest(time_a, t0)
         itmax = nearest(time_a, t1)
         ds = ds.isel(time=slice(itmin,itmax))        
