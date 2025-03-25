@@ -9,7 +9,10 @@ import numpy as np
 import jax.numpy as jnp
 import sys
 sys.path.insert(0, '../src')
+
 import tools
+import models.classic_slab as classic_slab
+from constants import *
 
 def run_forward_cost_grad(mymodel, var_dfx):
     """
@@ -51,7 +54,7 @@ def plot_traj_1D(mymodel, var_dfx, forcing1D, observations1D, name_save, path_sa
         
     print('RMSE is',RMSE)
     # PLOT trajectory
-    fig, ax = plt.subplots(2,1,figsize = (10,6),constrained_layout=True,dpi=dpi)
+    fig, ax = plt.subplots(3,1,figsize = (10,10),constrained_layout=True,dpi=dpi)
     if var_dfx.filter_at_fc:
         ax[0].plot(forcing1D.time/86400, U, c='k', lw=2, label='Croco', alpha=0.3)
         ax[0].plot(forcing1D.time/86400, Ua, c='g', label='slab', alpha = 0.3)
@@ -70,11 +73,25 @@ def plot_traj_1D(mymodel, var_dfx, forcing1D, observations1D, name_save, path_sa
     ax[0].set_ylabel('Ageo zonal current (m/s)')
     ax[0].legend(loc=1)
     # plot forcing
-    ax[1].plot(forcing1D.time/86400, forcing1D.TAx, c='b', lw=2, label=r'$\tau_x', alpha=1)
-    ax[1].plot(forcing1D.time/86400, forcing1D.TAy, c='orange', lw=2, label=r'$\tau_y', alpha=1)
+    ax[1].plot(forcing1D.time/86400, forcing1D.TAx, c='b', lw=2, label=r'$\tau_x$', alpha=1)
+    ax[1].plot(forcing1D.time/86400, forcing1D.TAy, c='orange', lw=2, label=r'$\tau_y$', alpha=1)
     ax[1].set_ylabel('surface stress (N/m2)')
     ax[1].legend(loc=1)
-    ax[1].set_xlabel('Time (days)')
+    # plot MLD
+    if hasattr(mymodel, 'dTK'):
+        NdT = len(np.arange(mymodel.t0, mymodel.t1, mymodel.dTK))
+        M = classic_slab.pkt2Kt_matrix(NdT, mymodel.dTK, mymodel.t0, mymodel.t1, mymodel.dt_forcing)
+        kt2D = classic_slab.kt_1D_to_2D(mymodel.pk, NdT, mymodel.nl)
+        new_kt = np.dot(M,kt2D)
+        myMLD = 1/np.exp(new_kt[:,0])/rho
+    else:
+        myMLD = 1/np.exp(mymodel.pk[0])/rho * np.ones(len(forcing1D.time))
+        
+    ax[2].plot(forcing1D.time/86400, myMLD, label='estimated')
+    ax[2].plot(forcing1D.time/86400, forcing1D.MLD,label='true')
+    ax[2].set_ylabel('MLD (m)')
+    
+    ax[2].set_xlabel('Time (days)')
     fig.savefig(path_save_png+name_save+'.png')
     
 

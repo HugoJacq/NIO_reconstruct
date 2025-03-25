@@ -40,10 +40,10 @@ t1                  = 365*oneday
 dt                  = 60.        # timestep of the model (s) 
 
 # What to test
-FORWARD_PASS        = True      # tests forward, cost, gradcost
-MINIMIZE            = False      # switch to do the minimisation process
+FORWARD_PASS        = False      # tests forward, cost, gradcost
+MINIMIZE            = True      # switch to do the minimisation process
 maxiter             = 50         # max number of iteration
-PLOT_TRAJ           = False
+PLOT_TRAJ           = True
 
 # Switches
 TEST_SLAB                   = False
@@ -125,7 +125,7 @@ if __name__ == "__main__":
         raise Exception(f"your choice of LON in 'point_loc'({point_loc}) and 'R'({R}) is outside of the domain, please retry")
     if (minlat + R > point_loc[1]) or (point_loc[1] > maxlat - R):
         raise Exception(f"your choice of LAT in 'point_loc'({point_loc}) and 'R'({R}) is outside of the domain, please retry")
-    
+    ### END WARNINGS
     
     
     
@@ -189,7 +189,8 @@ if __name__ == "__main__":
             print(' time, minimize',clock.time()-t7)
                            
         name_save = 'jslab_kt_'+namesave_loc
-        plot_traj_1D(mymodel, var_dfx, forcing1D, observations1D, name_save, path_save_png, dpi)
+        if PLOT_TRAJ: 
+            plot_traj_1D(mymodel, var_dfx, forcing1D, observations1D, name_save, path_save_png, dpi)
     
     if TEST_SLAB_KT_FILTERED_FC:
         print('* test jslab_kt with filter at fc before computing cost')
@@ -231,25 +232,11 @@ if __name__ == "__main__":
             t7 = clock.time()
             mymodel = var_dfx.scipy_lbfgs_wrapper(mymodel, maxiter, gtol=1e-5, verbose=True)   
             print(' time, minimize',clock.time()-t7)
+          
         
-        #M = pkt2Kt_matrix(NdT, dTK, np.arange(t0,t1,dt_forcing))
-        M = pkt2Kt_matrix(NdT, dTK, t0, t1, dt_forcing)
-        kt2D = kt_1D_to_2D(mymodel.pk, NdT, Nl)
-        new_kt = np.dot(M,kt2D)
-        fig, ax = plt.subplots(1,1,figsize = (10,3),constrained_layout=True,dpi=dpi)
-        for k in range(M.shape[-1]):
-            ax.plot(forcing1D.time/86400, M[:,k] ) 
-        # for k in range(new_kt.shape[-1]):
-        #     ax.plot(new_kt[:,k],label='K'+str(k))
-        # ax.legend()              
         name_save = 'jslab_kt_'+namesave_loc
-        plot_traj_1D(mymodel, var_dfx, forcing1D, observations1D, name_save, path_save_png, dpi)
-        
-        fig, ax = plt.subplots(1,1,figsize = (10,3),constrained_layout=True,dpi=dpi)
-        ax.plot(forcing1D.time/86400, 1/np.exp(new_kt[:,0])/1000, label='estimated')
-        ax.plot(forcing1D.time/86400, forcing1D.MLD,label='true')
-        ax.set_ylabel('MLD (m)')
-        ax.set_xlabel('time (days)')
+        if PLOT_TRAJ:           
+            plot_traj_1D(mymodel, var_dfx, forcing1D, observations1D, name_save, path_save_png, dpi)
         
     if TEST_SLAB_KT_2D:
         #with jax.profiler.trace("/tmp/tensorboard"):

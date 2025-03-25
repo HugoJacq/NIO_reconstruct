@@ -22,9 +22,7 @@ class Variational:
         self.filter_at_fc = filter_at_fc
 
     def loss_fn(self, sol, obs):
-        #print('sol',sol)
         sol = jnp.asarray(sol)
-        print(sol[0].shape,obs[0].shape,sol[1].shape,obs[1].shape)
         return jnp.mean( (sol[0]-obs[0])**2 + (sol[1]-obs[1])**2 )
     
     @eqx.filter_jit
