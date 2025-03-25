@@ -51,24 +51,30 @@ def plot_traj_1D(mymodel, var_dfx, forcing1D, observations1D, name_save, path_sa
         
     print('RMSE is',RMSE)
     # PLOT trajectory
-    fig, ax = plt.subplots(1,1,figsize = (10,3),constrained_layout=True,dpi=dpi)
+    fig, ax = plt.subplots(2,1,figsize = (10,6),constrained_layout=True,dpi=dpi)
     if var_dfx.filter_at_fc:
-        ax.plot(forcing1D.time/86400, U, c='k', lw=2, label='Croco', alpha=0.3)
-        ax.plot(forcing1D.time/86400, Ua, c='g', label='slab', alpha = 0.3)
+        ax[0].plot(forcing1D.time/86400, U, c='k', lw=2, label='Croco', alpha=0.3)
+        ax[0].plot(forcing1D.time/86400, Ua, c='g', label='slab', alpha = 0.3)
         (Ut_nio,Vt_nio) = tools.my_fc_filter(mymodel.dt_forcing,U+1j*V, mymodel.fc)
-        ax.plot(forcing1D.time/86400, Ut_nio, c='k', lw=2, label='Croco at fc', alpha=1)
+        ax[0].plot(forcing1D.time/86400, Ut_nio, c='k', lw=2, label='Croco at fc', alpha=1)
         (Unio,Vnio) = tools.my_fc_filter(mymodel.dt_forcing, Ua+1j*Va, mymodel.fc)
-        ax.plot(forcing1D.time/86400, Unio, c='b', label='slab at fc')
+        ax[0].plot(forcing1D.time/86400, Unio, c='b', label='slab at fc')
     else:
-        ax.plot(forcing1D.time/86400, U, c='k', lw=2, label='Croco', alpha=1)
-        ax.plot(forcing1D.time/86400, Ua, c='g', label='slab')
-    ax.scatter(observations1D.time_obs/86400,Uo, c='r', label='obs', marker='x')
-    ax.set_ylim([-0.6,0.6])
+        ax[0].plot(forcing1D.time/86400, U, c='k', lw=2, label='Croco', alpha=1)
+        ax[0].plot(forcing1D.time/86400, Ua, c='g', label='slab')
+    ax[0].scatter(observations1D.time_obs/86400,Uo, c='r', label='obs', marker='x')
+    ax[0].set_ylim([-0.6,0.6])
     #ax.set_xlim([15,25])
     #ax.set_title('RMSE='+str(np.round(RMSE,4))+' cost='+str(np.round(final_cost,4)))
-    ax.set_xlabel('Time (days)')
-    ax.set_ylabel('Ageo zonal current (m/s)')
-    ax.legend(loc=1)
+    
+    ax[0].set_ylabel('Ageo zonal current (m/s)')
+    ax[0].legend(loc=1)
+    # plot forcing
+    ax[1].plot(forcing1D.time/86400, forcing1D.TAx, c='b', lw=2, label=r'$\tau_x', alpha=1)
+    ax[1].plot(forcing1D.time/86400, forcing1D.TAy, c='orange', lw=2, label=r'$\tau_y', alpha=1)
+    ax[1].set_ylabel('surface stress (N/m2)')
+    ax[1].legend(loc=1)
+    ax[1].set_xlabel('Time (days)')
     fig.savefig(path_save_png+name_save+'.png')
     
 
@@ -87,8 +93,7 @@ def plot_traj_2D(mymodel, var_dfx, forcing2D, observations2D, name_save, point_l
     Uo1D = Uo[:,indx,indy]
     
     RMSE = tools.score_RMSE(Ua1D, U1D) 
-    
-        
+
     print('RMSE at point_loc '+str(point_loc)+' is',RMSE)
     # PLOT trajectory
     fig, ax = plt.subplots(1,1,figsize = (10,3),constrained_layout=True,dpi=dpi)
