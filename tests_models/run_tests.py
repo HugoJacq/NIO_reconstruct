@@ -36,7 +36,7 @@ AD_mode             = 'F'       # forward mode for AD
 
 # run parameters
 t0                  = 0.
-t1                  = 28*oneday
+t1                  = 365*oneday
 dt                  = 60.        # timestep of the model (s) 
 
 # What to test
@@ -60,7 +60,7 @@ path_save_png = './png_tests_models/'
 # =================================
 # 1D
 point_loc = [-50.,35.]
-#point_loc = [-50.,46.] # should have more NIOs
+#point_loc = [-50.,46.] # should have more NIOs ?
 point_loc = [-70., 35.]
 # 2D
 R = 10.0 # 20°x20° -> ~6.5Go of VRAM for grad
@@ -84,8 +84,7 @@ name_regrid = ['croco_1h_inst_surf_2005-01-01-2005-01-31_0.1deg_conservative.nc'
               'croco_1h_inst_surf_2005-10-01-2005-10-31_0.1deg_conservative.nc',
               'croco_1h_inst_surf_2005-11-01-2005-11-30_0.1deg_conservative.nc',
               'croco_1h_inst_surf_2005-12-01-2005-12-31_0.1deg_conservative.nc']
-name_regrid = ['croco_1h_inst_surf_2005-01-01-2005-01-31_0.1deg_conservative.nc']
-name_regrid = ['croco_1h_inst_surf_2006-02-01-2006-02-28_0.1deg_conservative.nc']
+#name_regrid = ['croco_1h_inst_surf_2005-01-01-2005-01-31_0.1deg_conservative.nc']
 
 # Observations
 period_obs          = oneday #86400      # s, how many second between observations  
@@ -112,7 +111,7 @@ if __name__ == "__main__":
         observations2D = observations.Observation2D(period_obs, dt_OSSE, file, LON_bounds, LAT_bounds)
     
     ### WARNINGS
-    dsfull = xr.open_mfdataset(path_regrid+name_regrid[0])
+    dsfull = xr.open_mfdataset(file)
     # warning about t1>length of forcing
     if t1 > len(dsfull.time)*dt_forcing:
         print(f'You chose to run the model for t1={t1//oneday} days but the forcing is available up to t={len(dsfull.time)*dt_forcing//oneday} days\n'

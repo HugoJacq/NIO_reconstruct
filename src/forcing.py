@@ -18,18 +18,15 @@ class Forcing1D:
     def __init__(self, point_loc, dt_forcing, path_file):
         
         # from dataset
-        ds = xr.open_dataset(path_file[0])
+        ds = xr.open_mfdataset(path_file)
         indx = nearest(ds.lon.values,point_loc[0])
         indy = nearest(ds.lat.values,point_loc[1])
         self.data = ds.isel(lon=indx,lat=indy)
-        
         self.U,self.V,self.MLD = self.data.U.values,self.data.V.values,self.data.MLD
-        # if 'TAx' in self.data.keys():
-        #     self.bulkTx,self.bulkTy = self.data.TAx.values,self.data.TAy.values
         self.TAx,self.TAy = self.data.oceTAUX.values,self.data.oceTAUY.values
-        self.fc = 2*2*np.pi/86164*np.sin(self.data.lat.values*np.pi/180) # Coriolis value at jr,ir
+        self.fc = 2*2*np.pi/86164*np.sin(self.data.lat.values*np.pi/180)
         self.nt = len(self.data.time)
-        self.time = np.arange(0,self.nt*dt_forcing,dt_forcing)    # 1 step every dt
+        self.time = np.arange(0,self.nt*dt_forcing,dt_forcing) 
         self.dt_forcing = dt_forcing
         
 class Forcing2D:
@@ -46,14 +43,7 @@ class Forcing2D:
         
         # from dataset
         ds = xr.open_mfdataset(path_file)       
-        
-        indxmin = nearest(ds.lon.values,LON_bounds[0])
-        indxmax = nearest(ds.lon.values,LON_bounds[1])
-        indymin = nearest(ds.lat.values,LAT_bounds[0])
-        indymax = nearest(ds.lat.values,LAT_bounds[1])
-        
-        self.data = ds.isel(lon=slice(indxmin,indxmax),lat=slice(indymin,indymax))
-        
+        self.data = ds.sel(lon=slice(LON_bounds[0],LON_bounds[1]),lat=slice(LAT_bounds[0],LAT_bounds[1]))
         self.U,self.V,self.MLD = self.data.U.values,self.data.V.values,self.data.MLD
         self.TAx,self.TAy = self.data.oceTAUX.values,self.data.oceTAUY.values
         self.fc = 2*2*np.pi/86164*np.sin(self.data.lat.values*np.pi/180)

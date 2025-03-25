@@ -18,7 +18,7 @@ class Observation1D:
     def __init__(self, point_loc, periode_obs, dt_forcing, path_file):
         
         # from dataset
-        ds = xr.open_dataset(path_file[0])
+        ds = xr.open_mfdataset(path_file)
         indx = nearest(ds.lon.values,point_loc[0])
         indy = nearest(ds.lat.values,point_loc[1])
         self.data = ds.isel(lon=indx,lat=indy)
@@ -42,10 +42,11 @@ class Observation1D:
             U, V = my_fc_filter(self.dt_forcing, self.U+1j*self.V, self.fc )
         else:
             U, V = self.U, self.V
-        print(self.U.shape)
         step_obs = int(self.obs_period)//int(self.dt_forcing)
+        print(self.obs_period, int(self.obs_period), self.dt_forcing, int(self.dt_forcing), step_obs)
         self.Uo = U[::step_obs]
         self.Vo = V[::step_obs]
+        print(self.U.shape,self.Uo.shape)
         return self.Uo,self.Vo
     
 
@@ -62,13 +63,7 @@ class Observation2D:
     def __init__(self, periode_obs, dt_forcing, path_file, LON_bounds, LAT_bounds):
         
         # from dataset for OSSE
-        ds = xr.open_mfdataset(path_file)
-        # indxmin = nearest(ds.lon.values,LON_bounds[0])
-        # indxmax = nearest(ds.lon.values,LON_bounds[1])
-        # indymin = nearest(ds.lat.values,LAT_bounds[0])
-        # indymax = nearest(ds.lat.values,LAT_bounds[1])
-        
-        # self.data = ds.isel(lon=slice(indxmin,indxmax),lat=slice(indymin,indymax))
+        ds = xr.open_mfdataset(path_file)        
         self.data = ds.sel(lon=slice(LON_bounds[0],LON_bounds[1]),lat=slice(LAT_bounds[0],LAT_bounds[1]))
         self.U,self.V = self.data.U.values,self.data.V.values
         self.dt_forcing = dt_forcing

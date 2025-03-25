@@ -52,6 +52,7 @@ class jslab(eqx.Module):
         self.nl = nl
         self.AD_mode = AD_mode
         t0,t1,dt = call_args
+        print(t0,t1,dt)
         self.t0 = t0
         self.t1 = t1
         self.dt = dt
@@ -104,6 +105,7 @@ class jslab(eqx.Module):
                     raise Exception('You want to save at dt<dt_forcing, this is not available.\n Choose a bigger dt')
                 else:
                     step_save_out = int(save_traj_at//self.dt_forcing)
+                    print(step_save_out,save_traj_at//self.dt_forcing)
             
             U, V = jnp.zeros(Nforcing), jnp.zeros(Nforcing)
              

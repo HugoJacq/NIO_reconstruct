@@ -21,7 +21,7 @@ class Variational:
         self.model = model
         self.filter_at_fc = filter_at_fc
 
-    def loss_fn(self, obs, sol):
+    def loss_fn(self, sol, obs):
         #print('sol',sol)
         sol = jnp.asarray(sol)
         print(sol[0].shape,obs[0].shape,sol[1].shape,obs[1].shape)
@@ -53,7 +53,6 @@ class Variational:
             final, _ = lax.scan(lambda X0, k:_fn_for_scan(X0, k, Uf, Vf, step), init=(Uffc,Vffc), xs=np.arange(0,len(Uffc)))     
             sol = final
         else:
-            #print('eys')
             sol = mymodel(save_traj_at=dtime_obs) # use diffrax and equinox 
         return self.loss_fn(sol, obs)
         
