@@ -35,12 +35,12 @@ dTK                 = 20*oneday   # how much vectork K changes with time, basis
 AD_mode             = 'F'       # forward mode for AD 
 
 # run parameters
-t0                  = 0.
-t1                  = 365*oneday
+t0                  = 240*oneday
+t1                  = 300*oneday
 dt                  = 60.        # timestep of the model (s) 
 
 # What to test
-FORWARD_PASS        = False      # tests forward, cost, gradcost
+FORWARD_PASS        = True      # tests forward, cost, gradcost
 MINIMIZE            = True      # switch to do the minimisation process
 maxiter             = 50         # max number of iteration
 PLOT_TRAJ           = True
@@ -84,6 +84,12 @@ name_regrid = ['croco_1h_inst_surf_2005-01-01-2005-01-31_0.1deg_conservative.nc'
               'croco_1h_inst_surf_2005-10-01-2005-10-31_0.1deg_conservative.nc',
               'croco_1h_inst_surf_2005-11-01-2005-11-30_0.1deg_conservative.nc',
               'croco_1h_inst_surf_2005-12-01-2005-12-31_0.1deg_conservative.nc']
+# name_regrid = ['croco_1h_inst_surf_2005-01-01-2005-01-31_0.1deg_conservative.nc',
+#               'croco_1h_inst_surf_2005-02-01-2005-02-28_0.1deg_conservative.nc',
+#               'croco_1h_inst_surf_2005-03-01-2005-03-31_0.1deg_conservative.nc',
+#               'croco_1h_inst_surf_2005-04-01-2005-04-30_0.1deg_conservative.nc',
+#               'croco_1h_inst_surf_2005-05-01-2005-05-31_0.1deg_conservative.nc',
+#               'croco_1h_inst_surf_2005-06-01-2005-06-30_0.1deg_conservative.nc',]
 #name_regrid = ['croco_1h_inst_surf_2005-01-01-2005-01-31_0.1deg_conservative.nc']
 
 # Observations
@@ -104,11 +110,11 @@ if __name__ == "__main__":
         file.append(path_regrid+name_regrid[ifile])
     #file = path_regrid+name_regrid 
     if TEST_SLAB or TEST_SLAB_KT or TEST_SLAB_KT_FILTERED_FC:
-        forcing1D = forcing.Forcing1D(point_loc, dt_forcing, file)
-        observations1D = observations.Observation1D(point_loc, period_obs, dt_OSSE, file)
+        forcing1D = forcing.Forcing1D(point_loc, t0, t1, dt_forcing, file)
+        observations1D = observations.Observation1D(point_loc, period_obs, t0, t1, dt_OSSE, file)
     if TEST_SLAB_KT_2D:
-        forcing2D = forcing.Forcing2D(dt_forcing, file, LON_bounds, LAT_bounds)
-        observations2D = observations.Observation2D(period_obs, dt_OSSE, file, LON_bounds, LAT_bounds)
+        forcing2D = forcing.Forcing2D(dt_forcing, t0, t1, file, LON_bounds, LAT_bounds)
+        observations2D = observations.Observation2D(period_obs, t0, t1, dt_OSSE, file, LON_bounds, LAT_bounds)
     
     ### WARNINGS
     dsfull = xr.open_mfdataset(file)

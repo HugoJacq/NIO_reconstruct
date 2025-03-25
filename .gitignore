@@ -44,3 +44,4 @@ data_regrid/croco_1h_inst_surf_2005-11-01-2005-11-30_0.1deg_conservative.nc
 data_regrid/croco_1h_inst_surf_2005-12-01-2005-12-31_0.1deg_conservative.nc
 tests_models/png_tests_models/jslab_-70.0E_35.0N.png
 tests_models/png_tests_models/jslab_kt_-70.0E_35.0N.png
+tests_models/png_tests_models/jslab_kt_-70.0E_35.0N_t0_365.png

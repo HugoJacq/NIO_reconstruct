@@ -84,15 +84,16 @@ def plot_traj_1D(mymodel, var_dfx, forcing1D, observations1D, name_save, path_sa
         kt2D = classic_slab.kt_1D_to_2D(mymodel.pk, NdT, mymodel.nl)
         new_kt = np.dot(M,kt2D)
         myMLD = 1/np.exp(new_kt[:,0])/rho
+        ax[2].plot(forcing1D.time/86400, np.repeat(mymodel.pk,NdT), label='no base transform')
     else:
         myMLD = 1/np.exp(mymodel.pk[0])/rho * np.ones(len(forcing1D.time))
-        
+    ax[2].legend(loc=1)   
     ax[2].plot(forcing1D.time/86400, myMLD, label='estimated')
     ax[2].plot(forcing1D.time/86400, forcing1D.MLD,label='true')
     ax[2].set_ylabel('MLD (m)')
     
     ax[2].set_xlabel('Time (days)')
-    fig.savefig(path_save_png+name_save+'.png')
+    fig.savefig(path_save_png+name_save+'_t'+str(int(mymodel.t0//oneday))+'_'+str(int(mymodel.t1//oneday))+'.png')
     
 
 def plot_traj_2D(mymodel, var_dfx, forcing2D, observations2D, name_save, point_loc, LON_bounds, LAT_bounds, path_save_png, dpi):

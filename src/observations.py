@@ -15,13 +15,16 @@ class Observation1D:
     dt_forcing    : timestep of input OSSE model (s)
     path_file   : path to regridded file with obs/forcing variables 
     """
-    def __init__(self, point_loc, periode_obs, dt_forcing, path_file):
+    def __init__(self, point_loc, periode_obs, t0, t1, dt_forcing, path_file):
         
         # from dataset
         ds = xr.open_mfdataset(path_file)
         indx = nearest(ds.lon.values,point_loc[0])
         indy = nearest(ds.lat.values,point_loc[1])
-        self.data = ds.isel(lon=indx,lat=indy)
+        time_a = np.arange(t0,t1,dt_forcing)
+        itmin = nearest(time_a, t0)
+        itmax = nearest(time_a, t1)
+        self.data = ds.isel(time=slice(itmin,itmax), lon=indx,lat=indy)
         
         self.U,self.V = self.data.U.values,self.data.V.values
         self.fc = 2*2*np.pi/86164*np.sin(self.data.lat.values*np.pi/180)
@@ -58,10 +61,14 @@ class Observation2D:
     - LON_bounds : LON min and LON max of zone
     - LAT_bounds : LAT min and LAT max of zone
     """
-    def __init__(self, periode_obs, dt_forcing, path_file, LON_bounds, LAT_bounds):
+    def __init__(self, periode_obs, t0, t1, dt_forcing, path_file, LON_bounds, LAT_bounds):
         
         # from dataset for OSSE
-        ds = xr.open_mfdataset(path_file)        
+        ds = xr.open_mfdataset(path_file) 
+        time_a = np.arange(t0,t1,dt_forcing)
+        itmin = nearest(time_a, t0)
+        itmax = nearest(time_a, t1)
+        ds = ds.isel(time=slice(itmin,itmax))        
         self.data = ds.sel(lon=slice(LON_bounds[0],LON_bounds[1]),lat=slice(LAT_bounds[0],LAT_bounds[1]))
         self.U,self.V = self.data.U.values,self.data.V.values
         self.dt_forcing = dt_forcing
