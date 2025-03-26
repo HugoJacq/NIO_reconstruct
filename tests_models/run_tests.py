@@ -41,18 +41,18 @@ t1                  = 28*oneday #300*oneday
 dt                  = 60.        # timestep of the model (s) 
 
 # What to test
-FORWARD_PASS        = False      # tests forward, cost, gradcost
-MINIMIZE            = True      # switch to do the minimisation process
+FORWARD_PASS        = True      # tests forward, cost, gradcost
+MINIMIZE            = False      # switch to do the minimisation process
 maxiter             = 50         # max number of iteration
-PLOT_TRAJ           = True
+PLOT_TRAJ           = False
 
 # Switches
 TEST_SLAB                   = False
 TEST_SLAB_KT                = False
 TEST_SLAB_KT_FILTERED_FC    = False
-TEST_SLAB_KT_2D             = False
+TEST_SLAB_KT_2D             = True
 TEST_SLAB_RXRY              = False # WIP
-TEST_SLAB_Ue_Unio           = True
+TEST_SLAB_Ue_Unio           = False
 
 # PLOT
 dpi=200
@@ -66,7 +66,7 @@ point_loc = [-50.,35.]
 #point_loc = [-50.,46.] # should have more NIOs ?
 point_loc = [-70., 35.]
 # 2D
-R = 10.0 # 20°x20° -> ~6.5Go of VRAM for grad
+R = 5.0 # 20°x20° -> ~6.5Go of VRAM for grad
 LON_bounds = [point_loc[0]-R,point_loc[0]+R]
 LAT_bounds = [point_loc[1]-R,point_loc[1]+R]
 # Forcing
