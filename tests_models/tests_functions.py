@@ -13,11 +13,12 @@ sys.path.insert(0, '../src')
 import tools
 import models.classic_slab as classic_slab
 from constants import *
+from inv import my_partition
 
 def run_forward_cost_grad(mymodel, var_dfx):
     """
     """
-    dynamic_model, static_model = var_dfx.my_partition(mymodel)
+    dynamic_model, static_model = my_partition(mymodel)
     
     time1 = clock.time()
     _ = mymodel() # call_args
@@ -50,7 +51,7 @@ def plot_traj_1D(mymodel, var_dfx, forcing1D, observations1D, name_save, path_sa
     t0 = mymodel.t0
     Uo, _ = observations1D.get_obs()
     RMSE = tools.score_RMSE(Ua, U) 
-    dynamic_model, static_model = var_dfx.my_partition(mymodel)
+    dynamic_model, static_model = my_partition(mymodel)
     final_cost = var_dfx.cost(dynamic_model, static_model)
         
     print('RMSE is',RMSE)
@@ -78,6 +79,7 @@ def plot_traj_1D(mymodel, var_dfx, forcing1D, observations1D, name_save, path_sa
     ax[1].plot((t0 + forcing1D.time)/oneday, forcing1D.TAy, c='orange', lw=2, label=r'$\tau_y$', alpha=1)
     ax[1].set_ylabel('surface stress (N/m2)')
     ax[1].legend(loc=1)
+    
     # plot MLD
     if hasattr(mymodel, 'dTK'):
         NdT = len(np.arange(mymodel.t0, mymodel.t1, mymodel.dTK))
@@ -93,7 +95,7 @@ def plot_traj_1D(mymodel, var_dfx, forcing1D, observations1D, name_save, path_sa
         
         fig2, ax2 = plt.subplots(1,1,figsize = (10,10),constrained_layout=True,dpi=dpi)
         for k in range(M.shape[-1]):
-            ax2.plot(M[:,k])
+            ax2.plot((t0 + forcing1D.time)/oneday, M[:,k])
             #ax2.plot(M2[:,k], ls='--')
     else:
         myMLD = 1/np.exp(mymodel.pk[0])/rho * np.ones(len(forcing1D.time))

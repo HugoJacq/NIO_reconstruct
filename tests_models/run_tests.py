@@ -22,11 +22,6 @@ from tests_functions import run_forward_cost_grad, plot_traj_1D, plot_traj_2D
 import tools
 from constants import *
 
-import matplotlib
-print (matplotlib.rcParams['backend']) 
-#matplotlib.use('qt5agg')
-print (matplotlib.rcParams['backend']) 
-
 start = clock.time()
 
 # ============================================================
@@ -36,7 +31,7 @@ start = clock.time()
 
 # model parameters
 Nl                  = 1         # number of layers for multilayer models
-dTK                 = 20*oneday   # how much vectork K changes with time, basis change to exp
+dTK                 = 10*oneday   # how much vectork K changes with time, basis change to exp
 k_base              = 'gauss'   # base of K transform. 'gauss' or 'id'
 AD_mode             = 'F'       # forward mode for AD 
 

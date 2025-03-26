@@ -176,7 +176,7 @@ class jslab_kt(eqx.Module):
     TAx : jnp.array         
     TAy : jnp.array         
     fc : jnp.array         
-    dTK : jnp.array        
+    dTK : float         
     dt_forcing : jnp.array  
     nl : jnp.array         
     AD_mode : str          
@@ -195,7 +195,7 @@ class jslab_kt(eqx.Module):
         self.dt = dt
         
         self.dTK = dTK
-        self.NdT = len(jnp.arange(t0, t1,dTK)) # int((t1-t0)//dTK)   NdT = 
+        self.NdT = len(np.arange(t0, t1,dTK)) # int((t1-t0)//dTK)   NdT = 
         self.pk = pk #self.kt_ini( jnp.asarray(pk) )
         
         self.TAx = TAx
@@ -489,8 +489,11 @@ def kt_1D_to_2D(vector_kt_1D, NdT, nl):
 def kt_2D_to_1D(vector_kt):
     return vector_kt.flatten()
 
+@partial(jax.jit, static_argnames=['NdT', 'dTK', 't0', 't1', 'dt_forcing', 'base']) # 
 def pkt2Kt_matrix(NdT, dTK, t0, t1, dt_forcing, base='gauss'):
         """
+        Reduced basis matrix
+        
         original numpy function:
         
             def pkt2Kt_matrix(dT, gtime):
@@ -525,10 +528,11 @@ def pkt2Kt_matrix(NdT, dTK, t0, t1, dt_forcing, base='gauss'):
             X - - - - * - - - - * - - - - * - - - - * X  # 6 values
         """
         if NdT>0:    
-            # gptime = jnp.arange(t0+ dTK/2, t1,dTK) # here +dTK/2 so that gaussian are at the middle of dTK intervals
-            gptime = jnp.arange(t0, t1,dTK)
+            gptime = jnp.arange(t0+ dTK/2, t1+ dTK/2,dTK) # here +dTK/2 so that gaussian are at the middle of dTK intervals
+            #gptime = jnp.arange(t0, t1,dTK)
         else:
             gptime = jnp.array([t0])
+        # gptime = lax.select(NdT>0, jnp.arange(t0+ dTK/2, t1,dTK), jnp.array([t0]))
         gtime = jnp.arange(t0,t1,dt_forcing)
         
         # # see : https://docs.kidger.site/equinox/faq/#how-to-use-non-array-modules-as-inputs-to-scancondwhile-etc
@@ -544,9 +548,11 @@ def pkt2Kt_matrix(NdT, dTK, t0, t1, dt_forcing, base='gauss'):
             distt = gtime[:, jnp.newaxis] - gptime[jnp.newaxis, :]
             
             # Vectorized condition and exponential calculation
-            cond = jnp.abs(distt) < 3 * dTK
+            #cond = jnp.abs(distt) < 3 * dTK
+            cond = jnp.ones(distt.shape) * True
             #tmp = jnp.exp(-2*distt**2 / dTK**2) * cond  # The condition zeros out values outside range
-            tmp = jnp.exp(-distt**2 / dTK**2) * cond
+            coeff = 0.5
+            tmp = jnp.exp(-coeff*distt**2 / dTK**2) * cond
             # Sum across the appropriate axis for S
             S = jnp.sum(tmp, axis=1)
             
@@ -579,5 +585,9 @@ def pkt2Kt_matrix(NdT, dTK, t0, t1, dt_forcing, base='gauss'):
             final, _ = lax.scan( __fn_scan, arg0, xs=jnp.arange(0,len(gptime)))
             
             M = final
-            
+        elif base=='linearInterp':
+            """
+            """
+        else:
+            raise Exception(f'You want to use the reduced basis {base} but it is not coded in pkt2Kt_matrix, aborting ...')
         return M

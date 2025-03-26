@@ -56,10 +56,7 @@ class Variational:
         
    
         
-    def my_partition(self, mymodel):
-        filter_spec = jtu.tree_map(lambda arr: False, mymodel) # keep nothing
-        filter_spec = eqx.tree_at( lambda tree: tree.pk, filter_spec, replace=True) # keep only pk
-        return eqx.partition(mymodel, filter_spec)          
+            
     
     @eqx.filter_jit
     def grad_cost(self, dynamic_model, static_model):
@@ -91,9 +88,9 @@ class Variational:
             
             @eqx.filter_jit
             def step_minimize(model, opt, opt_state):
-                dynamic_model, static_model = self.my_partition(mymodel)
+                dynamic_model, static_model = my_partition(mymodel)
                 value, grad = self.grad_cost(dynamic_model, static_model)
-                value_grad = grad.pk 
+                value_grad = my_combine_params(grad) #  grad.pk 
                 updates, opt_state = opt.update(grad, opt_state)
                 model = eqx.apply_updates(model, updates)
                 return value, value_grad, model, opt_state
@@ -118,10 +115,11 @@ class Variational:
                 
             
                 def value_and_grad_fn(params): # L-BFGS expects a function that returns both value and gradient
-                        dynamic_model, static_model = self.my_partition(mymodel)
-                        new_dynamic_model = eqx.tree_at(lambda m: m.pk, dynamic_model, params) # replace new pk
+                        dynamic_model, static_model = my_partition(mymodel)
+                        #new_dynamic_model = my_replace(dynamic_model, params) # replace new pk
+                        new_dynamic_model = eqx.tree_at(lambda tree:tree.pk, dynamic_model, params)
                         value, grad = self.grad_cost(new_dynamic_model, static_model)
-                        return value, grad.pk
+                        return value, my_combine_params(grad) # grad.pk
                 
                 def cost_fn(params):
                     value, _ = value_and_grad_fn(params)
@@ -148,6 +146,7 @@ class Variational:
                                 
                     # Apply updates to model
                     model = eqx.tree_at(lambda m: m.pk, model, updates)
+                    #model = my_replace(model, updates)
                     return value, grad, model, opt_state
 
 
@@ -171,14 +170,14 @@ class Variational:
         # L-BFGS expects a function that returns both value and gradient
         @jax.jit
         def value_and_grad_for_scipy(params): 
-            dynamic_model, static_model = self.my_partition(mymodel)
-            new_dynamic_model = eqx.tree_at(lambda m: m.pk, dynamic_model, params) # replace new pk
+            dynamic_model, static_model = my_partition(mymodel)
+            #new_dynamic_model = my_replace(dynamic_model, params) # replace new params
+            new_dynamic_model = eqx.tree_at( lambda tree:tree.pk, dynamic_model, params)
             value, grad = self.grad_cost(new_dynamic_model, static_model)
-            #print('new pk, grad of new pk',params, grad.pk)
             return value, grad.pk
             
 
-        vector_k = mymodel.pk
+        vector_k = my_combine_params(mymodel) #mymodel.pk
         print(' intial pk',vector_k)
         
         res = scipy.optimize.minimize(value_and_grad_for_scipy, 
@@ -189,8 +188,9 @@ class Variational:
         
         new_k = jnp.asarray(res['x'])
         mymodel = eqx.tree_at( lambda tree:tree.pk, mymodel, new_k)
+        #mymodel = my_replace(mymodel, new_k)
         if verbose:
-            dynamic_model, static_model = self.my_partition(mymodel)
+            dynamic_model, static_model = my_partition(mymodel)
             value, gradtree = self.grad_cost(dynamic_model, static_model)
             grad = gradtree.pk
             print(res.message)
@@ -198,6 +198,37 @@ class Variational:
             print('     vector K solution ('+str(res.nit)+' iterations)',res['x'])
             print('     cost function value with K solution:',value)
         
-        return mymodel
+        return mymodel, res
     
-    
+def fn_where_pk(model):
+    return jnp.array(model.pk)
+def fn_where_dTK(model):
+    return jnp.array(model.dTK)
+
+list_fn = [fn_where_pk] #[fn_where_pk, fn_where_dTK]
+
+def my_replace(model, newvalue):
+    newmodel = model
+    for fn in list_fn:
+        newmodel = replace_leaf(fn, newmodel, newvalue)
+    return newmodel
+ 
+def my_combine_params(model):
+    combined = list_fn[0](model)
+    if len(list_fn)>1:
+        for fn in list_fn:
+            combined = jnp.append( combined, fn(model) )
+    return combined       
+
+@eqx.filter_jit
+def my_partition(mymodel):
+    filter_spec = jtu.tree_map(lambda arr: False, mymodel) # keep nothing
+    filter_spec = eqx.tree_at( lambda tree: tree.pk, filter_spec, True) # keep pk  replace=
+    # # filter_spec = eqx.tree_at( lambda tree: tree.dTK, filter_spec, True) # keep dTK
+    # filter_spec = my_replace(filter_spec, True)
+    return eqx.partition(mymodel, filter_spec)    
+
+# tools manipulating pytrees
+def replace_leaf(fn_where, model, newvalue):
+    return eqx.tree_at( fn_where, model, newvalue)
+
