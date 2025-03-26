@@ -14,7 +14,7 @@ os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false" # for jax
 import jax
 import jax.numpy as jnp
 
-from models.classic_slab import jslab, jslab_kt, jslab_kt_2D, kt_ini, kt_1D_to_2D, pkt2Kt_matrix
+from models.classic_slab import jslab, jslab_Ue_Unio, jslab_kt, jslab_kt_2D, jslab_rxry, kt_ini, kt_1D_to_2D, pkt2Kt_matrix
 import forcing
 import inv
 import observations
@@ -48,10 +48,11 @@ PLOT_TRAJ           = True
 
 # Switches
 TEST_SLAB                   = False
-TEST_SLAB_KT                = True
+TEST_SLAB_KT                = False
 TEST_SLAB_KT_FILTERED_FC    = False
 TEST_SLAB_KT_2D             = False
-TEST_SLAB_RXRY              = True
+TEST_SLAB_RXRY              = False # WIP
+TEST_SLAB_Ue_Unio           = True
 
 # PLOT
 dpi=200
@@ -111,7 +112,7 @@ if __name__ == "__main__":
     for ifile in range(len(name_regrid)):
         file.append(path_regrid+name_regrid[ifile])
     #file = path_regrid+name_regrid 
-    if TEST_SLAB or TEST_SLAB_KT or TEST_SLAB_KT_FILTERED_FC or TEST_SLAB_RXRY:
+    if TEST_SLAB or TEST_SLAB_KT or TEST_SLAB_KT_FILTERED_FC or TEST_SLAB_RXRY or TEST_SLAB_Ue_Unio:
         forcing1D = forcing.Forcing1D(point_loc, t0, t1, dt_forcing, file)
         observations1D = observations.Observation1D(point_loc, period_obs, t0, t1, dt_OSSE, file)
     if TEST_SLAB_KT_2D:
@@ -303,7 +304,38 @@ if __name__ == "__main__":
         call_args = t0, t1, dt
         
         #mymodel = jslab(pk, TAx, TAy, fc, dt_forcing, nl=1, AD_mode=AD_mode)
-        mymodel = jslab(pk, TAx, TAy, fc, dt_forcing, nl=1, AD_mode=AD_mode, call_args=call_args)
+        mymodel = jslab_rxry(pk, TAx, TAy, fc, dt_forcing, nl=1, AD_mode=AD_mode, call_args=call_args)
+        var_dfx = inv.Variational(mymodel,observations1D)
+        
+        if FORWARD_PASS:
+            run_forward_cost_grad(mymodel, var_dfx)   
+
+        if MINIMIZE:
+            print(' minimizing ...')
+            t7 = clock.time()
+            mymodel, _ = var_dfx.scipy_lbfgs_wrapper(mymodel, maxiter, verbose=True)   
+            print(' time, minimize',clock.time()-t7)
+                           
+        name_save = 'jslab_rxry_'+namesave_loc
+        if PLOT_TRAJ:
+            plot_traj_1D(mymodel, var_dfx, forcing1D, observations1D, name_save, path_save_png, dpi)
+    
+    if TEST_SLAB_Ue_Unio:
+        print('* test jslab_Ue_Unio')
+        # control vector
+        pk = jnp.asarray([-11.,-10.,-10.,-9])    
+        
+        # parameters
+        TA = forcing1D.TAx + 1j*forcing1D.TAy
+        TAx_f,TAy_f = tools.my_fc_filter( dt_forcing, TA, forcing1D.fc)
+        TAx = jnp.asarray(TAx_f)
+        TAy = jnp.asarray(TAy_f)
+        fc = jnp.asarray(forcing1D.fc)
+        
+        call_args = t0, t1, dt
+        
+        #mymodel = jslab(pk, TAx, TAy, fc, dt_forcing, nl=1, AD_mode=AD_mode)
+        mymodel = jslab_Ue_Unio(pk, TAx, TAy, fc, dt_forcing, nl=1, AD_mode=AD_mode, call_args=call_args)
         var_dfx = inv.Variational(mymodel,observations1D)
         
         if FORWARD_PASS:

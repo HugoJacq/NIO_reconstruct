@@ -23,6 +23,7 @@ from diffrax import Dopri5, ODETerm, diffeqsolve, Euler
 import diffrax
 
 from constants import *
+import tools
 
 class jslab(eqx.Module):
     # variables
@@ -663,10 +664,12 @@ class jslab_Ue_Unio(eqx.Module):
         # control
         K = jnp.exp( jnp.asarray(self.pk) )
   
-        args = self.fc, K, self.TAx, self.TAy, nsubsteps
+        #args = self.fc, K, self.TAx, self.TAy, nsubsteps # forcing not filtered
+        
+        # forcing is filtered at fc
+        args = self.fc, K, self.TAx, self.TAy, nsubsteps 
         
         maxstep = int((t1-t0)//dt) +1 
-        
         
         if self.use_difx:
             solver = Euler()
@@ -727,7 +730,14 @@ class jslab_Ue_Unio(eqx.Module):
             
             X1 = U, V
             final, _ = lax.scan(__outer_loop, X1, jnp.arange(0,Nforcing))
-            U,V = final
+            Unio,Vnio = final
+            
+            
+            # slow, ekman flow
+            Ue = 1/self.fc * (K[2]*self.TAy + K[3]*self.TAx)
+            Ve = - 1/self.fc * (K[3]*self.TAy - K[2]*self.TAx)
+            
+            U,V = Ue+Unio, Ve+Vnio
             
             if save_traj_at is None:
                 solution = U,V
@@ -751,17 +761,11 @@ class jslab_Ue_Unio(eqx.Module):
             TAx = (1-aa)*TAx[itf] + aa*TAx[itsup]
             TAy = (1-aa)*TAy[itf] + aa*TAy[itsup]
             # physic
-            # slow, ekman flow
-            Ue = 1/fc * (K[0]*TAy + K[1]*TAx)
-            Ve = - 1/fc * (K[1]*TAy - K[0]*TAx)
             # fast, NIO flow. 
             # How to get the equation for Unio ? -> apply a fc filter on the slab model equation. 
             #   hypothesis: filtered K are null as they evolve slowly compared to inertial period
-            
-            
-            
-            
-            
+            #   here TAx and TAy are filtered at fc !
+            # Note: theses equations are the same as the slab model (jslab)
             d_U = fc*V + K[0]*TAx - K[1]*U
             d_V = -fc*U + K[0]*TAy - K[1]*V
             d_y = d_U,d_V
@@ -847,7 +851,7 @@ def pkt2Kt_matrix(NdT, dTK, t0, t1, dt_forcing, base='gauss'):
             #cond = jnp.abs(distt) < 3 * dTK
             cond = jnp.ones(distt.shape) * True
             #tmp = jnp.exp(-2*distt**2 / dTK**2) * cond  # The condition zeros out values outside range
-            coeff = 0.5
+            coeff = 2.
             tmp = jnp.exp(-coeff*distt**2 / dTK**2) * cond
             # Sum across the appropriate axis for S
             S = jnp.sum(tmp, axis=1)
