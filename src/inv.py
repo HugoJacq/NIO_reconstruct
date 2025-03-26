@@ -186,6 +186,8 @@ class Variational:
                                             method='L-BFGS-B',
                                             jac=True)
         
+        
+        
         new_k = jnp.asarray(res['x'])
         mymodel = eqx.tree_at( lambda tree:tree.pk, mymodel, new_k)
         #mymodel = my_replace(mymodel, new_k)

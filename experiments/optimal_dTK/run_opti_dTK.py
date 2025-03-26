@@ -201,6 +201,6 @@ if __name__ == "__main__":
         ax.set_xlabel('dTK (days)')
         ax.set_ylabel('cost')
         ax.legend()
-        fig.savefig(path_save_png+'cost_dTK_'+str(list_dTK[0])+'_to_'+str(list_dTK[1])+'.png')
+        fig.savefig(path_save_png+'cost_dTK_'+str(int(list_dTK[0]/oneday))+'_to_'+str(int(list_dTK[-1]/oneday))+'.png')
         
     plt.show()
