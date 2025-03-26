@@ -36,8 +36,8 @@ k_base              = 'gauss'   # base of K transform. 'gauss' or 'id'
 AD_mode             = 'F'       # forward mode for AD 
 
 # run parameters
-t0                  = 240*oneday
-t1                  = 300*oneday
+t0                  = 0*oneday #240*oneday
+t1                  = 28*oneday #300*oneday
 dt                  = 60.        # timestep of the model (s) 
 
 # What to test
@@ -93,7 +93,7 @@ name_regrid = ['croco_1h_inst_surf_2005-01-01-2005-01-31_0.1deg_conservative.nc'
 #               'croco_1h_inst_surf_2005-04-01-2005-04-30_0.1deg_conservative.nc',
 #               'croco_1h_inst_surf_2005-05-01-2005-05-31_0.1deg_conservative.nc',
 #               'croco_1h_inst_surf_2005-06-01-2005-06-30_0.1deg_conservative.nc',]
-#name_regrid = ['croco_1h_inst_surf_2005-01-01-2005-01-31_0.1deg_conservative.nc']
+name_regrid = ['croco_1h_inst_surf_2006-02-01-2006-02-28_0.1deg_conservative.nc']
 
 # Observations
 period_obs          = oneday #86400      # s, how many second between observations  
