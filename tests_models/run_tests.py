@@ -51,6 +51,7 @@ TEST_SLAB                   = False
 TEST_SLAB_KT                = True
 TEST_SLAB_KT_FILTERED_FC    = False
 TEST_SLAB_KT_2D             = False
+TEST_SLAB_RXRY              = True
 
 # PLOT
 dpi=200
@@ -110,7 +111,7 @@ if __name__ == "__main__":
     for ifile in range(len(name_regrid)):
         file.append(path_regrid+name_regrid[ifile])
     #file = path_regrid+name_regrid 
-    if TEST_SLAB or TEST_SLAB_KT or TEST_SLAB_KT_FILTERED_FC:
+    if TEST_SLAB or TEST_SLAB_KT or TEST_SLAB_KT_FILTERED_FC or TEST_SLAB_RXRY:
         forcing1D = forcing.Forcing1D(point_loc, t0, t1, dt_forcing, file)
         observations1D = observations.Observation1D(point_loc, period_obs, t0, t1, dt_OSSE, file)
     if TEST_SLAB_KT_2D:
@@ -158,11 +159,12 @@ if __name__ == "__main__":
         if MINIMIZE:
             print(' minimizing ...')
             t7 = clock.time()
-            mymodel = var_dfx.scipy_lbfgs_wrapper(mymodel, maxiter, verbose=True)   
+            mymodel, _ = var_dfx.scipy_lbfgs_wrapper(mymodel, maxiter, verbose=True)   
             print(' time, minimize',clock.time()-t7)
                            
         name_save = 'jslab_'+namesave_loc
-        plot_traj_1D(mymodel, var_dfx, forcing1D, observations1D, name_save, path_save_png, dpi)
+        if PLOT_TRAJ:
+            plot_traj_1D(mymodel, var_dfx, forcing1D, observations1D, name_save, path_save_png, dpi)
         
     if TEST_SLAB_KT:
         print('* test jslab_kt')
@@ -192,7 +194,7 @@ if __name__ == "__main__":
         if MINIMIZE:
             print(' minimizing ...')
             t7 = clock.time()
-            mymodel = var_dfx.scipy_lbfgs_wrapper(mymodel, maxiter, verbose=True)   
+            mymodel, _ = var_dfx.scipy_lbfgs_wrapper(mymodel, maxiter, verbose=True)   
             print(' time, minimize',clock.time()-t7)
                            
         name_save = 'jslab_kt_'+namesave_loc
@@ -237,7 +239,7 @@ if __name__ == "__main__":
         if MINIMIZE:
             print(' minimizing ...')
             t7 = clock.time()
-            mymodel = var_dfx.scipy_lbfgs_wrapper(mymodel, maxiter, gtol=1e-5, verbose=True)   
+            mymodel, _ = var_dfx.scipy_lbfgs_wrapper(mymodel, maxiter, gtol=1e-5, verbose=True)   
             print(' time, minimize',clock.time()-t7)
           
         
@@ -281,12 +283,41 @@ if __name__ == "__main__":
         if MINIMIZE:
             print(' minimizing ...')
             t7 = clock.time()
-            mymodel = var_dfx.scipy_lbfgs_wrapper(mymodel, maxiter, verbose=True)   
+            mymodel, _ = var_dfx.scipy_lbfgs_wrapper(mymodel, maxiter, verbose=True)   
             print(' time, minimize',clock.time()-t7)
                            
         name_save = 'jslab_kt_2D_'+namesave_loc
         if PLOT_TRAJ:
             plot_traj_2D(mymodel, var_dfx, forcing2D, observations2D, name_save, point_loc, LON_bounds, LAT_bounds, path_save_png, dpi) 
+    
+    if TEST_SLAB_RXRY:
+        print('* test jslab_rxry')
+        # control vector
+        pk = jnp.asarray([-11.,-10.,-10.])    
+        
+        # parameters
+        TAx = jnp.asarray(forcing1D.TAx)
+        TAy = jnp.asarray(forcing1D.TAy)
+        fc = jnp.asarray(forcing1D.fc)
+        
+        call_args = t0, t1, dt
+        
+        #mymodel = jslab(pk, TAx, TAy, fc, dt_forcing, nl=1, AD_mode=AD_mode)
+        mymodel = jslab(pk, TAx, TAy, fc, dt_forcing, nl=1, AD_mode=AD_mode, call_args=call_args)
+        var_dfx = inv.Variational(mymodel,observations1D)
+        
+        if FORWARD_PASS:
+            run_forward_cost_grad(mymodel, var_dfx)   
+
+        if MINIMIZE:
+            print(' minimizing ...')
+            t7 = clock.time()
+            mymodel, _ = var_dfx.scipy_lbfgs_wrapper(mymodel, maxiter, verbose=True)   
+            print(' time, minimize',clock.time()-t7)
+                           
+        name_save = 'jslab_rxry_'+namesave_loc
+        if PLOT_TRAJ:
+            plot_traj_1D(mymodel, var_dfx, forcing1D, observations1D, name_save, path_save_png, dpi)
     
     end = clock.time()
     print('Total execution time = '+str(jnp.round(end-start,2))+' s')
