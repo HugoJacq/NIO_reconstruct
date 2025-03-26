@@ -132,10 +132,7 @@ if __name__ == "__main__":
         
         # plot 1 should be always decreasing
         # plot 2 will decrease then increase, optimal is at the change of slope !
-        
-        batch1 = file[:6]
-        batch2 = file[6:]
-        
+                
         L_cost1 = []
         L_cost2 = []
         converged = []
@@ -148,8 +145,8 @@ if __name__ == "__main__":
             print('')
             print('*** dTK (days) =',dTK/oneday)
             # minimisation
-            forcing1D = forcing.Forcing1D(point_loc, t0, t1, dt_forcing, batch1)
-            observations1D = observations.Observation1D(point_loc, period_obs, t0, t1, dt_OSSE, batch1)
+            forcing1D = forcing.Forcing1D(point_loc, t0, t1, dt_forcing, file)
+            observations1D = observations.Observation1D(point_loc, period_obs, t0, t1, dt_OSSE, file)
             TAx = np.asarray(forcing1D.TAx)
             TAy = np.asarray(forcing1D.TAy)
             fc = np.asarray(forcing1D.fc)
@@ -173,8 +170,8 @@ if __name__ == "__main__":
             L_cost1.append(final_cost)
             
             # no minimisation, reuse the vector_k
-            forcing1D = forcing.Forcing1D(point_loc, t0, t1, dt_forcing, batch2)
-            observations1D = observations.Observation1D(point_loc, period_obs, t0, t1, dt_OSSE, batch2)
+            forcing1D = forcing.Forcing1D(point_loc, t0, t1, dt_forcing, file)
+            observations1D = observations.Observation1D(point_loc, dt_forcing, t0, t1, dt_OSSE, file) # <- here I use period_obs=dt_forcing
             TAx = jnp.asarray(forcing1D.TAx)
             TAy = jnp.asarray(forcing1D.TAy)
             fc = jnp.asarray(forcing1D.fc)
@@ -204,5 +201,6 @@ if __name__ == "__main__":
         ax.set_xlabel('dTK (days)')
         ax.set_ylabel('cost')
         ax.legend()
+        fig.savefig(path_save_png+'cost_dTK_'+str(list_dTK[0])+'_to_'+str(list_dTK[1])+'.png')
         
     plt.show()
