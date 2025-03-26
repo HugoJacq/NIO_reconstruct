@@ -54,6 +54,8 @@ def plot_traj_1D(mymodel, var_dfx, forcing1D, observations1D, name_save, path_sa
     dynamic_model, static_model = my_partition(mymodel)
     final_cost = var_dfx.cost(dynamic_model, static_model)
         
+    SHOW_BASE_TRANSFORM = False    
+        
     print('RMSE is',RMSE)
     # PLOT trajectory
     fig, ax = plt.subplots(3,1,figsize = (10,10),constrained_layout=True,dpi=dpi)
@@ -87,22 +89,31 @@ def plot_traj_1D(mymodel, var_dfx, forcing1D, observations1D, name_save, path_sa
         kt2D = classic_slab.kt_1D_to_2D(mymodel.pk, NdT, mymodel.nl)
         new_kt = np.dot(M,kt2D)
         myMLD = 1/np.exp(new_kt[:,0])/rho
-        if mymodel.k_base !='id':
+        myR = np.transpose(np.exp(new_kt[:,1:])) * myMLD
+        if SHOW_BASE_TRANSFORM and mymodel.k_base !='id':
             M2 = classic_slab.pkt2Kt_matrix(NdT, mymodel.dTK, mymodel.t0, mymodel.t1, mymodel.dt_forcing, base='id')
             new_kt2 = np.dot(M2,kt2D)
             myMLD_cst = 1/np.exp(new_kt2[:,0])/rho
             ax[2].plot((t0 + forcing1D.time)/oneday, myMLD_cst, label='no base transform')
         
-        fig2, ax2 = plt.subplots(1,1,figsize = (10,10),constrained_layout=True,dpi=dpi)
-        for k in range(M.shape[-1]):
-            ax2.plot((t0 + forcing1D.time)/oneday, M[:,k])
-            #ax2.plot(M2[:,k], ls='--')
+        if SHOW_BASE_TRANSFORM:
+            fig2, ax2 = plt.subplots(1,1,figsize = (10,10),constrained_layout=True,dpi=dpi)
+            for k in range(M.shape[-1]):
+                ax2.plot((t0 + forcing1D.time)/oneday, M[:,k])
+                #ax2.plot(M2[:,k], ls='--')
     else:
         myMLD = 1/np.exp(mymodel.pk[0])/rho * np.ones(len(forcing1D.time))
-    ax[2].plot((t0 + forcing1D.time)/oneday, myMLD, label='estimated ('+mymodel.k_base+')')
+        myR = np.stack( [np.exp(mymodel.pk[1:]) for _ in range(len(forcing1D.time))], axis=1) * myMLD
+    ax[2].plot((t0 + forcing1D.time)/oneday, myMLD, label='estimated')
     ax[2].plot((t0 + forcing1D.time)/oneday, forcing1D.MLD, c='k', label='true')
     ax[2].set_ylabel('MLD (m)')
     ax[2].legend(loc=1)
+    
+    ax2bis = ax[2].twinx()
+    ax2bis.set_ylabel('r')
+    lls = ['--','-.']
+    for kr in range(len(myR)):
+        ax2bis.plot((t0 + forcing1D.time)/oneday, myR[kr],ls=lls[kr])
     ax[2].set_xlabel('Time (days)')
     fig.savefig(path_save_png+name_save+'_t'+str(int(mymodel.t0//oneday))+'_'+str(int(mymodel.t1//oneday))+'.png')
     
