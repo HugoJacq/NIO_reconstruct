@@ -109,15 +109,15 @@ def plot_traj_1D(mymodel, var_dfx, forcing1D, observations1D, name_save, path_sa
     ax[2].set_ylabel('MLD (m)')
     ax[2].legend(loc=1)
     
-    ax2bis = ax[2].twinx()
-    ax2bis.set_ylabel('r')
-    lls = ['--','-.']
-    for kr in range(len(myR)):
-        ax2bis.plot((t0 + forcing1D.time)/oneday, myR[kr],ls=lls[kr])
+    if False:
+        ax2bis = ax[2].twinx()
+        ax2bis.set_ylabel('r')
+        lls = ['--','-.']
+        for kr in range(len(myR)):
+            ax2bis.plot((t0 + forcing1D.time)/oneday, myR[kr],ls=lls[kr])
     ax[2].set_xlabel('Time (days)')
     fig.savefig(path_save_png+name_save+'_t'+str(int(mymodel.t0//oneday))+'_'+str(int(mymodel.t1//oneday))+'.png')
     
-
 def plot_traj_2D(mymodel, var_dfx, forcing2D, observations2D, name_save, point_loc, LON_bounds, LAT_bounds, path_save_png, dpi):
     Ua,Va = mymodel(save_traj_at=mymodel.dt_forcing)
     U = forcing2D.data.U
