@@ -43,7 +43,7 @@ dt                  = 60.        # timestep of the model (s)
 # What to test
 FORWARD_PASS        = False      # tests forward, cost, gradcost
 MINIMIZE            = True      # switch to do the minimisation process
-maxiter             = 50         # max number of iteration
+maxiter             = 2         # max number of iteration
 PLOT_TRAJ           = True
 
 # Switches
@@ -134,7 +134,7 @@ if __name__ == "__main__":
         raise Exception(f"your choice of LON in 'point_loc'({point_loc}) and 'R'({R}) is outside of the domain, please retry")
     if (minlat + R > point_loc[1]) or (point_loc[1] > maxlat - R):
         raise Exception(f"your choice of LAT in 'point_loc'({point_loc}) and 'R'({R}) is outside of the domain, please retry")
-    ### END WARNINGS
+    ### END WARNINGSM
     
     
     
@@ -357,6 +357,16 @@ if __name__ == "__main__":
         pk = jnp.asarray([-11.,-10.,-10.,-9])    
         NdT = len(np.arange(t0, t1,dTK)) # int((t1-t0)//dTK) 
         pk = kt_ini(pk, NdT)
+        
+        pk = [-10.47863316,  -7.18847464, -13.05688585,  -9.79829942,  -7.78314267,
+            -12.61145052, -15.2564004,  -18.29705017, -14.27925646,  -7.89936186,
+            -16.13136193, -17.01115649,  -8.4708025,   -7.86208743, -14.81096965,
+            -14.26312746,  -9.84993765, -14.21031189, -14.27335427, -14.00538017,
+            -14.71485828, -14.51823757, -11.72167463, -15.92873515, -11.02885557,
+            -12.13280427, -16.92243245, -11.49329874,  -9.12577961,  -8.64231125,
+            -15.52035586, -10.19347507,  -7.92347709,  -8.68716075, -12.92285367,
+            -11.53162715, -14.5315762,  -12.39261761, -10.00145136, -15.0961745 ]
+
         
         # parameters
         TA = forcing1D.TAx + 1j*forcing1D.TAy

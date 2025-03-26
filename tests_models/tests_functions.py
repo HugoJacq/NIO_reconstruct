@@ -86,7 +86,7 @@ def plot_traj_1D(mymodel, var_dfx, forcing1D, observations1D, name_save, path_sa
     if hasattr(mymodel, 'dTK'):
         NdT = len(np.arange(mymodel.t0, mymodel.t1, mymodel.dTK))
         M = classic_slab.pkt2Kt_matrix(NdT, mymodel.dTK, mymodel.t0, mymodel.t1, mymodel.dt_forcing, base=mymodel.k_base)
-        kt2D = classic_slab.kt_1D_to_2D(mymodel.pk, NdT, npk=len(mymodel.pk)*mymodel.nl)
+        kt2D = classic_slab.kt_1D_to_2D(mymodel.pk, NdT, npk=len(mymodel.pk)//NdT*mymodel.nl)
         new_kt = np.dot(M,kt2D)
         myMLD = 1/np.exp(new_kt[:,0])/rho
         myR = np.transpose(np.exp(new_kt[:,1:])) * myMLD
