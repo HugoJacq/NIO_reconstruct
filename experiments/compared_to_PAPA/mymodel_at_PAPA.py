@@ -42,8 +42,8 @@ k_base              = 'gauss'   # base of K transform. 'gauss' or 'id'
 AD_mode             = 'F'       # forward mode for AD 
 
 # run parameters
-t0                  = 0*oneday
-t1                  = 60*oneday
+t0                  = 25*oneday
+t1                  = 50*oneday
 dt                  = 60.        # timestep of the model (s) 
 
 # What to test
@@ -157,7 +157,7 @@ if __name__ == "__main__":
             fig, ax = plt.subplots(3,1,figsize = (10,10),constrained_layout=True,dpi=dpi)
         else:
             fig, ax = plt.subplots(2,1,figsize = (10,10),constrained_layout=True,dpi=dpi)
-        if var_dfx.filter_at_fc:
+        if True:
             ax[0].plot((t0 + forcing1D.time)/oneday, U, c='k', lw=2, label='PAPA', alpha=0.3)
             ax[0].plot((t0 + forcing1D.time)/oneday, Ua, c='g', label='slab', alpha = 0.3)
             (Ut_nio,Vt_nio) = tools.my_fc_filter(mymodel.dt_forcing,U+1j*V, mymodel.fc)
