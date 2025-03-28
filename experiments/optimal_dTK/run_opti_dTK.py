@@ -120,7 +120,7 @@ if __name__ == "__main__":
         call_args = t0, t1, dt
         # list of dTK to test
         list_dTK = [int(dTK) for dTK in np.arange(10,0,-1)*oneday] 
-        list_dTK = [int(dTK) for dTK in np.arange(365,0,-5)*oneday] # 60
+        list_dTK = [int(dTK) for dTK in np.arange(365,0,-30)*oneday] # 60
         
         # for 1 batch of 1 year, but obs=every day, minimize the vector_k for each dTK from list_dTK, plot the cost function at the end of each minimisation
         # for 1 batch of 1 year, but obs=every hours, plot the cost function with the vector_k associated with each dTK
