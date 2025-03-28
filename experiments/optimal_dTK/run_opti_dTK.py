@@ -36,8 +36,8 @@ k_base              = 'gauss'   # base of K transform. 'gauss' or 'id'
 AD_mode             = 'F'       # forward mode for AD 
 
 # run parameters
-t0                  = 240*oneday
-t1                  = 300*oneday
+t0                  = 0*oneday
+t1                  = 365*oneday
 dt                  = 60.        # timestep of the model (s) 
 
 # What to test
@@ -83,16 +83,10 @@ name_regrid = ['croco_1h_inst_surf_2005-01-01-2005-01-31_0.1deg_conservative.nc'
               'croco_1h_inst_surf_2005-10-01-2005-10-31_0.1deg_conservative.nc',
               'croco_1h_inst_surf_2005-11-01-2005-11-30_0.1deg_conservative.nc',
               'croco_1h_inst_surf_2005-12-01-2005-12-31_0.1deg_conservative.nc']
-# name_regrid = ['croco_1h_inst_surf_2005-01-01-2005-01-31_0.1deg_conservative.nc',
-#               'croco_1h_inst_surf_2005-02-01-2005-02-28_0.1deg_conservative.nc',
-#               'croco_1h_inst_surf_2005-03-01-2005-03-31_0.1deg_conservative.nc',
-#               'croco_1h_inst_surf_2005-04-01-2005-04-30_0.1deg_conservative.nc',
-#               'croco_1h_inst_surf_2005-05-01-2005-05-31_0.1deg_conservative.nc',
-#               'croco_1h_inst_surf_2005-06-01-2005-06-30_0.1deg_conservative.nc',]
 #name_regrid = ['croco_1h_inst_surf_2005-01-01-2005-01-31_0.1deg_conservative.nc']
 
 # Observations
-period_obs          = oneday #86400      # s, how many second between observations  
+period_obs          = oneday # 86400      # s, how many second between observations  
 
 # ============================================================
 # END PARAMETERS
@@ -125,10 +119,11 @@ if __name__ == "__main__":
         pkini = jnp.asarray([-11.31980127, -10.28525189])          
         call_args = t0, t1, dt
         # list of dTK to test
-        list_dTK = [int(dTK) for dTK in np.arange(10,0,-1)*oneday] # 60
+        list_dTK = [int(dTK) for dTK in np.arange(10,0,-1)*oneday] 
+        list_dTK = [int(dTK) for dTK in np.arange(365,0,-5)*oneday] # 60
         
-        # for 1 batch of 6 months, minimize the vector_k for each dTK from list_dTK, plot the cost function at the end of each minimisation
-        # for 1 batch of the other 6 months, plot the cost function with the vector_k associated with each dTK
+        # for 1 batch of 1 year, but obs=every day, minimize the vector_k for each dTK from list_dTK, plot the cost function at the end of each minimisation
+        # for 1 batch of 1 year, but obs=every hours, plot the cost function with the vector_k associated with each dTK
         
         # plot 1 should be always decreasing
         # plot 2 will decrease then increase, optimal is at the change of slope !

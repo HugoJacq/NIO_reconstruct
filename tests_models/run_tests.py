@@ -14,7 +14,7 @@ os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false" # for jax
 import jax
 import jax.numpy as jnp
 
-from models.classic_slab import jslab, jslab_Ue_Unio, jslab_kt, jslab_kt_2D, jslab_rxry, kt_ini, kt_1D_to_2D, pkt2Kt_matrix
+from models.classic_slab import jslab, jslab_Ue_Unio, jslab_kt, jslab_kt_2D, jslab_rxry, jslab_kt_Ue_Unio, kt_ini, kt_1D_to_2D, pkt2Kt_matrix
 import forcing
 import inv
 import observations
@@ -36,23 +36,24 @@ k_base              = 'gauss'   # base of K transform. 'gauss' or 'id'
 AD_mode             = 'F'       # forward mode for AD 
 
 # run parameters
-t0                  = 0*oneday #240*oneday
-t1                  = 28*oneday #300*oneday
+t0                  = 200*oneday
+t1                  = 300*oneday
 dt                  = 60.        # timestep of the model (s) 
 
 # What to test
-FORWARD_PASS        = True      # tests forward, cost, gradcost
-MINIMIZE            = False      # switch to do the minimisation process
-maxiter             = 50         # max number of iteration
-PLOT_TRAJ           = False
+FORWARD_PASS        = False      # tests forward, cost, gradcost
+MINIMIZE            = True      # switch to do the minimisation process
+maxiter             = 2         # max number of iteration
+PLOT_TRAJ           = True
 
 # Switches
 TEST_SLAB                   = False
 TEST_SLAB_KT                = False
 TEST_SLAB_KT_FILTERED_FC    = False
-TEST_SLAB_KT_2D             = True
+TEST_SLAB_KT_2D             = False
 TEST_SLAB_RXRY              = False # WIP
 TEST_SLAB_Ue_Unio           = False
+TEST_SLAB_KT_Ue_Unio        = True
 
 # PLOT
 dpi=200
@@ -93,7 +94,7 @@ name_regrid = ['croco_1h_inst_surf_2005-01-01-2005-01-31_0.1deg_conservative.nc'
 #               'croco_1h_inst_surf_2005-04-01-2005-04-30_0.1deg_conservative.nc',
 #               'croco_1h_inst_surf_2005-05-01-2005-05-31_0.1deg_conservative.nc',
 #               'croco_1h_inst_surf_2005-06-01-2005-06-30_0.1deg_conservative.nc',]
-name_regrid = ['croco_1h_inst_surf_2006-02-01-2006-02-28_0.1deg_conservative.nc']
+#name_regrid = ['croco_1h_inst_surf_2006-02-01-2006-02-28_0.1deg_conservative.nc']
 
 # Observations
 period_obs          = oneday #86400      # s, how many second between observations  
@@ -112,9 +113,8 @@ if __name__ == "__main__":
     for ifile in range(len(name_regrid)):
         file.append(path_regrid+name_regrid[ifile])
     #file = path_regrid+name_regrid 
-    if TEST_SLAB or TEST_SLAB_KT or TEST_SLAB_KT_FILTERED_FC or TEST_SLAB_RXRY or TEST_SLAB_Ue_Unio:
-        forcing1D = forcing.Forcing1D(point_loc, t0, t1, dt_forcing, file)
-        observations1D = observations.Observation1D(point_loc, period_obs, t0, t1, dt_OSSE, file)
+    forcing1D = forcing.Forcing1D(point_loc, t0, t1, dt_forcing, file)
+    observations1D = observations.Observation1D(point_loc, period_obs, t0, t1, dt_OSSE, file)
     if TEST_SLAB_KT_2D:
         forcing2D = forcing.Forcing2D(dt_forcing, t0, t1, file, LON_bounds, LAT_bounds)
         observations2D = observations.Observation2D(period_obs, t0, t1, dt_OSSE, file, LON_bounds, LAT_bounds)
@@ -134,7 +134,7 @@ if __name__ == "__main__":
         raise Exception(f"your choice of LON in 'point_loc'({point_loc}) and 'R'({R}) is outside of the domain, please retry")
     if (minlat + R > point_loc[1]) or (point_loc[1] > maxlat - R):
         raise Exception(f"your choice of LAT in 'point_loc'({point_loc}) and 'R'({R}) is outside of the domain, please retry")
-    ### END WARNINGS
+    ### END WARNINGSM
     
     
     
@@ -347,10 +347,53 @@ if __name__ == "__main__":
             mymodel, _ = var_dfx.scipy_lbfgs_wrapper(mymodel, maxiter, verbose=True)   
             print(' time, minimize',clock.time()-t7)
                            
-        name_save = 'jslab_rxry_'+namesave_loc
+        name_save = 'jslab_Ue_Unio_'+namesave_loc
         if PLOT_TRAJ:
             plot_traj_1D(mymodel, var_dfx, forcing1D, observations1D, name_save, path_save_png, dpi)
     
+    if TEST_SLAB_KT_Ue_Unio:
+        print('* test jslab_kt_Ue_Unio')
+        # control vector
+        pk = jnp.asarray([-11.,-10.,-10.,-9])    
+        NdT = len(np.arange(t0, t1,dTK)) # int((t1-t0)//dTK) 
+        pk = kt_ini(pk, NdT)
+        
+        pk = [-10.47863316,  -7.18847464, -13.05688585,  -9.79829942,  -7.78314267,
+            -12.61145052, -15.2564004,  -18.29705017, -14.27925646,  -7.89936186,
+            -16.13136193, -17.01115649,  -8.4708025,   -7.86208743, -14.81096965,
+            -14.26312746,  -9.84993765, -14.21031189, -14.27335427, -14.00538017,
+            -14.71485828, -14.51823757, -11.72167463, -15.92873515, -11.02885557,
+            -12.13280427, -16.92243245, -11.49329874,  -9.12577961,  -8.64231125,
+            -15.52035586, -10.19347507,  -7.92347709,  -8.68716075, -12.92285367,
+            -11.53162715, -14.5315762,  -12.39261761, -10.00145136, -15.0961745 ]
+
+        
+        # parameters
+        TA = forcing1D.TAx + 1j*forcing1D.TAy
+        TAx_f,TAy_f = tools.my_fc_filter( dt_forcing, TA, forcing1D.fc)
+        TAx = jnp.asarray(TAx_f)
+        TAy = jnp.asarray(TAy_f)
+        fc = jnp.asarray(forcing1D.fc)
+        
+        call_args = t0, t1, dt
+        
+        #mymodel = jslab(pk, TAx, TAy, fc, dt_forcing, nl=1, AD_mode=AD_mode)
+        mymodel = jslab_kt_Ue_Unio(pk, TAx, TAy, fc, dTK, dt_forcing, nl=1, AD_mode=AD_mode, call_args=call_args, use_difx=False)
+        var_dfx = inv.Variational(mymodel,observations1D)
+        
+        if FORWARD_PASS:
+            run_forward_cost_grad(mymodel, var_dfx)   
+
+        if MINIMIZE:
+            print(' minimizing ...')
+            t7 = clock.time()
+            mymodel, _ = var_dfx.scipy_lbfgs_wrapper(mymodel, maxiter, verbose=True)   
+            print(' time, minimize',clock.time()-t7)
+                           
+        name_save = 'jslab_kt_Ue_Unio_'+namesave_loc
+        if PLOT_TRAJ:
+            plot_traj_1D(mymodel, var_dfx, forcing1D, observations1D, name_save, path_save_png, dpi)
+        
     end = clock.time()
     print('Total execution time = '+str(jnp.round(end-start,2))+' s')
     plt.show()

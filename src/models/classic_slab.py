@@ -218,7 +218,7 @@ class jslab_kt(eqx.Module):
         nsubsteps = int(self.dt_forcing // dt)
         # control
         K = jnp.exp( self.pk) 
-        K = kt_1D_to_2D(K, NdT=self.NdT, nl=self.nl)
+        K = kt_1D_to_2D(K, NdT=self.NdT, npk=2*self.nl)
         M = pkt2Kt_matrix(NdT=self.NdT, dTK=self.dTK, t0=t0, t1=t1, dt_forcing=self.dt_forcing, base=self.k_base)
         Kt = jnp.dot(M,K)
         args = self.fc, Kt, self.TAx, self.TAy, nsubsteps
@@ -381,7 +381,7 @@ class jslab_kt_2D(eqx.Module):
         nsubsteps = int(self.dt_forcing // dt)
         # control
         K = jnp.exp( self.pk) 
-        K = kt_1D_to_2D(K, NdT=self.NdT, nl=self.nl)
+        K = kt_1D_to_2D(K, NdT=self.NdT, npk=2*self.nl)
         M = pkt2Kt_matrix(NdT=self.NdT, dTK=self.dTK, t0=t0, t1=t1, dt_forcing=self.dt_forcing, base=self.k_base)
         Kt = jnp.dot(M,K)
         args = self.fc, Kt, self.TAx, self.TAy, nsubsteps
@@ -777,14 +777,169 @@ class jslab_Ue_Unio(eqx.Module):
 
             return d_y
  
+class jslab_kt_Ue_Unio(eqx.Module):
+    # variables
+    # U0 : np.float64
+    # V0 : np.float64
+    # control vector
+    pk : jnp.array
+    # parameters
+    TAx : jnp.array         
+    TAy : jnp.array         
+    fc : jnp.array         
+    dTK : float         
+    dt_forcing : jnp.array  
+    nl : jnp.array         
+    AD_mode : str          
+    NdT : jnp.array        
+    t0 : jnp.array         
+    t1 : jnp.array         
+    dt : jnp.array         
+    
+    use_difx : bool 
+    k_base : str
+    
+    def __init__(self, pk, TAx, TAy, fc, dTK, dt_forcing, nl, AD_mode, call_args, use_difx=False, k_base='gauss'):
+        t0,t1,dt = call_args
+        self.t0 = t0
+        self.t1 = t1
+        self.dt = dt
+        
+        self.dTK = dTK
+        self.NdT = len(np.arange(t0, t1,dTK)) # int((t1-t0)//dTK)   NdT = 
+        self.pk = pk #self.kt_ini( jnp.asarray(pk) )
+        
+        self.TAx = TAx
+        self.TAy = TAy
+        self.fc = fc
+        
+        self.dt_forcing = dt_forcing
+        self.nl = nl
+        self.AD_mode = AD_mode
+        
+        self.use_difx = use_difx
+        self.k_base = k_base
+        
+    @eqx.filter_jit
+    def __call__(self, save_traj_at = None): #call_args, 
+
+        y0 = 0.0,0.0 # self.U0,self.V0
+        t0, t1, dt = self.t0, self.t1, self.dt # call_args
+        nsubsteps = int(self.dt_forcing // dt)
+        # control
+        K = jnp.exp( self.pk) 
+        K = kt_1D_to_2D(K, NdT=self.NdT, npk = 4*self.nl)
+        M = pkt2Kt_matrix(NdT=self.NdT, dTK=self.dTK, t0=t0, t1=t1, dt_forcing=self.dt_forcing, base=self.k_base)
+        Kt = jnp.dot(M,K)
+        args = self.fc, Kt, self.TAx, self.TAy, nsubsteps
+        
+        maxstep = int((t1-t0)//dt) +1 
+        
+        
+        if self.use_difx:
+            solver = Euler()
+            if save_traj_at is None:
+                saveat = diffrax.SaveAt(steps=True)
+            else:
+                saveat = diffrax.SaveAt(ts=jnp.arange(t0,t1,save_traj_at)) # slower than above (no idea why)
+            # Auto-diff mode
+            if self.AD_mode=='F':
+                adjoint = diffrax.ForwardMode()
+            else:
+                adjoint = diffrax.RecursiveCheckpointAdjoint(checkpoints=10) # <- number of checkpoint still WIP
+            
+            solution = diffeqsolve(terms=ODETerm(self.vector_field), 
+                            solver=solver, 
+                            t0=t0, 
+                            t1=t1, 
+                            y0=y0, 
+                            args=args, 
+                            dt0=None, #dt, #dt, None
+                            saveat=saveat,
+                            stepsize_controller=diffrax.StepTo(jnp.arange(t0, t1+dt, dt)),
+                            adjoint=adjoint,
+                            max_steps=maxstep,
+                            made_jump=False).ys # here this is needed to be able to forward AD
+        else:
+            Nforcing = int((t1-t0)//self.dt_forcing)
+            if save_traj_at is None:
+                step_save_out = 1
+            else:
+                if save_traj_at<self.dt_forcing:
+                    raise Exception('You want to save at dt<dt_forcing, this is not available.\n Choose a bigger dt')
+                else:
+                    step_save_out = int(save_traj_at//self.dt_forcing)
+            
+            U, V = jnp.zeros(Nforcing), jnp.zeros(Nforcing)
+            
+            
+            def __inner_loop(carry, iin):
+                Uold, Vold, iout = carry
+                t = iout*self.dt_forcing + iin*self.dt
+                C = Uold, Vold
+                d_U,d_V = self.vector_field(t, C, args)
+                newU,newV = Uold + self.dt*d_U, Vold + self.dt*d_V # Euler hard coded
+                X1 = newU,newV,iout
+                return X1, X1
+            
+            def __outer_loop(carry, iout):
+                U,V = carry
+                X1 = U[iout], V[iout], iout
+                final, _ = lax.scan(__inner_loop, X1, jnp.arange(0,nsubsteps)) #jnp.arange(0,self.nt-1))
+                newU, newV, _ = final
+                U = U.at[iout+1].set(newU)
+                V = V.at[iout+1].set(newV)
+                X0 = U,V
+                return X0, X0
+            
+            X1 = U, V
+            final, _ = lax.scan(__outer_loop, X1, jnp.arange(0,Nforcing))
+            Unio, Vnio = final
+            
+            
+            # slow, ekman flow
+            Ue = 1/self.fc * (Kt[:, 2]*self.TAy + Kt[:, 3]*self.TAx)
+            Ve = - 1/self.fc * (Kt[:, 3]*self.TAy - Kt[:, 2]*self.TAx)
+            
+            U,V = Ue+Unio, Ve+Vnio
+            
+            if save_traj_at is None:
+                solution = U,V
+            else:
+                solution = U[::step_save_out], V[::step_save_out]
+            
+        return solution
+
+    def vector_field(self, t, C, args):
+        U,V = C
+        fc, Kt, TAx, TAy, nsubsteps = args
+        
+        # on the fly interpolation
+        it = jnp.array(t//self.dt, int)
+        itf = jnp.array(it//nsubsteps, int)
+        aa = jnp.mod(it,nsubsteps)/nsubsteps
+        itsup = lax.select(itf+1>=len(TAx), -1, itf+1) 
+        TAx = (1-aa)*TAx[itf] + aa*TAx[itsup]
+        TAy = (1-aa)*TAy[itf] + aa*TAy[itsup]
+        Ktnow = (1-aa)*Kt[it-1] + aa*Kt[itsup]
+        # def cond_print(it):
+        #     jax.debug.print('it,itf, TA, {}, {}, {}',it,itf,(TAx,TAy))
+        # jax.lax.cond(it<=10, cond_print, lambda x:None, it)
+        
+        # physic
+        d_U = fc*V + Ktnow[0]*TAx - Ktnow[1]*U
+        d_V = -fc*U + Ktnow[0]*TAy - Ktnow[1]*V
+        d_y = d_U,d_V
+        return d_y
+
     
 # K(t)
 def kt_ini(pk, NdT):
     a_2D = jnp.repeat(pk, NdT)
     return kt_2D_to_1D(a_2D)
 
-def kt_1D_to_2D(vector_kt_1D, NdT, nl):
-    return vector_kt_1D.reshape((NdT,nl*2))
+def kt_1D_to_2D(vector_kt_1D, NdT, npk):
+    return vector_kt_1D.reshape((NdT,npk))
 
 def kt_2D_to_1D(vector_kt):
     return vector_kt.flatten()
