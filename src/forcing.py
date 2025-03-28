@@ -9,7 +9,7 @@ from tools import nearest
 
 class Forcing1D:
     """
-    Forcing fields for 'Unstek1D'
+    Forcing fields for 'Unstek1D' 1D models
     
     point_loc   : [LON,LAT] location of the experiment
     dt_forcing  : time step of forcing
@@ -35,7 +35,7 @@ class Forcing1D:
 class Forcing2D:
     """
     Forcing fields for :
-        - 'jUnstek1D_Kt_spatial'
+        - 'jUnstek1D_Kt_spatial' 2D models
         
     dt_forcing  : time step of forcing
     path_file   : path to regrided dataset with forcing fields (stress) 
@@ -57,3 +57,16 @@ class Forcing2D:
         self.nt = len(self.data.time)
         self.time = np.arange(0,self.nt*dt_forcing,dt_forcing)
         self.dt_forcing = dt_forcing
+        
+class Forcing_from_PAPA:
+    """
+    Forcing fields from the PAPA sation
+    
+    
+    """
+    
+    def __init__(self, dt_forcing, t0, t1, path_file):
+        
+        # opening dataset
+        ds = xr.open_dataset(path_file)
+        
