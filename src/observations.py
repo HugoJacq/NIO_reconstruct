@@ -4,7 +4,7 @@ A class that make a observation object.
 import xarray as xr
 import numpy as np
 
-from tools import nearest, my_fc_filter
+from tools import nearest, my_fc_filter, open_PAPA_station_file
 
 class Observation1D:
     """
@@ -93,9 +93,22 @@ class Observation_from_PAPA:
     def __init__(self, periode_obs, t0, t1, dt_forcing, path_file):
         
         # opening dataset
-        ds = xr.open_mfdataset(path_file)
+        ds = open_PAPA_station_file(path_file)        
+        time_a = np.arange(t0,t1+dt_forcing,dt_forcing)
+        itmin = nearest(time_a, t0)
+        itmax = nearest(time_a, t1)
+        ds = ds.isel(time=slice(itmin,itmax))     
+        self.data = ds.isel(time=slice(itmin,itmax))
+        self.U,self.V = self.data.U.values,self.data.V.values
+        self.dt_forcing = dt_forcing
+        self.obs_period = periode_obs
+        self.time_obs = np.arange(0, len(self.data.time)*dt_forcing,periode_obs)
         
     def get_obs(self):
         """
+        Get current time spaced by 'obs_period'
         """
-        return 1.0,1.0
+        step_obs = int(self.obs_period)//int(self.dt_forcing)
+        self.Uo = self.U[::step_obs]
+        self.Vo = self.V[::step_obs]
+        return self.Uo,self.Vo
