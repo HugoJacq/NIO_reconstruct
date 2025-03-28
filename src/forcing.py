@@ -4,6 +4,8 @@ A class that make a forcing object
 
 import xarray as xr
 import numpy as np
+import cdflib.xarray as xrcdf  # to read cdf files
+import cdflib
 
 from tools import nearest
 
@@ -68,5 +70,7 @@ class Forcing_from_PAPA:
     def __init__(self, dt_forcing, t0, t1, path_file):
         
         # opening dataset
-        ds = xr.open_dataset(path_file)
-        
+        # cdf_file = cdflib.CDF(path_file[0])
+        # ds = xrcdf.cdf_to_xarray(path_file[0])
+        ds = xr.open_mfdataset(path_file)
+        print(ds)

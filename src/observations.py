@@ -85,3 +85,17 @@ class Observation2D:
         self.Vo = self.V[::step_obs]
         return self.Uo,self.Vo
     
+class Observation_from_PAPA:
+    """
+    Observations from the station PAPA
+    """
+    
+    def __init__(self, periode_obs, t0, t1, dt_forcing, path_file):
+        
+        # opening dataset
+        ds = xr.open_mfdataset(path_file)
+        
+    def get_obs(self):
+        """
+        """
+        return 1.0,1.0
