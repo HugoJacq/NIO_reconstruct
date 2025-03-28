@@ -6,5 +6,6 @@ above doesnt work
 
 here : https://www.pmel.noaa.gov/ocs/data/disdel/
 data in data_papa_2018
+I had to change the extension to .nc to make it work with xarray's open_dataset
 
 """
