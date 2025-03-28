@@ -110,3 +110,9 @@ data_PAPA_2018/original_files/sst50n145w_hr.cdf
 data_PAPA_2018/original_files/t50n145w_hr.cdf
 data_PAPA_2018/original_files/w50n145w_hr.cdf
 experiments/optimal_dTK/png_opti_dTK/cost_dTK_365_to_5.png
+experiments/compared_to_PAPA/png_models_at_PAPA/jslab_kt__t0_60.png
+experiments/compared_to_PAPA/png_models_at_PAPA/jslab_kt__t0_365.png
+experiments/compared_to_PAPA/png_models_at_PAPA/jslab_kt__t0_180.png
+experiments/compared_to_PAPA/png_models_at_PAPA/jslab_kt__t25_50.png
+experiments/compared_to_PAPA/png_models_at_PAPA/jslab_kt__t213_243.png
+benchmarks/__pycache__/functions_benchmark.cpython-310.pyc
