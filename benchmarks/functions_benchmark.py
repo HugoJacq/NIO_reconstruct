@@ -71,8 +71,8 @@ def benchmark_all(Lmodel, Lobservations, Nexec=10):
         
         if type(model).__name__ in L_model_2D:
             is2D = True
-            LAT_bounds = [np.amin(observations.data.lat),np.amax(observations.data.lat)]
-            LON_bounds = [np.amin(observations.data.lon),np.amax(observations.data.lon)]
+            LAT_bounds = [np.amin(observations.data.lat).values,np.amax(observations.data.lat).values]
+            LON_bounds = [np.amin(observations.data.lon).values,np.amax(observations.data.lon).values]
         else:
             point_loc = [observations.data.lon.values,observations.data.lat.values]
         
