@@ -36,10 +36,13 @@ k_base              = 'gauss'   # base of K transform. 'gauss' or 'id'
 AD_mode             = 'F'       # forward mode for AD 
 
 # run parameters
-t0                  = 180*oneday
+t0                  = 0*oneday
 dt_run              = 20*oneday
 endt1               = 365*oneday
 dt                  = 60.        # timestep of the model (s) 
+
+L_lengths = [L for L in np.arange(200,360,dt_run)]
+
 
  #['jslab_kt_2D'] # 'all' #['jslab','jslab_kt','jslab_kt_2D','jslab_rxry','jslab_Ue_Unio','jslab_kt_Ue_Unio','jslab_kt','jslab_kt_2D','jslab_kt_Ue_Unio']
 L_MODELS_TO_BENCHMARK = 'all'
@@ -115,7 +118,9 @@ if __name__ == "__main__":
     
     
     
-    for myt1 in np.arange(t0+dt_run,endt1+dt_run,dt_run):
+    for myt1 in L_lengths:
+        print(myt1)
+        raise Exception
         t1 = float(myt1) # <- else t1 is treated as a control param by the JAX framework of the models
         print('')
         print('################')   
