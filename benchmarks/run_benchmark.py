@@ -27,7 +27,7 @@ start = clock.time()
 # ============================================================
 # PARAMETERS
 # ============================================================
-#ON_HPC      = False      # on HPC
+ON_HPC      = False      # on HPC
 
 # model parameters
 Nl                  = 1         # number of layers for multilayer models
@@ -37,7 +37,8 @@ AD_mode             = 'F'       # forward mode for AD
 
 # run parameters
 t0                  = 0*oneday
-t1                  = 180*oneday
+dt_run              = 20*oneday
+endt1                  = 180*oneday
 dt                  = 60.        # timestep of the model (s) 
 
  #['jslab_kt_2D'] # 'all' #['jslab','jslab_kt','jslab_kt_2D','jslab_rxry','jslab_Ue_Unio','jslab_kt_Ue_Unio','jslab_kt','jslab_kt_2D','jslab_kt_Ue_Unio']
@@ -100,73 +101,81 @@ if __name__ == "__main__":
     ### WARNINGS
     dsfull = xr.open_mfdataset(file)
     # warning about t1>length of forcing
-    if t1 > len(dsfull.time)*dt_forcing:
-        print(f'You chose to run the model for t1={t1//oneday} days but the forcing is available up to t={len(dsfull.time)*dt_forcing//oneday} days\n'
+    if endt1 > len(dsfull.time)*dt_forcing:
+        print(f'You chose to run the model for t1={endt1//oneday} days but the forcing is available up to t={len(dsfull.time)*dt_forcing//oneday} days\n'
                         +f'I will use t1={len(dsfull.time)*dt_forcing//oneday} days')
-        t1 = len(dsfull.time)*dt_forcing
+        endt1 = len(dsfull.time)*dt_forcing
     ### END WARNINGS
         
    
     if L_MODELS_TO_BENCHMARK=='all':
         L_MODELS_TO_BENCHMARK = L_all_models
     
-    forcing1D = forcing.Forcing1D(point_loc, t0, t1, dt_forcing, file)
-    observations1D = observations.Observation1D(point_loc, period_obs, t0, t1, dt_OSSE, file)
-    forcing2D = forcing.Forcing2D(dt_forcing, t0, t1, file, LON_bounds, LAT_bounds)
-    observations2D = observations.Observation2D(period_obs, t0, t1, dt_OSSE, file, LON_bounds, LAT_bounds)
-    print('')
-    print('################')   
-    print('# Benchmarking #')
-    print('################') 
-
-
-    call_args = t0, t1, dt
     
     
-    L_models = []
-    L_obs = []
-    for nmodel in L_MODELS_TO_BENCHMARK:
+    
+    
+    for myt1 in np.arange(t0+dt_run,endt1+dt_run,dt_run):
+        t1 = float(myt1) # <- else t1 is treated as a control param by the JAX framework of the models
+        print('')
+        print('################')   
+        print('# Benchmarking #')
+        print(f'# period = {(t1-t0)/oneday} days')
+        print('################') 
+
+        print('-> getting forcing')
+        forcing1D = forcing.Forcing1D(point_loc, t0, t1, dt_forcing, file)
+        observations1D = observations.Observation1D(point_loc, period_obs, t0, t1, dt_OSSE, file)
+        forcing2D = forcing.Forcing2D(dt_forcing, t0, t1, file, LON_bounds, LAT_bounds)
+        observations2D = observations.Observation2D(period_obs, t0, t1, dt_OSSE, file, LON_bounds, LAT_bounds)
+    
+        call_args = t0, t1, dt
         
-        # control vector
-        if nmodel in L_model_slab:
-            pk = jnp.asarray([-11.31980127, -10.28525189])   
-        elif nmodel in L_model_slab_decoupled:   
-            pk = jnp.asarray([-11, -10, -10., -9.])  
+        
+        L_models = []
+        L_obs = []
+        for nmodel in L_MODELS_TO_BENCHMARK:
             
-        # extending K to Kt   
-        if nmodel in L_model_kt:
-            NdT = len(np.arange(t0, t1,dTK))
-            mypk = kt_ini(pk, NdT)
-        else:
-            mypk = pk   
-        
-        # choosing between 1D and 2D     
-        if nmodel in L_model_2D:
-            frc, obs = forcing2D, observations2D
-        else:
-            frc, obs = forcing1D, observations1D
-        
-        # parameters
-        TAx = jnp.asarray(frc.TAx)
-        TAy = jnp.asarray(frc.TAy)
-        fc = jnp.asarray(frc.fc)
-           
-        if nmodel=='jslab':
-            mymodel= jslab(mypk, TAx, TAy, fc, dt_forcing, nl=1, AD_mode=AD_mode, call_args=call_args)
-        elif nmodel=='jslab_kt':
-            mymodel = jslab_kt(mypk, TAx, TAy, fc, dTK, dt_forcing, nl=1, AD_mode=AD_mode, call_args=call_args, k_base=k_base)
-        elif nmodel=='jslab_kt_2D':
-            mymodel = jslab_kt_2D(mypk, TAx, TAy, fc, dTK, dt_forcing, nl=1, AD_mode=AD_mode, call_args=call_args,use_difx=False, k_base=k_base)
-        elif nmodel=='jslab_rxry':
-            mymodel = jslab_rxry(mypk, TAx, TAy, fc, dt_forcing, nl=1, AD_mode=AD_mode, call_args=call_args)
-        elif nmodel=='jslab_Ue_Unio':
-            mymodel = jslab_Ue_Unio(mypk, TAx, TAy, fc, dt_forcing, nl=1, AD_mode=AD_mode, call_args=call_args)
-        elif nmodel=='jslab_kt_Ue_Unio':
-            mymodel = jslab_kt_Ue_Unio(mypk, TAx, TAy, fc, dTK, dt_forcing, nl=1, AD_mode=AD_mode, call_args=call_args, use_difx=False)
-        else:
-            raise Exception(f'the model {nmodel} is not recognized, aborting ...')
-                     
-        L_models.append(mymodel)
-        L_obs.append(obs)
-    
-    benchmark_all(L_models, L_obs, Nexec=10)
+            # control vector
+            if nmodel in L_model_slab:
+                pk = jnp.asarray([-11.31980127, -10.28525189])   
+            elif nmodel in L_model_slab_decoupled:   
+                pk = jnp.asarray([-11, -10, -10., -9.])  
+                
+            # extending K to Kt   
+            if nmodel in L_model_kt:
+                NdT = len(np.arange(t0, t1,dTK))
+                mypk = kt_ini(pk, NdT)
+            else:
+                mypk = pk   
+            
+            # choosing between 1D and 2D     
+            if nmodel in L_model_2D:
+                frc, obs = forcing2D, observations2D
+            else:
+                frc, obs = forcing1D, observations1D
+            
+            # parameters
+            TAx = jnp.asarray(frc.TAx)
+            TAy = jnp.asarray(frc.TAy)
+            fc = jnp.asarray(frc.fc)
+            
+            if nmodel=='jslab':
+                mymodel= jslab(mypk, TAx, TAy, fc, dt_forcing, nl=1, AD_mode=AD_mode, call_args=call_args)
+            elif nmodel=='jslab_kt':
+                mymodel = jslab_kt(mypk, TAx, TAy, fc, dTK, dt_forcing, nl=1, AD_mode=AD_mode, call_args=call_args, k_base=k_base)
+            elif nmodel=='jslab_kt_2D':
+                mymodel = jslab_kt_2D(mypk, TAx, TAy, fc, dTK, dt_forcing, nl=1, AD_mode=AD_mode, call_args=call_args,use_difx=False, k_base=k_base)
+            elif nmodel=='jslab_rxry':
+                mymodel = jslab_rxry(mypk, TAx, TAy, fc, dt_forcing, nl=1, AD_mode=AD_mode, call_args=call_args)
+            elif nmodel=='jslab_Ue_Unio':
+                mymodel = jslab_Ue_Unio(mypk, TAx, TAy, fc, dt_forcing, nl=1, AD_mode=AD_mode, call_args=call_args)
+            elif nmodel=='jslab_kt_Ue_Unio':
+                mymodel = jslab_kt_Ue_Unio(mypk, TAx, TAy, fc, dTK, dt_forcing, nl=1, AD_mode=AD_mode, call_args=call_args, use_difx=False)
+            else:
+                raise Exception(f'the model {nmodel} is not recognized, aborting ...')
+                        
+            L_models.append(mymodel)
+            L_obs.append(obs)
+
+        benchmark_all(L_models, L_obs, Nexec=10)

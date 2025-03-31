@@ -56,4 +56,7 @@ with open(result_local, "r") as f:
             
 # plotting
 
+fig, ax = plt.subplots(1,3,figsize = (15,5),constrained_layout=True,dpi=dpi)
 
+# ax[0].plot()
+plt.show()

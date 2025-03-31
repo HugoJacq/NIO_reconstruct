@@ -6,6 +6,7 @@ import jax.numpy as jnp
 from inv import *
 from models.classic_slab import kt_ini
 from constants import oneday
+from regrid_croco.run_regrid import ON_HPC
 
 def benchmark_model(model, var=None, fun='forward', Nexec=10):
     # selecting the function to benchmark
@@ -34,13 +35,21 @@ def benchmark_model(model, var=None, fun='forward', Nexec=10):
 def benchmark_all(Lmodel, Lobservations, Nexec=10):
     """
     """
+    global ON_HPC
     L_model_slab = ['jslab','jslab_kt','jslab_kt_2D','jslab_rxry','jslab_Ue_Unio','jslab_kt_Ue_Unio']
     L_model_kt = ['jslab_kt','jslab_kt_2D','jslab_kt_Ue_Unio']
     L_model_2D = ['jslab_kt_2D']
     
     NB_dec = 8
     SAVE_PREVIOUS = False
-    name_bench = 'benchmark_results' #+type(model).__name__
+    t0 = Lmodel[0].t0
+    t1 = Lmodel[1].t1
+    
+    if ON_HPC:
+        txt_add = 'jackz'
+    else:
+        txt_add = ''
+    name_bench = f'benchmark_results_t0{t0/oneday}_t1{t1/oneday}_{txt_add}' #+type(model).__name__
     
     Ltimes_forward = np.zeros((len(Lmodel),Nexec))
     Ltimes_cost = np.zeros((len(Lmodel),Nexec))
