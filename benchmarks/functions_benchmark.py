@@ -47,10 +47,10 @@ def benchmark_all(Lmodel, Lobservations, Nexec=10):
     t1 = Lmodel[1].t1
     
     if ON_HPC:
-        txt_add = 'jackz'
+        txt_add = '_jackz'
     else:
         txt_add = ''
-    name_bench = f'benchmark_results_t0{t0/oneday}_t1{t1/oneday}_{txt_add}' #+type(model).__name__
+    name_bench = f'benchmark_results_t0{t0/oneday}_t1{t1/oneday}{txt_add}' #+type(model).__name__
     
     Ltimes_forward = np.zeros((len(Lmodel),Nexec))
     Ltimes_cost = np.zeros((len(Lmodel),Nexec))
