@@ -53,7 +53,8 @@ TEST_SLAB_KT_FILTERED_FC    = False
 TEST_SLAB_KT_2D             = False
 TEST_SLAB_RXRY              = False # WIP
 TEST_SLAB_Ue_Unio           = False
-TEST_SLAB_KT_Ue_Unio        = True
+TEST_SLAB_KT_Ue_Unio        = False # WIP
+TEST_SLAB_KT_2D_ADV         = True
 
 # PLOT
 dpi=200
@@ -393,6 +394,10 @@ if __name__ == "__main__":
         name_save = 'jslab_kt_Ue_Unio_'+namesave_loc
         if PLOT_TRAJ:
             plot_traj_1D(mymodel, var_dfx, forcing1D, observations1D, name_save, path_save_png, dpi)
+        
+    if TEST_SLAB_KT_2D_ADV:
+        """"""
+        # jslab_kt_2D_adv    
         
     end = clock.time()
     print('Total execution time = '+str(jnp.round(end-start,2))+' s')
