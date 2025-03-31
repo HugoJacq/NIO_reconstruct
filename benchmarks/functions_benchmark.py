@@ -123,10 +123,10 @@ def benchmark_all(Lmodel, Lobservations, Nexec=10):
             f.write('   - forward,'+str(np.round( np.mean(Ltimes_forward[k,ind0:]),NB_dec ))+','+
                                         str(np.round( np.std(Ltimes_forward[k,ind0:]),NB_dec ))+','+
                                         txt_f+'\n')
-            f.write('   - cost   ,'+str(np.round(np.mean(Ltimes_cost[k,ind0:]),    NB_dec ))+','+
+            f.write('   - cost,'+str(np.round(np.mean(Ltimes_cost[k,ind0:]),    NB_dec ))+','+
                                         str(np.round( np.std(Ltimes_cost[k,ind0:]),NB_dec ))+   ','+
                                         txt_c+'\n')
-            f.write('   - grad   ,'+str(np.round( np.mean(Ltimes_grad[k,ind0:]),   NB_dec ))+','+
+            f.write('   - grad,'+str(np.round( np.mean(Ltimes_grad[k,ind0:]),   NB_dec ))+','+
                                         str(np.round( np.std(Ltimes_grad[k,ind0:]),NB_dec ))+   ','+
                                         txt_g+'\n')
             f.write('   - grad/cost,'+str(np.round( np.mean(Ltimes_grad[k,ind0:]/Ltimes_cost[k,ind0:]),2))+'\n')
@@ -181,13 +181,12 @@ def get_data_from_file(filename):
                 nbparams[current_name] = myinfo[1]
                 
             elif start and (line[:5]=='   - '):
-                
                 myinfo = line[5:].strip().split(',')
                 if myinfo[0]=='forward':
                     tforward[current_name] = float(myinfo[1])
                 elif myinfo[0]=='cost':
                     tcost[current_name] = float(myinfo[1])
-                elif myinfo[0]=='gradcost':
+                elif myinfo[0]=='grad':
                     tgrad[current_name] = float(myinfo[1])
             i=i+1
     return nbparams, tforward, tcost, tgrad

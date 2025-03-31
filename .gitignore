@@ -129,3 +129,9 @@ benchmarks/benchmark_results_t00.0_t1120.0_jackz.txt
 benchmarks/benchmark_results_t00.0_t1140.0_jackz.txt
 benchmarks/__pycache__/my_var.cpython-310.pyc
 benchmarks/__pycache__/run_benchmark.cpython-310.pyc
+benchmarks/png_benchmark/benchmark_jslab_kt_2D.png
+benchmarks/png_benchmark/benchmark_jslab_kt_Ue_Unio.png
+benchmarks/png_benchmark/benchmark_jslab_kt.png
+benchmarks/png_benchmark/benchmark_jslab_rxry.png
+benchmarks/png_benchmark/benchmark_jslab_Ue_Unio.png
+benchmarks/png_benchmark/benchmark_jslab.png

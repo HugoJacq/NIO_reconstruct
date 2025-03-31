@@ -38,7 +38,7 @@ AD_mode             = 'F'       # forward mode for AD
 # run parameters
 t0                  = 0*oneday
 dt_run              = 20*oneday
-endt1                  = 180*oneday
+endt1                  = 40*oneday
 dt                  = 60.        # timestep of the model (s) 
 
  #['jslab_kt_2D'] # 'all' #['jslab','jslab_kt','jslab_kt_2D','jslab_rxry','jslab_Ue_Unio','jslab_kt_Ue_Unio','jslab_kt','jslab_kt_2D','jslab_kt_Ue_Unio']
@@ -179,3 +179,5 @@ if __name__ == "__main__":
             L_obs.append(obs)
 
         benchmark_all(L_models, L_obs, Nexec=10)
+        
+    
