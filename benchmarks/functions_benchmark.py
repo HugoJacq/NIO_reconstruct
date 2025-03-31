@@ -2,10 +2,12 @@ import numpy as np
 import time as clock
 import os
 import jax.numpy as jnp
-
+import sys
+sys.path.insert(0, '../src')
 from inv import *
 from models.classic_slab import kt_ini
 from constants import oneday
+from my_var import ON_HPC
 
 def benchmark_model(model, var=None, fun='forward', Nexec=10):
     # selecting the function to benchmark
@@ -54,8 +56,9 @@ def benchmark_all(Lmodel, Lobservations, Nexec=10):
     Ltimes_cost = np.zeros((len(Lmodel),Nexec))
     Ltimes_grad = np.zeros((len(Lmodel),Nexec))
     Nb_param = np.zeros(len(Lmodel))
+    is1D,is2D = True,False
+
     for k in range(len(Lmodel)):
-        is1D,is2D = True,False
         model = Lmodel[k]
         observations = Lobservations[k]
         print('     running:',type(model).__name__)
@@ -67,7 +70,7 @@ def benchmark_all(Lmodel, Lobservations, Nexec=10):
             NL = model.nl
         
         if type(model).__name__ in L_model_2D:
-            is1D,is2D = False,True
+            is2D = True
             LAT_bounds = [np.amin(observations.data.lat),np.amax(observations.data.lat)]
             LON_bounds = [np.amin(observations.data.lon),np.amax(observations.data.lon)]
         else:
@@ -120,10 +123,10 @@ def benchmark_all(Lmodel, Lobservations, Nexec=10):
             f.write('   - forward,'+str(np.round( np.mean(Ltimes_forward[k,ind0:]),NB_dec ))+','+
                                         str(np.round( np.std(Ltimes_forward[k,ind0:]),NB_dec ))+','+
                                         txt_f+'\n')
-            f.write('   - cost   ,'+str(np.round(np.mean(Ltimes_cost[k,ind0:]),    NB_dec ))+','+
+            f.write('   - cost,'+str(np.round(np.mean(Ltimes_cost[k,ind0:]),    NB_dec ))+','+
                                         str(np.round( np.std(Ltimes_cost[k,ind0:]),NB_dec ))+   ','+
                                         txt_c+'\n')
-            f.write('   - grad   ,'+str(np.round( np.mean(Ltimes_grad[k,ind0:]),   NB_dec ))+','+
+            f.write('   - grad,'+str(np.round( np.mean(Ltimes_grad[k,ind0:]),   NB_dec ))+','+
                                         str(np.round( np.std(Ltimes_grad[k,ind0:]),NB_dec ))+   ','+
                                         txt_g+'\n')
             f.write('   - grad/cost,'+str(np.round( np.mean(Ltimes_grad[k,ind0:]/Ltimes_cost[k,ind0:]),2))+'\n')
@@ -147,3 +150,43 @@ def benchmark_all(Lmodel, Lobservations, Nexec=10):
     for line in f:
         print(line[:-1]),
     f.close()
+
+def get_data_from_file(filename):
+    nbparams = {}
+    tforward = {}
+    tcost = {}
+    tgrad = {}
+    with open(filename, "r") as f:
+        line = f.readline()
+        i = 0
+        stop = False
+        start = False
+        while (line) and not stop:
+        
+            line = f.readline()    
+            if line[:3]=='*==':
+                stop = True
+                continue
+            if line[:4]=='* C3':
+                istart = i+1
+                
+            if 'istart' in locals():
+                if istart==i:
+                    start = True
+
+            if start and (not line[:4]=='   -'):
+                
+                myinfo = line.strip().split(',')
+                current_name = myinfo[0]
+                nbparams[current_name] = myinfo[1]
+                
+            elif start and (line[:5]=='   - '):
+                myinfo = line[5:].strip().split(',')
+                if myinfo[0]=='forward':
+                    tforward[current_name] = float(myinfo[1])
+                elif myinfo[0]=='cost':
+                    tcost[current_name] = float(myinfo[1])
+                elif myinfo[0]=='grad':
+                    tgrad[current_name] = float(myinfo[1])
+            i=i+1
+    return nbparams, tforward, tcost, tgrad
