@@ -116,3 +116,4 @@ experiments/compared_to_PAPA/png_models_at_PAPA/jslab_kt__t0_180.png
 experiments/compared_to_PAPA/png_models_at_PAPA/jslab_kt__t25_50.png
 experiments/compared_to_PAPA/png_models_at_PAPA/jslab_kt__t213_243.png
 benchmarks/__pycache__/functions_benchmark.cpython-310.pyc
+benchmarks/benchmark_results.txt

@@ -10,16 +10,15 @@ import sys
 import os
 import xarray as xr
 sys.path.insert(0, '../src')
-os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false" # for jax
+os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "True" # for jax
 import jax.numpy as jnp
+import importlib
 
-from models.classic_slab import jslab, jslab_kt, jslab_kt_2D, kt_ini, kt_1D_to_2D, pkt2Kt_matrix
+from models.classic_slab import *
 import forcing
 import inv
 import observations
-#from tests_functions import run_forward_cost_grad, plot_traj_1D, plot_traj_2D
 from constants import *
-
 from functions_benchmark import benchmark_all
 
 
@@ -43,17 +42,17 @@ t0                  = 200*oneday
 t1                  = 300*oneday
 dt                  = 60.        # timestep of the model (s) 
 
-# What to test
-FORWARD_PASS        = False      # tests forward, cost, gradcost
-MINIMIZE            = True      # switch to do the minimisation process
-maxiter             = 2         # max number of iteration
-PLOT_TRAJ           = True
+ #['jslab_kt_2D'] # 'all' #['jslab','jslab_kt','jslab_kt_2D','jslab_rxry','jslab_Ue_Unio','jslab_kt_Ue_Unio','jslab_kt','jslab_kt_2D','jslab_kt_Ue_Unio']
+L_MODELS_TO_BENCHMARK = "all"
 
-L_MODELS_TO_BENCHMARK = ['']
+L_all_models = ['jslab','jslab_kt','jslab_kt_2D','jslab_rxry','jslab_Ue_Unio','jslab_kt_Ue_Unio']
+L_model_slab = ['jslab','jslab_kt','jslab_kt_2D','jslab_rxry']
+L_model_slab_decoupled = ['jslab_Ue_Unio','jslab_kt_Ue_Unio']
+L_model_kt = ['jslab_kt','jslab_kt_2D','jslab_kt_Ue_Unio']
+L_model_2D = ['jslab_kt_2D']
 
-# PLOT
-dpi=200
-path_save_png = './png_benchmark/'
+
+
 
 # =================================
 # Forcing, OSSE and observations
@@ -63,7 +62,7 @@ point_loc = [-50.,35.]
 #point_loc = [-50.,46.] # should have more NIOs ?
 point_loc = [-70., 35.]
 # 2D
-R = 5.0 # 20°x20° -> ~6.5Go of VRAM for grad
+R = 1.0 # 20°x20° -> ~6.5Go of VRAM for grad
 LON_bounds = [point_loc[0]-R,point_loc[0]+R]
 LAT_bounds = [point_loc[1]-R,point_loc[1]+R]
 # Forcing
@@ -92,7 +91,7 @@ period_obs          = oneday #86400      # s, how many second between observati
 # END PARAMETERS
 # ============================================================
 
-os.system('mkdir -p '+path_save_png)
+
 
 if __name__ == "__main__": 
     
@@ -108,47 +107,67 @@ if __name__ == "__main__":
                         +f'I will use t1={len(dsfull.time)*dt_forcing//oneday} days')
         t1 = len(dsfull.time)*dt_forcing
     ### END WARNINGS
+        
+   
+    if L_MODELS_TO_BENCHMARK=='all':
+        L_MODELS_TO_BENCHMARK = L_all_models
     
-    
-    forcing1D = forcing.Forcing_from_PAPA(dt_forcing, t0, t1, file)
-    observations1D = observations.Observation_from_PAPA(period_obs, t0, t1, dt_forcing, file)
+    forcing1D = forcing.Forcing1D(point_loc, t0, t1, dt_forcing, file)
+    observations1D = observations.Observation1D(point_loc, period_obs, t0, t1, dt_OSSE, file)
     forcing2D = forcing.Forcing2D(dt_forcing, t0, t1, file, LON_bounds, LAT_bounds)
     observations2D = observations.Observation2D(period_obs, t0, t1, dt_OSSE, file, LON_bounds, LAT_bounds)
-        
-    print('My slab at station PAPA')
-    # control vector
-    pk = jnp.asarray([-11.31980127, -10.28525189])   
-        
-    # parameters
-    TAx = jnp.asarray(forcing1D.TAx)
-    TAy = jnp.asarray(forcing1D.TAy)
-    fc = jnp.asarray(forcing1D.fc)
-    
+    print('')
+    print('################')   
+    print('# Benchmarking #')
+    print('################') 
+
+
     call_args = t0, t1, dt
     
     
     L_models = []
     L_obs = []
     for nmodel in L_MODELS_TO_BENCHMARK:
-
-        if nmodel in ['']:
-            "ini kt"
-            NdT = len(np.arange(t0, t1,dTK))
-            pk = kt_ini(pk, NdT)
+        
+        # control vector
+        if nmodel in L_model_slab:
+            pk = jnp.asarray([-11.31980127, -10.28525189])   
+        elif nmodel in L_model_slab_decoupled:   
+            pk = jnp.asarray([-11, -10, -10., -9.])  
             
-        if nmodel in ['']:
-            "2D"
+        # extending K to Kt   
+        if nmodel in L_model_kt:
+            NdT = len(np.arange(t0, t1,dTK))
+            mypk = kt_ini(pk, NdT)
+        else:
+            mypk = pk   
+        
+        # choosing between 1D and 2D     
+        if nmodel in L_model_2D:
             frc, obs = forcing2D, observations2D
         else:
-            "1D"
             frc, obs = forcing1D, observations1D
-            
-        if nmodel=='jslab_kt':
-            'model selector, 1 for each model'
-            mymodel = jslab_kt(pk, TAx, TAy, fc, dTK, dt_forcing, nl=1, AD_mode=AD_mode, call_args=call_args, k_base=k_base)
-        elif nmodel=='jslab':
-            mymodel= jslab(pk, TAx, TAy, fc, dt_forcing, nl=1, AD_mode=AD_mode, call_args=call_args)
-                    
+        
+        # parameters
+        TAx = jnp.asarray(frc.TAx)
+        TAy = jnp.asarray(frc.TAy)
+        fc = jnp.asarray(frc.fc)
+           
+        if nmodel=='jslab':
+            mymodel= jslab(mypk, TAx, TAy, fc, dt_forcing, nl=1, AD_mode=AD_mode, call_args=call_args)
+        elif nmodel=='jslab_kt':
+            mymodel = jslab_kt(mypk, TAx, TAy, fc, dTK, dt_forcing, nl=1, AD_mode=AD_mode, call_args=call_args, k_base=k_base)
+        elif nmodel=='jslab_kt_2D':
+            mymodel = jslab_kt_2D(mypk, TAx, TAy, fc, dTK, dt_forcing, nl=1, AD_mode=AD_mode, call_args=call_args,use_difx=False, k_base=k_base)
+        elif nmodel=='jslab_rxry':
+            mymodel = jslab_rxry(mypk, TAx, TAy, fc, dt_forcing, nl=1, AD_mode=AD_mode, call_args=call_args)
+        elif nmodel=='jslab_Ue_Unio':
+            mymodel = jslab_Ue_Unio(mypk, TAx, TAy, fc, dt_forcing, nl=1, AD_mode=AD_mode, call_args=call_args)
+        elif nmodel=='jslab_kt_Ue_Unio':
+            mymodel = jslab_kt_Ue_Unio(mypk, TAx, TAy, fc, dTK, dt_forcing, nl=1, AD_mode=AD_mode, call_args=call_args, use_difx=False)
+        else:
+            raise Exception(f'the model {nmodel} is not recognized, aborting ...')
+                     
         L_models.append(mymodel)
         L_obs.append(obs)
     
