@@ -14,7 +14,7 @@ os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false" # for jax
 import jax
 import jax.numpy as jnp
 
-from models.classic_slab import jslab, jslab_Ue_Unio, jslab_kt, jslab_kt_2D, jslab_rxry, jslab_kt_Ue_Unio, kt_ini, kt_1D_to_2D, pkt2Kt_matrix
+from models.classic_slab import jslab, jslab_Ue_Unio, jslab_kt, jslab_kt_2D, jslab_rxry, jslab_kt_Ue_Unio, jslab_kt_2D_adv, kt_ini, kt_1D_to_2D, pkt2Kt_matrix
 import forcing
 import inv
 import observations
@@ -116,7 +116,7 @@ if __name__ == "__main__":
     #file = path_regrid+name_regrid 
     forcing1D = forcing.Forcing1D(point_loc, t0, t1, dt_forcing, file)
     observations1D = observations.Observation1D(point_loc, period_obs, t0, t1, dt_OSSE, file)
-    if TEST_SLAB_KT_2D:
+    if TEST_SLAB_KT_2D or TEST_SLAB_KT_2D_ADV:
         forcing2D = forcing.Forcing2D(dt_forcing, t0, t1, file, LON_bounds, LAT_bounds)
         observations2D = observations.Observation2D(period_obs, t0, t1, dt_OSSE, file, LON_bounds, LAT_bounds)
     
@@ -396,8 +396,35 @@ if __name__ == "__main__":
             plot_traj_1D(mymodel, var_dfx, forcing1D, observations1D, name_save, path_save_png, dpi)
         
     if TEST_SLAB_KT_2D_ADV:
-        """"""
-        # jslab_kt_2D_adv    
+        print('* test jslab_kt_2D_adv')
+        # control vector
+        pk = jnp.asarray([-11.31980127, -10.28525189])   
+        NdT = len(np.arange(t0, t1,dTK)) # int((t1-t0)//dTK) 
+        pk = kt_ini(pk, NdT)
+        
+        # parameters
+        TAx = jnp.asarray(forcing2D.TAx)
+        TAy = jnp.asarray(forcing2D.TAy)
+        fc = jnp.asarray(forcing2D.fc)
+        Ug = jnp.asarray(forcing2D.Ug)
+        Vg = jnp.asarray(forcing2D.Vg)
+        dx, dy = 0.1, 0.1
+        call_args = t0, t1, dt
+        mymodel = jslab_kt_2D_adv(pk, TAx, TAy, Ug, Vg, dx, dy, fc, dTK, dt_forcing, nl=1, AD_mode=AD_mode, call_args=call_args,use_difx=False, k_base=k_base)
+        var_dfx = inv.Variational(mymodel,observations2D)
+        
+        if FORWARD_PASS:
+            run_forward_cost_grad(mymodel, var_dfx)   
+
+        if MINIMIZE:
+            print(' minimizing ...')
+            t7 = clock.time()
+            mymodel, _ = var_dfx.scipy_lbfgs_wrapper(mymodel, maxiter, verbose=True)   
+            print(' time, minimize',clock.time()-t7)
+                           
+        name_save = 'jslab_kt_2D_adv_'+namesave_loc
+        if PLOT_TRAJ:
+            plot_traj_2D(mymodel, var_dfx, forcing2D, observations2D, name_save, point_loc, LON_bounds, LAT_bounds, path_save_png, dpi)     
         
     end = clock.time()
     print('Total execution time = '+str(jnp.round(end-start,2))+' s')

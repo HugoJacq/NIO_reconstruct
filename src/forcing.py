@@ -54,6 +54,7 @@ class Forcing2D:
         ds = ds.isel(time=slice(itmin,itmax))     
         self.data = ds.sel(lon=slice(LON_bounds[0],LON_bounds[1]),lat=slice(LAT_bounds[0],LAT_bounds[1]))
         self.U,self.V,self.MLD = self.data.U.values,self.data.V.values,self.data.MLD
+        self.Ug, self.Vg = self.data.Ug.values, self.data.Vg.values
         self.TAx,self.TAy = self.data.oceTAUX.values,self.data.oceTAUY.values
         self.fc = 2*2*np.pi/86164*np.sin(self.data.lat.values*np.pi/180)
         self.nt = len(self.data.time)
