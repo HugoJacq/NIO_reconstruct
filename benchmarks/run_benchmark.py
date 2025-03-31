@@ -41,7 +41,7 @@ dt_run              = 20*oneday
 endt1               = 365*oneday
 dt                  = 60.        # timestep of the model (s) 
 
-L_lengths = [L for L in np.arange(200,360,dt_run)*oneday]
+L_lengths = [L for L in np.arange(0,360*oneday,dt_run)]
 
 
  #['jslab_kt_2D'] # 'all' #['jslab','jslab_kt','jslab_kt_2D','jslab_rxry','jslab_Ue_Unio','jslab_kt_Ue_Unio','jslab_kt','jslab_kt_2D','jslab_kt_Ue_Unio']
