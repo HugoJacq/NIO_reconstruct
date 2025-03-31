@@ -120,3 +120,10 @@ benchmarks/benchmark_results.txt
 benchmarks/benchmark_results_jackz.txt
 benchmarks/benchmark_results_t00.0_t120.0.txt
 benchmarks/benchmark_results_t00.0_t140.0.txt
+benchmarks/benchmark_results_t00.0_t160.0.txt
+benchmarks/benchmark_results_t00.0_t180.0.txt
+benchmarks/benchmark_results_t00.0_t1100.0.txt
+benchmarks/benchmark_results_t00.0_t1120.0.txt
+benchmarks/benchmark_results_t00.0_t1140.0.txt
+benchmarks/benchmark_results_t00.0_t1160.0.txt
+benchmarks/benchmark_results_t00.0_t1180.0.txt

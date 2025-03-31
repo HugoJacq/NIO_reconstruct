@@ -6,7 +6,6 @@ import jax.numpy as jnp
 from inv import *
 from models.classic_slab import kt_ini
 from constants import oneday
-from regrid_croco.run_regrid import ON_HPC
 
 def benchmark_model(model, var=None, fun='forward', Nexec=10):
     # selecting the function to benchmark
