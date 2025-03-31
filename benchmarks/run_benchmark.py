@@ -53,7 +53,7 @@ L_MODELS_TO_BENCHMARK = ['']
 
 # PLOT
 dpi=200
-path_save_png = './png_tests_models/'
+path_save_png = './png_benchmark/'
 
 # =================================
 # Forcing, OSSE and observations
