@@ -18,7 +18,7 @@ import forcing
 import observations
 from constants import *
 from functions_benchmark import benchmark_all
-
+from my_var import ON_HPC
 
 start = clock.time()
 
@@ -27,7 +27,7 @@ start = clock.time()
 # ============================================================
 # PARAMETERS
 # ============================================================
-ON_HPC      = False      # on HPC
+# modify 'my_var' to switch from HPC to local      
 
 # model parameters
 Nl                  = 1         # number of layers for multilayer models

@@ -1,5 +1,8 @@
 import os
 import matplotlib.pyplot as plt
+from functions_benchmark import get_data_from_file
+import glob
+
 
 result_local = 'benchmark_results.txt'
 result_jackz = 'benchmark_results_jackz.txt'
@@ -12,47 +15,30 @@ path_save_png = './png_benchmark/'
 
 os.system('mkdir -p '+path_save_png)
 
-
+# getting data
 nbparams = {}
 tforward = {}
 tcost = {}
 tgrad = {}
 
-# getting data
-with open(result_local, "r") as f:
-    line = f.readline()
-    i = 0
-    stop = False
-    start = False
-    while (line) and not stop:
-    
-        line = f.readline()    
-        if line[:3]=='*==':
-            stop = True
-            continue
-        if line[:4]=='* C3':
-            istart = i+1
-            
-        if 'istart' in locals():
-            if istart==i:
-                start = True
 
-        if start and (not line[:4]=='   -'):
-            
-            myinfo = line.strip().split(',')
-            current_name = myinfo[0]
-            nbparams[current_name] = myinfo[1]
-            
-        elif start and (line[:5]=='   - '):
-            
-            myinfo = line[5:].strip().split(',')
-            if myinfo[0]=='forward':
-                tforward[current_name] = float(myinfo[1])
-            elif myinfo[0]=='cost':
-                tcost[current_name] = float(myinfo[1])
-            elif myinfo[0]=='gradcost':
-                tgrad[current_name] = float(myinfo[1])
-        i=i+1
+jackz_files = glob.glob('*jackz.txt')
+print(sorted(jackz_files))
+
+# sort list by increasing delta T
+L_delta_T = []
+for file in jackz_files:
+    name = file.split('_')
+    t0 = float(name[2][2:])
+    t1 = float(name[3][2:])
+    delta_T = t1 - t0 # in days
+    L_delta_T.append(delta_T)
+L_delta_T, jackz_files = zip(*sorted(zip(L_delta_T, jackz_files)))
+    
+    
+for file in jackz_files:
+    namePC = 'jackz'
+    nbparams[namePC], tforward[namePC], tcost[namePC], tgrad[namePC] = get_data_from_file()
             
 # plotting
 
