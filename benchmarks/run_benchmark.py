@@ -12,11 +12,9 @@ import xarray as xr
 sys.path.insert(0, '../src')
 os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "True" # for jax
 import jax.numpy as jnp
-import importlib
 
 from models.classic_slab import *
 import forcing
-import inv
 import observations
 from constants import *
 from functions_benchmark import benchmark_all
@@ -38,12 +36,12 @@ k_base              = 'gauss'   # base of K transform. 'gauss' or 'id'
 AD_mode             = 'F'       # forward mode for AD 
 
 # run parameters
-t0                  = 200*oneday
-t1                  = 300*oneday
+t0                  = 0*oneday
+t1                  = 180*oneday
 dt                  = 60.        # timestep of the model (s) 
 
  #['jslab_kt_2D'] # 'all' #['jslab','jslab_kt','jslab_kt_2D','jslab_rxry','jslab_Ue_Unio','jslab_kt_Ue_Unio','jslab_kt','jslab_kt_2D','jslab_kt_Ue_Unio']
-L_MODELS_TO_BENCHMARK = "all"
+L_MODELS_TO_BENCHMARK = 'all'
 
 L_all_models = ['jslab','jslab_kt','jslab_kt_2D','jslab_rxry','jslab_Ue_Unio','jslab_kt_Ue_Unio']
 L_model_slab = ['jslab','jslab_kt','jslab_kt_2D','jslab_rxry']
