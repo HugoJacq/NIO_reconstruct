@@ -46,8 +46,10 @@ def benchmark_all(Lmodel, Lobservations, Nexec=10):
     t0 = Lmodel[0].t0
     t1 = Lmodel[1].t1
     
-    if ON_HPC:
+    if ON_HPC=='jackz':
         txt_add = '_jackz'
+    elif ON_HPC=='maison':
+        txt_add = '_maison'
     else:
         txt_add = ''
     name_bench = f'benchmark_results_t0{t0/oneday}_t1{t1/oneday}{txt_add}' #+type(model).__name__

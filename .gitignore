@@ -156,3 +156,8 @@ src/__pycache__/inv.cpython-312.pyc
 src/__pycache__/forcing.cpython-312.pyc
 src/models/__pycache__/__init__.cpython-312.pyc
 src/models/__pycache__/classic_slab.cpython-312.pyc
+benchmarks/benchmark_results_t00.0_t120.0_maison.txt
+benchmarks/benchmark_results_t00.0_t140.0_maison.txt
+benchmarks/benchmark_results_t00.0_t160.0_maison.txt
+benchmarks/benchmark_results_t00.0_t180.0_maison.txt
+benchmarks/benchmark_results_t00.0_t1100.0_maison.txt

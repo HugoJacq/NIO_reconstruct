@@ -23,8 +23,8 @@ from my_var import ON_HPC
 
 start = clock.time()
 
-
-
+print(jax.devices)
+raise Exception
 # ============================================================
 # PARAMETERS
 # ============================================================
