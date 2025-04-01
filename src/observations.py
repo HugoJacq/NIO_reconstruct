@@ -112,3 +112,59 @@ class Observation_from_PAPA:
         self.Uo = self.U[::step_obs]
         self.Vo = self.V[::step_obs]
         return self.Uo,self.Vo
+    
+class Observations_idealized_1D:
+    def __init__(self, periode_obs, dt_forcing, t0, t1):
+        
+        time = np.arange(t0,t1,dt_forcing)  
+        TAx = 0.4
+        TAy = 0.
+        self.TAx,self.TAy = np.ones(len(time))*TAx, np.zeros(len(time))
+        
+        # impulse response
+        r=5e-6
+        K0 = 1e-4
+        f = 0.0001
+        C = K0 * 1/(r+1j*f) * ( 1-np.exp(- ((r+1j*f)*time)) ) * (TAx+1j*TAy)
+        self.U,self.V = np.real(C), np.imag(C)
+        self.time = np.arange(0, len(time)*dt_forcing,periode_obs)
+        self.dt_forcing = dt_forcing
+        self.obs_period = periode_obs
+
+    def get_obs(self):
+        """
+        Get current time spaced by 'obs_period'
+        """
+        step_obs = int(self.obs_period)//int(self.dt_forcing)
+        self.Uo = self.U[::step_obs]
+        self.Vo = self.V[::step_obs]
+        return self.Uo,self.Vo
+    
+class Observations_idealized_2D:
+    def __init__(self, periode_obs, dt_forcing, t0, t1, nx, ny):
+        
+        time = np.arange(t0,t1,dt_forcing)  
+        TAx = 0.4
+        TAy = 0.
+
+        ID =  np.ones((len(time), ny, nx))
+        self.TAx,self.TAy = ID*TAx, ID*TAy
+        
+        # impulse response
+        r=5e-6
+        K0 = 1e-4
+        f = 0.0001
+        C = ( K0 * 1/(r+1j*f) * ( 1-np.exp(- ((r+1j*f)*time)) ) * (self.TAx+1j*self.TAy).T ).T
+        self.U,self.V = np.real(C), np.imag(C)
+        self.time = np.arange(0, len(time)*dt_forcing,periode_obs)
+        self.dt_forcing = dt_forcing
+        self.obs_period = periode_obs
+
+    def get_obs(self):
+        """
+        Get current time spaced by 'obs_period'
+        """
+        step_obs = int(self.obs_period)//int(self.dt_forcing)
+        self.Uo = self.U[::step_obs]
+        self.Vo = self.V[::step_obs]
+        return self.Uo,self.Vo

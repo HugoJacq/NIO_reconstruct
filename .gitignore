@@ -147,3 +147,12 @@ benchmarks/benchmark_results_t00.0_t1180.0_jackz.txt
 benchmarks/my_var.py
 benchmarks/my_var.py
 benchmarks/my_var.py
+benchmarks/__pycache__/functions_benchmark.cpython-312.pyc
+benchmarks/__pycache__/my_var.cpython-312.pyc
+src/__pycache__/constants.cpython-312.pyc
+src/__pycache__/tools.cpython-312.pyc
+src/__pycache__/observations.cpython-312.pyc
+src/__pycache__/inv.cpython-312.pyc
+src/__pycache__/forcing.cpython-312.pyc
+src/models/__pycache__/__init__.cpython-312.pyc
+src/models/__pycache__/classic_slab.cpython-312.pyc
