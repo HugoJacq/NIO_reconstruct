@@ -48,7 +48,7 @@ maxiter             = 50         # max number of iteration
 PLOT_TRAJ           = True
 
 # Switches
-TEST_SLAB                   = True
+TEST_SLAB                   = False
 TEST_SLAB_KT                = False
 TEST_SLAB_KT_FILTERED_FC    = False
 TEST_SLAB_KT_2D             = False
@@ -58,6 +58,7 @@ TEST_SLAB_KT_Ue_Unio        = False # WIP
 TEST_SLAB_KT_2D_ADV         = False # WIP
 
 TEST_SLAB_FFT               = True
+
 
 # PLOT
 dpi=200
