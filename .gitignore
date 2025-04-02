@@ -175,3 +175,11 @@ benchmarks/benchmark_results_t00.0_t140.0_maison.txt
 benchmarks/benchmark_results_t00.0_t160.0_maison.txt
 benchmarks/benchmark_results_t00.0_t180.0_maison.txt
 benchmarks/benchmark_results_t00.0_t1100.0_maison.txt
+src/__pycache__/constants.cpython-311.pyc
+src/__pycache__/forcing.cpython-311.pyc
+src/__pycache__/inv.cpython-311.pyc
+src/__pycache__/observations.cpython-311.pyc
+src/__pycache__/tools.cpython-311.pyc
+src/models/__pycache__/__init__.cpython-311.pyc
+src/models/__pycache__/classic_slab.cpython-311.pyc
+tests_models/__pycache__/tests_functions.cpython-311.pyc

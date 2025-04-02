@@ -957,7 +957,7 @@ class jslab_kt_2D_adv(eqx.Module):
     # run time parameters    
     t0 : jnp.ndarray         
     t1 : jnp.ndarray         
-    dt : jnp.arrndarrayay         
+    dt : jnp.ndarray         
     
     use_difx : bool         = eqx.static_field()
     k_base : str            = eqx.static_field()
