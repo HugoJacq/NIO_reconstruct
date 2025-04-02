@@ -41,10 +41,10 @@ t1                  = 300*oneday
 dt                  = 60.        # timestep of the model (s) 
 
 # What to test
-FORWARD_PASS        = False      # tests forward, cost, gradcost
-MINIMIZE            = True      # switch to do the minimisation process
+FORWARD_PASS        = True      # tests forward, cost, gradcost
+MINIMIZE            = False      # switch to do the minimisation process
 maxiter             = 2         # max number of iteration
-PLOT_TRAJ           = True
+PLOT_TRAJ           = False
 
 # Switches
 TEST_SLAB                   = False

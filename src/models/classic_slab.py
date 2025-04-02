@@ -1079,7 +1079,7 @@ class jslab_kt_2D_adv(eqx.Module):
 
     def vector_field(self, t, C, args):
         U,V = C
-        fc, Kt, TAx, TAy, gradUg, gradVg, nsubsteps = args
+        fc, Kt, TAx, TAy, gradUgt, gradVgt, nsubsteps = args
         
         # on the fly interpolation
         it = jnp.array(t//self.dt, int)
@@ -1089,34 +1089,46 @@ class jslab_kt_2D_adv(eqx.Module):
         TAxt = (1-aa)*TAx[itf] + aa*TAx[itsup]
         TAyt = (1-aa)*TAy[itf] + aa*TAy[itsup]
         Ktnow = (1-aa)*Kt[it-1] + aa*Kt[itsup]
+        gradUg = gradUgt[0][itf], gradUgt[1][itf]
+        gradVg = gradVgt[0][itf], gradVgt[1][itf]
         # def cond_print(it):
         #     jax.debug.print('it,itf, TA, {}, {}, {}',it,itf,(TAx,TAy))
         # jax.lax.cond(it<=10, cond_print, lambda x:None, it)
         # print(U.shape, TAx.shape)
+        
         # physic
         d_U = fc*V + Ktnow[0]*TAxt - Ktnow[1]*U - U*gradUg[0] - V*gradUg[1]
         d_V = -fc*U + Ktnow[0]*TAyt - Ktnow[1]*V - U*gradVg[0] - V*gradVg[1]
         d_y = d_U,d_V
         return d_y 
  
+    # this could be moved to a different file
     def compute_grad(self, Ug):
         # we assume that geostrophic current is on regular lat longrid
-        dUgdx = jnp.zeros(Ug.shape)
-        dUgdy = jnp.zeros(Ug.shape)
         
-        # center, 2nd order
-        dUgdy[:,1:-1,:] = (Ug[:,2:,:] - Ug[:,:-2,:]) / (2*self.dy)
-        dUgdx[:,:,1:-1] = (Ug[:,:,2:] - Ug[:,:,:-2]) / (2*self.dx)
-        # outer rim of the center
-        dUgdy[:,0,:] = (Ug[:,1,:] - Ug[:,0,:]) / (self.dy)
-        dUgdy[:,-1,:] = (Ug[:,-1,:] - Ug[:,-2,:]) / (self.dy)
-        dUgdx[:,:,0] = (Ug[:,:,1] - Ug[:,:,0]) / (self.dx)
-        dUgdx[:,:,-1] = (Ug[:,:,-1] - Ug[:,:,-2]) / (self.dx)
+        dUgdx = jnp.gradient(Ug, axis=-1)
+        dUgdy = jnp.gradient(Ug, axis=-2)
+        
+        # dUgdx = jnp.zeros(Ug.shape)
+        # dUgdy = jnp.zeros(Ug.shape)
+        
+        # # center, 2nd order
+        # dUgdy[:,1:-1,:] = (Ug[:,2:,:] - Ug[:,:-2,:]) / (2*self.dy)
+        # dUgdx[:,:,1:-1] = (Ug[:,:,2:] - Ug[:,:,:-2]) / (2*self.dx)
+        # # outer rim of the center
+        # dUgdy[:,0,:] = (Ug[:,1,:] - Ug[:,0,:]) / (self.dy)
+        # dUgdy[:,-1,:] = (Ug[:,-1,:] - Ug[:,-2,:]) / (self.dy)
+        # dUgdx[:,:,0] = (Ug[:,:,1] - Ug[:,:,0]) / (self.dx)
+        # dUgdx[:,:,-1] = (Ug[:,:,-1] - Ug[:,:,-2]) / (self.dx)
+  
+
+        
   
         return dUgdx, dUgdy
   
   
 # K(t)
+# all of this could be moved to a different file ...
 def kt_ini(pk, NdT):
     a_2D = jnp.repeat(pk, NdT)
     return kt_2D_to_1D(a_2D)
