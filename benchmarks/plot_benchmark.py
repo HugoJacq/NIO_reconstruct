@@ -17,6 +17,7 @@ os.system('mkdir -p '+path_save_png)
 L_machine = ['local','jackz']
 files = {'jackz':glob.glob('*jackz.txt'),
          'local':glob.glob('*0.txt')}
+L_delta_T = {}
 
 # sort list by increasing delta T
 L_delta_T_old = []
@@ -27,7 +28,7 @@ for file in files['jackz']:
     delta_T = t1 - t0 # in days
     L_delta_T_old.append(delta_T) 
     
-L_delta_T, files['jackz'] = zip(*sorted(zip(L_delta_T_old, files['jackz'])))
+L_delta_T['jackz'], files['jackz'] = zip(*sorted(zip(L_delta_T_old, files['jackz'])))
 
 
 L_delta_T_old = []
@@ -38,12 +39,13 @@ for file in files['local']:
     delta_T = t1 - t0 # in days
     L_delta_T_old.append(delta_T) 
 
-L_delta_T, files['local'] = zip(*sorted(zip(L_delta_T_old, files['local'])))
+L_delta_T['local'], files['local'] = zip(*sorted(zip(L_delta_T_old, files['local'])))
 dict_, _, _, _ = get_data_from_file(files['jackz'][0])
 
 list_model = dict_.keys()
 
-L_delta_T = np.asarray(L_delta_T)
+for machine in L_delta_T.keys():
+    L_delta_T[machine] = np.asarray(L_delta_T[machine])
 
 # getting data
 nbparams = {}
@@ -81,22 +83,22 @@ for nmodel in data['jackz'].keys():
     
     for k,machine in enumerate(L_machine): # 'local',
         coeff = 1000
-        time_forward = np.asarray(data[machine][nmodel]['forward']) / L_delta_T * coeff
-        time_cost = np.asarray(data[machine][nmodel]['cost']) / L_delta_T * coeff
-        time_grad = np.asarray(data[machine][nmodel]['grad']) / L_delta_T * coeff
+        time_forward = np.asarray(data[machine][nmodel]['forward']) / L_delta_T[machine] * coeff
+        time_cost = np.asarray(data[machine][nmodel]['cost']) / L_delta_T[machine] * coeff
+        time_grad = np.asarray(data[machine][nmodel]['grad']) / L_delta_T[machine] * coeff
         ratio = np.asarray(data[machine][nmodel]['grad/cost']) 
         Nparam = data[machine][nmodel]['nbparams']
         
-        ax[0].plot(L_delta_T, time_forward, c=lc[k], label=f"{machine}" )
+        ax[0].plot(L_delta_T[machine], time_forward, c=lc[k], label=f"{machine}" )
         ax[0].set_title('forward')
         ax[0].set_ylabel('wall time per day of run (ms/days)')
-        ax[1].plot(L_delta_T, time_cost, c=lc[k], label=f"{machine}" )
+        ax[1].plot(L_delta_T[machine], time_cost, c=lc[k], label=f"{machine}" )
         ax[1].set_title('cost')
         #ax[2].plot(L_delta_T[0], data[machine][nmodel]['grad'][0], c=lc[k], ls='--', label=f"{machine} ({data[machine][nmodel]['nbparams']})" ) # dummy
-        ax[2].plot(L_delta_T, time_grad, c=lc[k], label=f"{machine}" ) 
+        ax[2].plot(L_delta_T[machine], time_grad, c=lc[k], label=f"{machine}" ) 
         ax[2].set_title('grad')
-        axbis.plot(L_delta_T, ratio, c=lc[k], ls='--')
-        ax[3].plot(L_delta_T, Nparam, c=lc[k], label=f"{machine}" )
+        axbis.plot(L_delta_T[machine], ratio, c=lc[k], ls='--')
+        ax[3].plot(L_delta_T[machine], Nparam, c=lc[k], label=f"{machine}" )
         ax[3].set_title('nb parameters')
         # ax[0].plot(Nparam, time_forward, c=lc[k], label=f"{machine}" )
         # ax[0].set_title('forward')
