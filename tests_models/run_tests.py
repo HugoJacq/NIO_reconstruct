@@ -13,7 +13,7 @@ sys.path.insert(0, '../src')
 os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false" # for jax
 import jax
 import jax.numpy as jnp
-jax.config.update('jax_platform_name', 'cpu')
+#jax.config.update('jax_platform_name', 'cpu')
 
 from models.classic_slab import jslab, jslab_Ue_Unio, jslab_kt, jslab_kt_2D, jslab_rxry, jslab_kt_Ue_Unio, jslab_kt_2D_adv, kt_ini, kt_1D_to_2D, pkt2Kt_matrix
 import forcing
