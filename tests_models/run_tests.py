@@ -13,6 +13,7 @@ sys.path.insert(0, '../src')
 os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false" # for jax
 import jax
 import jax.numpy as jnp
+#jax.config.update('jax_platform_name', 'cpu')
 
 from models.classic_slab import jslab, jslab_Ue_Unio, jslab_kt, jslab_kt_2D, jslab_rxry, jslab_kt_Ue_Unio, jslab_kt_2D_adv, kt_ini, kt_1D_to_2D, pkt2Kt_matrix
 import forcing
@@ -68,7 +69,7 @@ point_loc = [-50.,35.]
 #point_loc = [-50.,46.] # should have more NIOs ?
 point_loc = [-70., 35.]
 # 2D
-R = 5.0 # 20°x20° -> ~6.5Go of VRAM for grad
+R = 5.0 
 LON_bounds = [point_loc[0]-R,point_loc[0]+R]
 LAT_bounds = [point_loc[1]-R,point_loc[1]+R]
 # Forcing
@@ -408,6 +409,7 @@ if __name__ == "__main__":
         fc = jnp.asarray(forcing2D.fc)
         Ug = jnp.asarray(forcing2D.Ug)
         Vg = jnp.asarray(forcing2D.Vg)
+
         dx, dy = 0.1, 0.1
         call_args = t0, t1, dt
         mymodel = jslab_kt_2D_adv(pk, TAx, TAy, Ug, Vg, dx, dy, fc, dTK, dt_forcing, nl=1, AD_mode=AD_mode, call_args=call_args,use_difx=False, k_base=k_base)

@@ -30,17 +30,17 @@ class jslab(eqx.Module):
     # U0 : np.float64
     # V0 : np.float64
     # control vector
-    pk : jnp.array
+    pk : jnp.ndarray
     # parameters
-    TAx : jnp.array
-    TAy : jnp.array
-    fc : jnp.array
-    dt_forcing : jnp.array  
-    nl : jnp.array         
+    TAx : jnp.ndarray
+    TAy : jnp.ndarray
+    fc : jnp.ndarray
+    dt_forcing : jnp.ndarray  
+    nl : jnp.ndarray         
     AD_mode : str           
-    t0 : jnp.array          
-    t1 : jnp.array          
-    dt : jnp.array         
+    t0 : jnp.ndarray          
+    t1 : jnp.ndarray          
+    dt : jnp.ndarray         
     
     use_difx : bool
     
@@ -172,19 +172,19 @@ class jslab_kt(eqx.Module):
     # U0 : np.float64
     # V0 : np.float64
     # control vector
-    pk : jnp.array
+    pk : jnp.ndarray
     # parameters
-    TAx : jnp.array         
-    TAy : jnp.array         
-    fc : jnp.array         
+    TAx : jnp.ndarray         
+    TAy : jnp.ndarray         
+    fc : jnp.ndarray         
     dTK : float         
-    dt_forcing : jnp.array  
-    nl : jnp.array         
+    dt_forcing : jnp.ndarray  
+    nl : jnp.ndarray         
     AD_mode : str          
-    NdT : jnp.array        
-    t0 : jnp.array         
-    t1 : jnp.array         
-    dt : jnp.array         
+    NdT : jnp.ndarray        
+    t0 : jnp.ndarray         
+    t1 : jnp.ndarray         
+    dt : jnp.ndarray         
     
     use_difx : bool 
     k_base : str
@@ -328,23 +328,23 @@ class jslab_kt_2D(eqx.Module):
     # U0 : np.float64
     # V0 : np.float64
     # control vector
-    pk : jnp.array
+    pk : jnp.ndarray
     # forcing
-    TAx : jnp.array         
-    TAy : jnp.array         
-    fc : jnp.array         
-    dTK : jnp.array        
-    dt_forcing : jnp.array  
+    TAx : jnp.ndarray         
+    TAy : jnp.ndarray         
+    fc : jnp.ndarray         
+    dTK : jnp.ndarray        
+    dt_forcing : jnp.ndarray  
     # model parameters
-    nl : jnp.array         
+    nl : jnp.ndarray         
     AD_mode : str          
-    NdT : jnp.array    
-    nx : jnp.array
-    ny : jnp.array
+    NdT : jnp.ndarray    
+    nx : jnp.ndarray
+    ny : jnp.ndarray
     # run time parameters    
-    t0 : jnp.array         
-    t1 : jnp.array         
-    dt : jnp.array         
+    t0 : jnp.ndarray         
+    t1 : jnp.ndarray         
+    dt : jnp.ndarray         
     
     use_difx : bool 
     k_base : str
@@ -484,17 +484,17 @@ class jslab_rxry(eqx.Module):
     # U0 : np.float64
     # V0 : np.float64
     # control vector
-    pk : jnp.array
+    pk : jnp.ndarray
     # parameters
-    TAx : jnp.array
-    TAy : jnp.array
-    fc : jnp.array
-    dt_forcing : jnp.array  
-    nl : jnp.array         
+    TAx : jnp.ndarray
+    TAy : jnp.ndarray
+    fc : jnp.ndarray
+    dt_forcing : jnp.ndarray  
+    nl : jnp.ndarray         
     AD_mode : str           
-    t0 : jnp.array          
-    t1 : jnp.array          
-    dt : jnp.array         
+    t0 : jnp.ndarray          
+    t1 : jnp.ndarray          
+    dt : jnp.ndarray         
     
     use_difx : bool
     
@@ -626,17 +626,17 @@ class jslab_Ue_Unio(eqx.Module):
     # U0 : np.float64
     # V0 : np.float64
     # control vector
-    pk : jnp.array
+    pk : jnp.ndarray
     # parameters
-    TAx : jnp.array
-    TAy : jnp.array
-    fc : jnp.array
-    dt_forcing : jnp.array  
-    nl : jnp.array         
+    TAx : jnp.ndarray
+    TAy : jnp.ndarray
+    fc : jnp.ndarray
+    dt_forcing : jnp.ndarray  
+    nl : jnp.ndarray         
     AD_mode : str           
-    t0 : jnp.array          
-    t1 : jnp.array          
-    dt : jnp.array         
+    t0 : jnp.ndarray          
+    t1 : jnp.ndarray          
+    dt : jnp.ndarray         
     
     use_difx : bool
     
@@ -782,19 +782,19 @@ class jslab_kt_Ue_Unio(eqx.Module):
     # U0 : np.float64
     # V0 : np.float64
     # control vector
-    pk : jnp.array
+    pk : jnp.ndarray
     # parameters
-    TAx : jnp.array         
-    TAy : jnp.array         
-    fc : jnp.array         
+    TAx : jnp.ndarray         
+    TAy : jnp.ndarray         
+    fc : jnp.ndarray         
     dTK : float         
-    dt_forcing : jnp.array  
-    nl : jnp.array         
+    dt_forcing : jnp.ndarray  
+    nl : jnp.ndarray         
     AD_mode : str          
-    NdT : jnp.array        
-    t0 : jnp.array         
-    t1 : jnp.array         
-    dt : jnp.array         
+    NdT : jnp.ndarray        
+    t0 : jnp.ndarray         
+    t1 : jnp.ndarray         
+    dt : jnp.ndarray         
     
     use_difx : bool 
     k_base : str
@@ -937,30 +937,30 @@ class jslab_kt_2D_adv(eqx.Module):
     # U0 : np.float64
     # V0 : np.float64
     # control vector
-    pk : jnp.array
+    pk : jnp.ndarray
     # forcing
-    TAx : jnp.array         
-    TAy : jnp.array     
-    Ug : jnp.array         
-    Vg : jnp.array  
-    dx : jnp.array
-    dy : jnp.array    
-    fc : jnp.array         
-    dTK : jnp.array        
-    dt_forcing : jnp.array  
+    TAx : jnp.ndarray         
+    TAy : jnp.ndarray     
+    Ug : jnp.ndarray         
+    Vg : jnp.ndarray  
+    dx : jnp.ndarray
+    dy : jnp.ndarray    
+    fc : jnp.ndarray         
+    dTK : jnp.ndarray        
+    dt_forcing : jnp.ndarray  
     # model parameters
-    nl : jnp.array         
-    AD_mode : str          
-    NdT : jnp.array    
-    nx : jnp.array
-    ny : jnp.array
+    nl : jnp.ndarray         
+    AD_mode : str           = eqx.static_field() 
+    NdT : jnp.ndarray    
+    nx : jnp.ndarray
+    ny : jnp.ndarray
     # run time parameters    
-    t0 : jnp.array         
-    t1 : jnp.array         
-    dt : jnp.array         
+    t0 : jnp.ndarray         
+    t1 : jnp.ndarray         
+    dt : jnp.arrndarrayay         
     
-    use_difx : bool 
-    k_base : str
+    use_difx : bool         = eqx.static_field()
+    k_base : str            = eqx.static_field()
     
     def __init__(self, pk, TAx, TAy, Ug, Vg, dx, dy, fc, dTK, dt_forcing, nl, AD_mode, call_args, use_difx=False, k_base='gauss'):
         t0,t1,dt = call_args
@@ -990,6 +990,7 @@ class jslab_kt_2D_adv(eqx.Module):
         self.use_difx = use_difx
         self.k_base = k_base
         
+        
     @eqx.filter_jit
     def __call__(self, save_traj_at = None): #call_args, 
 
@@ -1003,9 +1004,9 @@ class jslab_kt_2D_adv(eqx.Module):
         Kt = jnp.dot(M,K)
         
         # compute gradient of geostrophy
-        gradUg, gradVg = self.compute_grad(self.Ug), self.compute_grad(self.Vg)
+        gradUgt, gradVgt = self.compute_grad(self.Ug), self.compute_grad(self.Vg)
         
-        args = self.fc, Kt, self.TAx, self.TAy, gradUg, gradVg, nsubsteps
+        args = self.fc, Kt, self.TAx, self.TAy, gradUgt, gradVgt, nsubsteps
         
         maxstep = int((t1-t0)//dt) +1 
         
@@ -1077,53 +1078,37 @@ class jslab_kt_2D_adv(eqx.Module):
             
         return solution
 
+    #@partial(jax.jit, donate_argnames=['C']) # not much memory save bc C is small
     def vector_field(self, t, C, args):
         U,V = C
-        fc, Kt, TAx, TAy, gradUgt, gradVgt, nsubsteps = args
+        fc, Kt, TAx, TAy, gradUg, gradVg, nsubsteps = args
         
         # on the fly interpolation
         it = jnp.array(t//self.dt, int)
         itf = jnp.array(it//nsubsteps, int)
         aa = jnp.mod(it,nsubsteps)/nsubsteps
-        itsup = lax.select(itf+1>=TAx.shape[0], -1, itf+1) 
+        itsup = jnp.where(itf+1>=TAx.shape[0], -1, itf+1) 
         TAxt = (1-aa)*TAx[itf] + aa*TAx[itsup]
         TAyt = (1-aa)*TAy[itf] + aa*TAy[itsup]
         Ktnow = (1-aa)*Kt[it-1] + aa*Kt[itsup]
-        gradUg = gradUgt[0][itf], gradUgt[1][itf]
-        gradVg = gradVgt[0][itf], gradVgt[1][itf]
+        gradUgt = (1-aa)*gradUg[0][itf] + aa*gradUg[0][itsup], (1-aa)*gradUg[1][itf] + aa*gradUg[1][itsup]
+        gradVgt = (1-aa)*gradVg[0][itf] + aa*gradVg[0][itsup], (1-aa)*gradVg[1][itf] + aa*gradVg[1][itsup]
         # def cond_print(it):
         #     jax.debug.print('it,itf, TA, {}, {}, {}',it,itf,(TAx,TAy))
         # jax.lax.cond(it<=10, cond_print, lambda x:None, it)
         # print(U.shape, TAx.shape)
         
         # physic
-        d_U = fc*V + Ktnow[0]*TAxt - Ktnow[1]*U - U*gradUg[0] - V*gradUg[1]
-        d_V = -fc*U + Ktnow[0]*TAyt - Ktnow[1]*V - U*gradVg[0] - V*gradVg[1]
+        d_U = fc*V + Ktnow[0]*TAxt - Ktnow[1]*U - U*gradUgt[0] - V*gradUgt[1]
+        d_V = -fc*U + Ktnow[0]*TAyt - Ktnow[1]*V - U*gradVgt[0] - V*gradVgt[1]
         d_y = d_U,d_V
         return d_y 
- 
+
     # this could be moved to a different file
     def compute_grad(self, Ug):
         # we assume that geostrophic current is on regular lat longrid
-        
-        dUgdx = jnp.gradient(Ug, axis=-1)
-        dUgdy = jnp.gradient(Ug, axis=-2)
-        
-        # dUgdx = jnp.zeros(Ug.shape)
-        # dUgdy = jnp.zeros(Ug.shape)
-        
-        # # center, 2nd order
-        # dUgdy[:,1:-1,:] = (Ug[:,2:,:] - Ug[:,:-2,:]) / (2*self.dy)
-        # dUgdx[:,:,1:-1] = (Ug[:,:,2:] - Ug[:,:,:-2]) / (2*self.dx)
-        # # outer rim of the center
-        # dUgdy[:,0,:] = (Ug[:,1,:] - Ug[:,0,:]) / (self.dy)
-        # dUgdy[:,-1,:] = (Ug[:,-1,:] - Ug[:,-2,:]) / (self.dy)
-        # dUgdx[:,:,0] = (Ug[:,:,1] - Ug[:,:,0]) / (self.dx)
-        # dUgdx[:,:,-1] = (Ug[:,:,-1] - Ug[:,:,-2]) / (self.dx)
-  
-
-        
-  
+        dUgdx = jnp.gradient(Ug, self.dx, axis=-1)
+        dUgdy = jnp.gradient(Ug, self.dy, axis=-2)
         return dUgdx, dUgdy
   
   
