@@ -183,3 +183,6 @@ src/__pycache__/tools.cpython-311.pyc
 src/models/__pycache__/__init__.cpython-311.pyc
 src/models/__pycache__/classic_slab.cpython-311.pyc
 tests_models/__pycache__/tests_functions.cpython-311.pyc
+tests_models/png_tests_models/jslab_-70.0E_35.0N_t200_300.png
+tests_models/png_tests_models/jslab_fft_-70.0E_35.0N_t200_300.png
+tests_models/png_tests_models/jslab_kt_2D_adv_-70.0E_35.0N.png

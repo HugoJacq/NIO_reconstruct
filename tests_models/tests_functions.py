@@ -76,12 +76,13 @@ def plot_traj_1D(mymodel, var_dfx, forcing1D, observations1D, name_save, path_sa
     
     ax[0].set_ylabel('Ageo zonal current (m/s)')
     ax[0].legend(loc=1)
+    ax[0].grid()
     # plot forcing
     ax[1].plot((t0 + forcing1D.time)/oneday, forcing1D.TAx, c='b', lw=2, label=r'$\tau_x$', alpha=1)
     ax[1].plot((t0 + forcing1D.time)/oneday, forcing1D.TAy, c='orange', lw=2, label=r'$\tau_y$', alpha=1)
     ax[1].set_ylabel('surface stress (N/m2)')
     ax[1].legend(loc=1)
-    
+    ax[1].grid()
     # plot MLD
     if hasattr(mymodel, 'dTK'):
         NdT = len(np.arange(mymodel.t0, mymodel.t1, mymodel.dTK))
@@ -108,7 +109,7 @@ def plot_traj_1D(mymodel, var_dfx, forcing1D, observations1D, name_save, path_sa
     ax[2].plot((t0 + forcing1D.time)/oneday, forcing1D.MLD, c='k', label='true')
     ax[2].set_ylabel('MLD (m)')
     ax[2].legend(loc=1)
-    
+    ax[2].grid()
     if False:
         ax2bis = ax[2].twinx()
         ax2bis.set_ylabel('r')
