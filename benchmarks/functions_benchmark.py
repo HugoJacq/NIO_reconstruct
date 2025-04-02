@@ -46,8 +46,10 @@ def benchmark_all(Lmodel, Lobservations, Nexec=10):
     t0 = Lmodel[0].t0
     t1 = Lmodel[1].t1
     
-    if ON_HPC:
+    if ON_HPC=='jackz':
         txt_add = '_jackz'
+    elif ON_HPC=='maison':
+        txt_add = '_maison'
     else:
         txt_add = ''
     name_bench = f'benchmark_results_t0{t0/oneday}_t1{t1/oneday}{txt_add}' #+type(model).__name__
@@ -71,10 +73,17 @@ def benchmark_all(Lmodel, Lobservations, Nexec=10):
         
         if type(model).__name__ in L_model_2D:
             is2D = True
-            LAT_bounds = [np.amin(observations.data.lat).values,np.amax(observations.data.lat).values]
-            LON_bounds = [np.amin(observations.data.lon).values,np.amax(observations.data.lon).values]
+            try:
+                LAT_bounds = [np.amin(observations.data.lat).values,np.amax(observations.data.lat).values]
+                LON_bounds = [np.amin(observations.data.lon).values,np.amax(observations.data.lon).values]
+            except AttributeError:
+                LAT_bounds = 'idealized'
+                LON_bounds = 'idealized'
         else:
-            point_loc = [observations.data.lon.values,observations.data.lat.values]
+            try:
+                point_loc = [observations.data.lon.values,observations.data.lat.values]
+            except AttributeError:
+                point_loc = [-50.,-44.]
         
         if type(model).__name__ in L_model_kt:
             NdT = len(np.arange(model.t0, model.t1, model.dTK)) # int((t1-t0)//dTK) 

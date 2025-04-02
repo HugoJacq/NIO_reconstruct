@@ -152,7 +152,7 @@ class jslab(eqx.Module):
             itf = jnp.array(it//nsubsteps, int)
             
             aa = jnp.mod(it,nsubsteps)/nsubsteps
-            itsup = lax.select(itf+1>=len(TAx), -1, itf+1) 
+            itsup = jnp.where(itf+1>=len(TAx), -1, itf+1) 
             TAx = (1-aa)*TAx[itf] + aa*TAx[itsup]
             TAy = (1-aa)*TAy[itf] + aa*TAy[itsup]
             # physic
@@ -301,7 +301,7 @@ class jslab_kt(eqx.Module):
         it = jnp.array(t//self.dt, int)
         itf = jnp.array(it//nsubsteps, int)
         aa = jnp.mod(it,nsubsteps)/nsubsteps
-        itsup = lax.select(itf+1>=len(TAx), -1, itf+1) 
+        itsup = jnp.where(itf+1>=len(TAx), -1, itf+1) 
         TAx = (1-aa)*TAx[itf] + aa*TAx[itsup]
         TAy = (1-aa)*TAy[itf] + aa*TAy[itsup]
         Ktnow = (1-aa)*Kt[it-1] + aa*Kt[itsup]
@@ -464,7 +464,7 @@ class jslab_kt_2D(eqx.Module):
         it = jnp.array(t//self.dt, int)
         itf = jnp.array(it//nsubsteps, int)
         aa = jnp.mod(it,nsubsteps)/nsubsteps
-        itsup = lax.select(itf+1>=TAx.shape[0], -1, itf+1) 
+        itsup = jnp.where(itf+1>=TAx.shape[0], -1, itf+1) 
         TAxt = (1-aa)*TAx[itf] + aa*TAx[itsup]
         TAyt = (1-aa)*TAy[itf] + aa*TAy[itsup]
         Ktnow = (1-aa)*Kt[it-1] + aa*Kt[itsup]
@@ -606,7 +606,7 @@ class jslab_rxry(eqx.Module):
             itf = jnp.array(it//nsubsteps, int)
             
             aa = jnp.mod(it,nsubsteps)/nsubsteps
-            itsup = lax.select(itf+1>=len(TAx), -1, itf+1) 
+            itsup = jnp.where(itf+1>=len(TAx), -1, itf+1) 
             TAx = (1-aa)*TAx[itf] + aa*TAx[itsup]
             TAy = (1-aa)*TAy[itf] + aa*TAy[itsup]
             # physic
@@ -757,7 +757,7 @@ class jslab_Ue_Unio(eqx.Module):
             itf = jnp.array(it//nsubsteps, int)
             
             aa = jnp.mod(it,nsubsteps)/nsubsteps
-            itsup = lax.select(itf+1>=len(TAx), -1, itf+1) 
+            itsup = jnp.where(itf+1>=len(TAx), -1, itf+1) 
             TAx = (1-aa)*TAx[itf] + aa*TAx[itsup]
             TAy = (1-aa)*TAy[itf] + aa*TAy[itsup]
             # physic
@@ -918,7 +918,7 @@ class jslab_kt_Ue_Unio(eqx.Module):
         it = jnp.array(t//self.dt, int)
         itf = jnp.array(it//nsubsteps, int)
         aa = jnp.mod(it,nsubsteps)/nsubsteps
-        itsup = lax.select(itf+1>=len(TAx), -1, itf+1) 
+        itsup = jnp.where(itf+1>=len(TAx), -1, itf+1) 
         TAx = (1-aa)*TAx[itf] + aa*TAx[itsup]
         TAy = (1-aa)*TAy[itf] + aa*TAy[itsup]
         Ktnow = (1-aa)*Kt[it-1] + aa*Kt[itsup]

@@ -12,7 +12,8 @@ import xarray as xr
 sys.path.insert(0, '../src')
 os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "True" # for jax
 import jax.numpy as jnp
-
+import jax
+jax.config.update("jax_enable_x64", True)
 from models.classic_slab import *
 import forcing
 import observations
@@ -22,8 +23,8 @@ from my_var import ON_HPC
 
 start = clock.time()
 
-
-
+print(jax.devices)
+raise Exception
 # ============================================================
 # PARAMETERS
 # ============================================================
@@ -102,12 +103,13 @@ if __name__ == "__main__":
         file.append(path_regrid+name_regrid[ifile])
         
     ### WARNINGS
-    dsfull = xr.open_mfdataset(file)
-    # warning about t1>length of forcing
-    if endt1 > len(dsfull.time)*dt_forcing:
-        print(f'You chose to run the model for t1={endt1//oneday} days but the forcing is available up to t={len(dsfull.time)*dt_forcing//oneday} days\n'
-                        +f'I will use t1={len(dsfull.time)*dt_forcing//oneday} days')
-        endt1 = len(dsfull.time)*dt_forcing
+    if ON_HPC!='maison':
+        dsfull = xr.open_mfdataset(file)
+        # warning about t1>length of forcing
+        if endt1 > len(dsfull.time)*dt_forcing:
+            print(f'You chose to run the model for t1={endt1//oneday} days but the forcing is available up to t={len(dsfull.time)*dt_forcing//oneday} days\n'
+                            +f'I will use t1={len(dsfull.time)*dt_forcing//oneday} days')
+            endt1 = len(dsfull.time)*dt_forcing
     ### END WARNINGS
         
    
@@ -127,11 +129,23 @@ if __name__ == "__main__":
         print('################') 
 
         print('-> getting forcing')
-        forcing1D = forcing.Forcing1D(point_loc, t0, t1, dt_forcing, file)
-        observations1D = observations.Observation1D(point_loc, period_obs, t0, t1, dt_OSSE, file)
-        forcing2D = forcing.Forcing2D(dt_forcing, t0, t1, file, LON_bounds, LAT_bounds)
-        observations2D = observations.Observation2D(period_obs, t0, t1, dt_OSSE, file, LON_bounds, LAT_bounds)
-    
+        if ON_HPC!='maison':
+            forcing1D = forcing.Forcing1D(point_loc, t0, t1, dt_forcing, file)
+            observations1D = observations.Observation1D(point_loc, period_obs, t0, t1, dt_OSSE, file)
+            forcing2D = forcing.Forcing2D(dt_forcing, t0, t1, file, LON_bounds, LAT_bounds)
+            observations2D = observations.Observation2D(period_obs, t0, t1, dt_OSSE, file, LON_bounds, LAT_bounds)
+        else:
+            nx, ny = 10, 10
+            forcing1D = forcing.Forcing_idealized_1D(dt_forcing, t0, t1)
+            observations1D = observations.Observations_idealized_1D(period_obs, dt_forcing, t0, t1)
+            forcing2D = forcing.Forcing_idealized_2D(dt_forcing, t0, t1, nx , ny)
+            observations2D = observations.Observations_idealized_2D(period_obs, dt_forcing, t0, t1, nx , ny)
+
+        # fig, ax = plt.subplots(1,1,figsize = (5,5),constrained_layout=True,dpi=100)
+        # ax.plot(forcing1D.time/oneday, forcing1D.U)
+        # plt.show()
+        # raise Exception
+
         call_args = t0, t1, dt
         
         
