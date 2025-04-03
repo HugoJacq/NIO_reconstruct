@@ -187,3 +187,6 @@ tests_models/png_tests_models/jslab_-70.0E_35.0N_t200_300.png
 tests_models/png_tests_models/jslab_fft_-70.0E_35.0N_t200_300.png
 tests_models/png_tests_models/jslab_kt_2D_adv_-70.0E_35.0N.png
 tests_models/png_tests_models/jslab_Ue_Unio_-70.0E_35.0N_t200_300.png
+tests_models/png_tests_models/jslab_kt_2D_-50.0E_40.0N.png
+tests_models/png_tests_models/jslab_kt_2D_adv_-50.0E_40.0N.png
+tests_models/png_tests_models/jslab_kt_2D_adv_Ut_-50.0E_40.0N.png

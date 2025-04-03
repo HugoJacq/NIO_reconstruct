@@ -23,13 +23,17 @@ class Variational:
 
     def loss_fn(self, sol, obs):
         sol = jnp.asarray(sol)
-        return jnp.mean( (sol[0]-obs[0])**2 + (sol[1]-obs[1])**2 )
+        return jnp.nanmean( (sol[0]-obs[0])**2 + (sol[1]-obs[1])**2 )
     
     @eqx.filter_jit
     def cost(self, dynamic_model, static_model):
         mymodel = eqx.combine(dynamic_model, static_model)
         dtime_obs = self.observations.obs_period
-        obs = self.observations.get_obs()
+        if type(mymodel).__name__ in ['jslab_kt_2D_press']:
+            utotal = True # Ut = Uag + Ug
+        else:
+            utotal = False # Uag
+        obs = self.observations.get_obs(utotal)
         if self.filter_at_fc:
             
             # run the model at high frequency

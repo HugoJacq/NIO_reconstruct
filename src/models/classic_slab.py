@@ -1125,7 +1125,7 @@ class jslab_kt_2D_adv(eqx.Module):
         Kt = jnp.dot(M,K)
         
         # compute gradient of geostrophy
-        gradUgt, gradVgt = self.compute_grad(self.Ug), self.compute_grad(self.Vg)
+        gradUgt, gradVgt = compute_hgrad(self.Ug, self.dx, self.dy), compute_hgrad(self.Vg, self.dx, self.dy)
         
         args = self.fc, Kt, self.TAx, self.TAy, gradUgt, gradVgt, nsubsteps
         
@@ -1214,26 +1214,206 @@ class jslab_kt_2D_adv(eqx.Module):
         Ktnow = (1-aa)*Kt[it-1] + aa*Kt[itsup]
         gradUgt = (1-aa)*gradUg[0][itf] + aa*gradUg[0][itsup], (1-aa)*gradUg[1][itf] + aa*gradUg[1][itsup]
         gradVgt = (1-aa)*gradVg[0][itf] + aa*gradVg[0][itsup], (1-aa)*gradVg[1][itf] + aa*gradVg[1][itsup]
+       
+        
+        
+        # physic
+        d_U =  fc*V + Ktnow[0]*TAxt - Ktnow[1]*U - (U*gradUgt[0] + V*gradUgt[1]) # Ktnow[0]*
+        d_V = -fc*U + Ktnow[0]*TAyt - Ktnow[1]*V - (U*gradVgt[0] + V*gradVgt[1]) # Ktnow[0]*
+        d_y = d_U,d_V
+        
+        def cond_print(it):
+            jax.debug.print("d_U, Coriolis, stress, damping, adv: {}, {}, {}, {}, {}", d_U[0,0], fc[0]*V[0,0], Ktnow[0]*TAxt[0,0], - Ktnow[1]*U[0,0], - Ktnow[0]*(U[0,0]*gradUgt[0][0,0] + V[0,0]*gradUgt[1][0,0]))
+        jax.lax.cond(it<=70, cond_print, lambda x:None, it)
+        # print(U.shape, TAx.shape)
+        
+        return d_y 
+
+    
+
+# TO BE TESTED
+class jslab_kt_2D_adv_Ut(eqx.Module):
+    """
+    Solving dU/dt = -ifU - K0*Tau - U*gradUg + ifUg
+    U = total current (ageo + geo)
+    
+    """
+    
+    
+    # variables
+    # U0 : np.float64
+    # V0 : np.float64
+    # control vector
+    pk : jnp.ndarray
+    # forcing
+    TAx : jnp.ndarray         
+    TAy : jnp.ndarray        
+    Ug : jnp.ndarray         
+    Vg : jnp.ndarray  
+    dx : jnp.ndarray
+    dy : jnp.ndarray  
+    fc : jnp.ndarray         
+    dTK : jnp.ndarray        
+    dt_forcing : jnp.ndarray  
+    # model parameters
+    nl : jnp.ndarray         
+    AD_mode : str          
+    NdT : jnp.ndarray    
+    nx : jnp.ndarray
+    ny : jnp.ndarray
+    # run time parameters    
+    t0 : jnp.ndarray         
+    t1 : jnp.ndarray         
+    dt : jnp.ndarray         
+    
+    use_difx : bool 
+    k_base : str
+    
+    def __init__(self, pk, TAx, TAy, Ug, Vg, dx, dy, fc, dTK, dt_forcing, nl, AD_mode, call_args, use_difx=False, k_base='gauss'):
+        t0,t1,dt = call_args
+        self.t0 = t0
+        self.t1 = t1
+        self.dt = dt
+        
+        self.dTK = dTK
+        self.NdT = len(jnp.arange(t0, t1,dTK)) # int((t1-t0)//dTK)   NdT = 
+        self.pk = pk #self.kt_ini( jnp.asarray(pk) )
+        
+        self.TAx = TAx
+        self.TAy = TAy
+        self.fc = fc
+        self.Ug = Ug
+        self.Vg = Vg
+        self.dx = dx
+        self.dy = dy
+        
+        self.dt_forcing = dt_forcing
+        self.nl = nl
+        self.AD_mode = AD_mode
+        shape = TAx.shape
+        self.nx = shape[-1]
+        self.ny = shape[-2]
+        
+        self.use_difx = use_difx
+        self.k_base = k_base
+        
+    @eqx.filter_jit
+    def __call__(self, save_traj_at = None): #call_args, 
+
+        y0 = jnp.zeros((self.ny,self.nx)), jnp.zeros((self.ny,self.nx)) # self.U0,self.V0
+        t0, t1, dt = self.t0, self.t1, self.dt # call_args
+        nsubsteps = int(self.dt_forcing // dt)
+        # control
+        K = jnp.exp( self.pk) 
+        K = kt_1D_to_2D(K, NdT=self.NdT, npk=2*self.nl)
+        M = pkt2Kt_matrix(NdT=self.NdT, dTK=self.dTK, t0=t0, t1=t1, dt_forcing=self.dt_forcing, base=self.k_base)
+        Kt = jnp.dot(M,K)
+        
+        # compute gradient of geostrophy
+        gradUgt, gradVgt = compute_hgrad(self.Ug, self.dx, self.dy), compute_hgrad(self.Vg, self.dx, self.dy)
+        
+        
+        args = self.fc, Kt, self.TAx, self.TAy, self.Ug, self.Vg, gradUgt, gradVgt, nsubsteps
+        
+        maxstep = int((t1-t0)//dt) +1 
+        
+        
+        if self.use_difx:
+            solver = Euler()
+            if save_traj_at is None:
+                saveat = diffrax.SaveAt(steps=True)
+            else:
+                saveat = diffrax.SaveAt(ts=jnp.arange(t0,t1,save_traj_at)) # slower than above (no idea why)
+            # Auto-diff mode
+            if self.AD_mode=='F':
+                adjoint = diffrax.ForwardMode()
+            else:
+                adjoint = diffrax.RecursiveCheckpointAdjoint(checkpoints=10) # <- number of checkpoint still WIP
+            
+            solution = diffeqsolve(terms=ODETerm(self.vector_field), 
+                            solver=solver, 
+                            t0=t0, 
+                            t1=t1, 
+                            y0=y0, 
+                            args=args, 
+                            dt0=None, #dt, #dt, None
+                            saveat=saveat,
+                            stepsize_controller=diffrax.StepTo(jnp.arange(t0, t1+dt, dt)),
+                            adjoint=adjoint,
+                            max_steps=maxstep,
+                            made_jump=False).ys # here this is needed to be able to forward AD
+        else:
+            Nforcing = int((t1-t0)//self.dt_forcing)
+            if save_traj_at is None:
+                step_save_out = 1
+            else:
+                if save_traj_at<self.dt_forcing:
+                    raise Exception('You want to save at dt<dt_forcing, this is not available.\n Choose a bigger dt')
+                else:
+                    step_save_out = int(save_traj_at//self.dt_forcing)
+            
+            U, V = jnp.zeros((Nforcing, self.ny, self.nx)), jnp.zeros((Nforcing, self.ny, self.nx))
+            
+            
+            def __inner_loop(carry, iin):
+                Uold, Vold, iout = carry
+                t = iout*self.dt_forcing + iin*self.dt
+                C = Uold, Vold
+                d_U,d_V = self.vector_field(t, C, args)
+                newU,newV = Uold + self.dt*d_U, Vold + self.dt*d_V # Euler hard coded
+                X1 = newU,newV,iout
+                return X1, X1
+            
+            def __outer_loop(carry, iout):
+                U,V = carry
+                X1 = U[iout], V[iout], iout
+                final, _ = lax.scan(__inner_loop, X1, jnp.arange(0,nsubsteps)) #jnp.arange(0,self.nt-1))
+                newU, newV, _ = final
+                U = U.at[iout+1].set(newU)
+                V = V.at[iout+1].set(newV)
+                X0 = U,V
+                return X0, X0
+            
+            X1 = U, V
+            final, _ = lax.scan(__outer_loop, X1, jnp.arange(0,Nforcing))
+            U,V = final
+            
+            if save_traj_at is None:
+                solution = U,V
+            else:
+                solution = U[::step_save_out], V[::step_save_out]
+            
+        return solution
+
+    def vector_field(self, t, C, args):
+        U,V = C
+        fc, Kt, TAx, TAy, Ug, Vg, gradUgt, gradVgt, nsubsteps = args
+        
+        # on the fly interpolation
+        it = jnp.array(t//self.dt, int)
+        itf = jnp.array(it//nsubsteps, int)
+        aa = jnp.mod(it,nsubsteps)/nsubsteps
+        itsup = jnp.where(itf+1>=TAx.shape[0], -1, itf+1) 
+        TAxt = (1-aa)*TAx[itf] + aa*TAx[itsup]
+        TAyt = (1-aa)*TAy[itf] + aa*TAy[itsup]
+        Ktnow = (1-aa)*Kt[it-1] + aa*Kt[itsup]
+        Ugnow = (1-aa)*Ug[it-1] + aa*Ug[itsup]
+        Vgnow = (1-aa)*Vg[it-1] + aa*Vg[itsup]
+        gradUgnow = (1-aa)*gradUgt[0][itf] + aa*gradUgt[0][itsup], (1-aa)*gradUgt[1][itf] + aa*gradUgt[1][itsup]
+        gradVgnow = (1-aa)*gradVgt[0][itf] + aa*gradVgt[0][itsup], (1-aa)*gradVgt[1][itf] + aa*gradVgt[1][itsup]
+        
         # def cond_print(it):
         #     jax.debug.print('it,itf, TA, {}, {}, {}',it,itf,(TAx,TAy))
         # jax.lax.cond(it<=10, cond_print, lambda x:None, it)
         # print(U.shape, TAx.shape)
         
         # physic
-        d_U =  fc*V + Ktnow[0]*TAxt - Ktnow[1]*U - Ktnow[0]*(U*gradUgt[0] + V*gradUgt[1])
-        d_V = -fc*U + Ktnow[0]*TAyt - Ktnow[1]*V - Ktnow[0]*(U*gradVgt[0] + V*gradVgt[1])
+        d_U = fc*V + Ktnow[0]*TAxt - Ktnow[1]*U - fc*Vgnow #- (U*gradUgnow[0] + V*gradUgnow[1])
+        d_V = -fc*U + Ktnow[0]*TAyt - Ktnow[1]*V + fc*Ugnow #- (U*gradVgnow[0] + V*gradVgnow[1])
         d_y = d_U,d_V
         return d_y 
 
-    # this could be moved to a different file
-    def compute_grad(self, Ug):
-        # we assume that geostrophic current is on regular lat longrid
-        dUgdx = jnp.gradient(Ug, self.dx, axis=-1)
-        dUgdy = jnp.gradient(Ug, self.dy, axis=-2)
-        return dUgdx, dUgdy
-  
 
-   
 # class jslab_kt_fft(eqx.Module):
 # -> k(t) donc FFT(K*tau) <=> FFT(K) convolution FFT(tau)
 # et pareil pour un potentiel terme en grad Ug
@@ -1352,3 +1532,11 @@ def pkt2Kt_matrix(NdT, dTK, t0, t1, dt_forcing, base='gauss'):
         else:
             raise Exception(f'You want to use the reduced basis {base} but it is not coded in pkt2Kt_matrix, aborting ...')
         return M
+
+
+# this could be moved to a different file
+def compute_hgrad(Ug, dx, dy):
+    # we assume that geostrophic current is on regular lat longrid
+    dUgdx = jnp.gradient(Ug, dx, axis=-1)
+    dUgdy = jnp.gradient(Ug, dy, axis=-2)
+    return dUgdx, dUgdy

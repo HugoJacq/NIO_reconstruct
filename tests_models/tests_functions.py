@@ -126,15 +126,23 @@ def plot_traj_2D(mymodel, var_dfx, forcing2D, observations2D, name_save, point_l
     Ug = forcing2D.data.Ug
     Vg = forcing2D.data.Vg
     TAx, TAy = forcing2D.data.oceTAUX, forcing2D.data.oceTAUY
-    Uo, _ = observations2D.get_obs()
+    
     t0, t1 = mymodel.t0, mymodel.t1
     
     indx = tools.nearest(forcing2D.data.lon.values, point_loc[0])
     indy = tools.nearest(forcing2D.data.lat.values, point_loc[1])
-    U1D = U.isel(lon=indx,lat=indy).values
-    V1D = V.isel(lon=indx,lat=indy).values
-    TAx1D = TAx.isel(lon=indx,lat=indy).values
-    TAy1D = TAy.isel(lon=indx,lat=indy).values
+    if type(mymodel).__name__ in ['jslab_kt_2D_adv_Ut']:
+        U1D = U.values + Ug.values
+        V1D = V.values + Vg.values
+        Uo, _ = observations2D.get_obs(is_utotal=True)
+    else:
+        U1D = U.values
+        V1D = V.values
+        Uo, _ = observations2D.get_obs(is_utotal=False)
+    U1D = U1D[:,indx,indy]
+    V1D = V1D[:,indx,indy]
+    TAx1D = TAx.values[:,indx,indy]
+    TAy1D = TAy.values[:,indx,indy]
     Ua1D = Ua[:,indx,indy]
     Va1D = Va[:,indx,indy]
     Uo1D = Uo[:,indx,indy]
@@ -143,12 +151,12 @@ def plot_traj_2D(mymodel, var_dfx, forcing2D, observations2D, name_save, point_l
 
     print('RMSE at point_loc '+str(point_loc)+' is',RMSE)
     # PLOT trajectory at point_loc
-    if False:
+    if True:
         fig, ax = plt.subplots(2,1,figsize = (10,10),constrained_layout=True,dpi=dpi)
         Nxy = U[0,:,:].size
-        U_xy_flat = np.reshape(U.values,(U.shape[0],Nxy))
-        for k in range(Nxy):
-            ax[0].plot((t0 + forcing2D.time)/oneday, U_xy_flat[:,k], c='k', alpha=0.1)
+        # U_xy_flat = np.reshape(U.values,(U.shape[0],Nxy))
+        # for k in range(Nxy):
+        #     ax[0].plot((t0 + forcing2D.time)/oneday, U_xy_flat[:,k], c='k', alpha=0.1)
             
         if var_dfx.filter_at_fc:
             ax[0].plot((t0 + forcing2D.time)/oneday, U1D, c='k', lw=2, label='Croco', alpha=0.3)
@@ -192,17 +200,26 @@ def plot_traj_2D(mymodel, var_dfx, forcing2D, observations2D, name_save, point_l
     # 2D plot
     # U total comparison
     nx, ny = U[0,:,:].shape
+    indt = -1
     x = np.linspace(LON_bounds[0],LON_bounds[1], nx+1)
     y = np.linspace(LAT_bounds[0],LAT_bounds[1], ny+1)
 
-    fig, ax = plt.subplots(2,1,figsize = (7,10),constrained_layout=True,dpi=dpi) 
+    fig, ax = plt.subplots(2,1,figsize = (6,10),constrained_layout=True,dpi=dpi) 
+    s = ax[0].pcolormesh(x, y, (np.array(Ua)+Ug)[indt], vmin=-0.6, vmax=0.6)
+    plt.colorbar(s, ax=ax[0])
+    ax[0].set_title('Ua+Ug')
+    ax[0].set_aspect(1.0)
+    s = ax[1].pcolormesh(x, y, (U+Ug)[indt], vmin=-0.6, vmax=0.6)
+    plt.colorbar(s, ax=ax[1])
+    ax[1].set_title('U+Ug')
+    ax[1].set_aspect(1.0)
     
-    s = ax[0].pcolormesh(x, y, Ua[0], vmin=-0.6, vmax=0.6)
+    fig, ax = plt.subplots(2,1,figsize = (7,10),constrained_layout=True,dpi=dpi) 
+    s = ax[0].pcolormesh(x, y, Ua[indt], vmin=-0.6, vmax=0.6)
     plt.colorbar(s, ax=ax[0])
     ax[0].set_title('Ua')
     ax[0].set_aspect(1.0)
-    
-    s = ax[1].pcolormesh(x, y, U[0], vmin=-0.6, vmax=0.6)
+    s = ax[1].pcolormesh(x, y, U[indt], vmin=-0.6, vmax=0.6)
     plt.colorbar(s, ax=ax[1])
     ax[1].set_title('U')
     ax[1].set_aspect(1.0)
