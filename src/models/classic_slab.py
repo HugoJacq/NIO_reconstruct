@@ -166,7 +166,84 @@ class jslab(eqx.Module):
             # jax.lax.cond(it<=10, cond_print, lambda x:None, it)
 
             return d_y
+
+class jslab_fft(eqx.Module):
+     # variables
+    # U0 : np.float64
+    # V0 : np.float64
+    # control vector
+    pk : jnp.ndarray
+    # forcing
+    TAx : jnp.ndarray         
+    TAy : jnp.ndarray         
+    fc : jnp.ndarray              
+    dt_forcing : jnp.ndarray  
+    # model parameters
+    nl : jnp.ndarray         
+    AD_mode : str          
+    NdT : jnp.ndarray    
+    # run time parameters    
+    t0 : jnp.ndarray         
+    t1 : jnp.ndarray         
+    dt : jnp.ndarray         
+    
+    use_difx : bool 
+    k_base : str
+    
+    def __init__(self, pk, TAx, TAy, fc, dt_forcing, nl, AD_mode, call_args, use_difx=False, k_base='gauss'):
+        t0,t1,dt = call_args
+        self.t0 = t0
+        self.t1 = t1
+        self.dt = dt
         
+        self.pk = pk
+        
+        self.TAx = TAx
+        self.TAy = TAy
+        self.fc = fc
+        
+        self.dt_forcing = dt_forcing
+        self.nl = nl
+        self.AD_mode = AD_mode
+        
+        self.use_difx = use_difx
+        self.k_base = k_base
+    
+    
+    
+    @eqx.filter_jit
+    def __call__(self, save_traj_at = None): 
+        """
+        """ 
+        
+        if save_traj_at is None:
+                step_save_out = 1
+        else:
+            if save_traj_at<self.dt_forcing:
+                raise Exception('You want to save at dt<dt_forcing, this is not available.\n Choose a bigger dt')
+            else:
+                step_save_out = int(save_traj_at//self.dt_forcing)
+        
+        # forcing: time -> fourier space 
+        TA      = self.TAx + 1j*self.TAy
+        time    = jnp.arrange(self.t0, self.t1, self.dt)
+        nt      = len(time)
+        ffl     = jnp.arange(nt)/(nt*self.dt)
+        wind_fft = jnp.fft(TA)
+        # solving in fourier
+        U1f = self.H(ffl) * wind_fft
+        # going back to time space
+        U,V = jnp.ifft(U1f)
+
+        # get solution at 'save_traj_at'
+        solution = U[::step_save_out], V[::step_save_out]
+        
+        return solution
+        
+    def H(self,s):
+        K = self.pk
+        return K[0] / (1j*(2*np.pi*s +self.fc) + K[1])
+      
 class jslab_kt(eqx.Module):
     # variables
     # U0 : np.float64
@@ -622,6 +699,11 @@ class jslab_rxry(eqx.Module):
             return d_y
  
 class jslab_Ue_Unio(eqx.Module):
+    """
+    see D'Asaro 1985 https://doi.org/10.1175/1520-0485(1985)015<1043:TEFFTW>2.0.CO;2
+    """
+    
+    
     # variables
     # U0 : np.float64
     # V0 : np.float64
@@ -664,10 +746,17 @@ class jslab_Ue_Unio(eqx.Module):
         # control
         K = jnp.exp( jnp.asarray(self.pk) )
   
-        #args = self.fc, K, self.TAx, self.TAy, nsubsteps # forcing not filtered
         
-        # forcing is filtered at fc
-        args = self.fc, K, self.TAx, self.TAy, nsubsteps 
+        # slow, ekman flow
+        T = (self.TAx + 1j*self.TAy) /rho
+        Ce = K[0] * T / (K[1] + 1j*self.fc)
+        Ue = jnp.real(Ce)
+        Ve = jnp.imag(Ce) 
+        dCedt = jnp.gradient(Ce, self.dt, axis=0)
+        dUedt = jnp.real(dCedt)
+        dVedt = jnp.imag(dCedt)
+        # forcing is already filtered at fc
+        args = self.fc, K, self.TAx, self.TAy, dUedt, dVedt, nsubsteps 
         
         maxstep = int((t1-t0)//dt) +1 
         
@@ -733,9 +822,11 @@ class jslab_Ue_Unio(eqx.Module):
             Unio,Vnio = final
             
             
-            # slow, ekman flow
-            Ue = 1/self.fc * (K[2]*self.TAy + K[3]*self.TAx)
-            Ve = - 1/self.fc * (K[3]*self.TAy - K[2]*self.TAx)
+            
+            
+            
+            # Ue = 1/self.fc * (K[2]*self.TAy + K[3]*self.TAx)
+            # Ve = - 1/self.fc * (K[3]*self.TAy - K[2]*self.TAx)
             
             U,V = Ue+Unio, Ve+Vnio
             
@@ -749,33 +840,42 @@ class jslab_Ue_Unio(eqx.Module):
 
     # vector field is common whether we use diffrax or not
     def vector_field(self, t, C, args):
-            U,V = C
-            fc, K, TAx, TAy, nsubsteps = args
-            
-            # on the fly interpolation
-            it = jnp.array(t//self.dt, int)
-            itf = jnp.array(it//nsubsteps, int)
-            
-            aa = jnp.mod(it,nsubsteps)/nsubsteps
-            itsup = jnp.where(itf+1>=len(TAx), -1, itf+1) 
-            TAx = (1-aa)*TAx[itf] + aa*TAx[itsup]
-            TAy = (1-aa)*TAy[itf] + aa*TAy[itsup]
-            # physic
-            # fast, NIO flow. 
-            # How to get the equation for Unio ? -> apply a fc filter on the slab model equation. 
-            #   hypothesis: filtered K are null as they evolve slowly compared to inertial period
-            #   here TAx and TAy are filtered at fc !
-            # Note: theses equations are the same as the slab model (jslab)
-            d_U = fc*V + K[0]*TAx - K[1]*U
-            d_V = -fc*U + K[0]*TAy - K[1]*V
-            d_y = d_U,d_V
-            
-            # def cond_print(it):
-            #     jax.debug.print('it,itf, TA, {}, {}, {}',it,itf,(TAx,TAy))
-            
-            # jax.lax.cond(it<=10, cond_print, lambda x:None, it)
+        U,V = C
+        fc, K, TAx, TAy, dUedt, dVedt, nsubsteps = args
+        
+        # on the fly interpolation
+        it = jnp.array(t//self.dt, int)
+        itf = jnp.array(it//nsubsteps, int)
+        aa = jnp.mod(it,nsubsteps)/nsubsteps
+        itsup = jnp.where(itf+1>=len(TAx), -1, itf+1) 
+        
+        
+        # TAx = (1-aa)*TAx[itf] + aa*TAx[itsup]
+        # TAy = (1-aa)*TAy[itf] + aa*TAy[itsup]
+        # physic
+        # fast, NIO flow. 
+        # How to get the equation for Unio ? -> apply a fc filter on the slab model equation. 
+        #   hypothesis: filtered K are null as they evolve slowly compared to inertial period
+        #   here TAx and TAy are filtered at fc !
+        # Note: theses equations are the same as the slab model (jslab)
+        # d_U = fc*V + K[0]*TAx - K[1]*U
+        # d_V = -fc*U + K[0]*TAy - K[1]*V
+        
+        # new test, d'Asaro 1985
+        dUedt = (1-aa)*dUedt[itf] + aa*dUedt[itsup]
+        dVedt = (1-aa)*dVedt[itf] + aa*dVedt[itsup]
+        
+        d_U = -K[1]*U + fc*V - dUedt
+        d_V = -K[1]*V - fc*U - dVedt
+        
+        d_y = d_U,d_V
+        
+        # def cond_print(it):
+        #     jax.debug.print('it,itf, TA, {}, {}, {}',it,itf,(TAx,TAy))
+        
+        # jax.lax.cond(it<=10, cond_print, lambda x:None, it)
 
-            return d_y
+        return d_y
  
 class jslab_kt_Ue_Unio(eqx.Module):
     # variables
@@ -828,10 +928,22 @@ class jslab_kt_Ue_Unio(eqx.Module):
         nsubsteps = int(self.dt_forcing // dt)
         # control
         K = jnp.exp( self.pk) 
-        K = kt_1D_to_2D(K, NdT=self.NdT, npk = 4*self.nl)
+        # K = kt_1D_to_2D(K, NdT=self.NdT, npk = 4*self.nl)
+        K = kt_1D_to_2D(K, NdT=self.NdT, npk = 2*self.nl)
         M = pkt2Kt_matrix(NdT=self.NdT, dTK=self.dTK, t0=t0, t1=t1, dt_forcing=self.dt_forcing, base=self.k_base)
         Kt = jnp.dot(M,K)
-        args = self.fc, Kt, self.TAx, self.TAy, nsubsteps
+        
+        # slow, ekman flow
+        T = (self.TAx + 1j*self.TAy) #/ rho # PAPA is already tau/rho, Croco is only tau, To be fixed uniformly
+        Ce = Kt[:,0] * T / (Kt[:,1] + 1j*self.fc)
+        Ue = jnp.real(Ce)
+        Ve = jnp.imag(Ce) 
+        dCedt = jnp.gradient(Ce, self.dt, axis=0)
+        dUedt = jnp.real(dCedt)
+        dVedt = jnp.imag(dCedt)
+        # forcing is already filtered at fc
+        args = self.fc, Kt, self.TAx, self.TAy, dUedt, dVedt, nsubsteps 
+        
         
         maxstep = int((t1-t0)//dt) +1 
         
@@ -897,9 +1009,9 @@ class jslab_kt_Ue_Unio(eqx.Module):
             Unio, Vnio = final
             
             
-            # slow, ekman flow
-            Ue = 1/self.fc * (Kt[:, 2]*self.TAy + Kt[:, 3]*self.TAx)
-            Ve = - 1/self.fc * (Kt[:, 3]*self.TAy - Kt[:, 2]*self.TAx)
+            # # slow, ekman flow
+            # Ue = 1/self.fc * (Kt[:, 2]*self.TAy + Kt[:, 3]*self.TAx)
+            # Ve = - 1/self.fc * (Kt[:, 3]*self.TAy - Kt[:, 2]*self.TAx)
             
             U,V = Ue+Unio, Ve+Vnio
             
@@ -912,23 +1024,32 @@ class jslab_kt_Ue_Unio(eqx.Module):
 
     def vector_field(self, t, C, args):
         U,V = C
-        fc, Kt, TAx, TAy, nsubsteps = args
+        fc, Kt, TAx, TAy, dUedt, dVedt, nsubsteps = args
         
         # on the fly interpolation
         it = jnp.array(t//self.dt, int)
         itf = jnp.array(it//nsubsteps, int)
         aa = jnp.mod(it,nsubsteps)/nsubsteps
         itsup = jnp.where(itf+1>=len(TAx), -1, itf+1) 
-        TAx = (1-aa)*TAx[itf] + aa*TAx[itsup]
-        TAy = (1-aa)*TAy[itf] + aa*TAy[itsup]
+        # TAx = (1-aa)*TAx[itf] + aa*TAx[itsup]
+        # TAy = (1-aa)*TAy[itf] + aa*TAy[itsup]
         Ktnow = (1-aa)*Kt[it-1] + aa*Kt[itsup]
         # def cond_print(it):
         #     jax.debug.print('it,itf, TA, {}, {}, {}',it,itf,(TAx,TAy))
         # jax.lax.cond(it<=10, cond_print, lambda x:None, it)
         
         # physic
-        d_U = fc*V + Ktnow[0]*TAx - Ktnow[1]*U
-        d_V = -fc*U + Ktnow[0]*TAy - Ktnow[1]*V
+        # d_U = fc*V + Ktnow[0]*TAx - Ktnow[1]*U
+        # d_V = -fc*U + Ktnow[0]*TAy - Ktnow[1]*V
+        
+        
+        # new test, d'Asaro 1985
+        dUedt = (1-aa)*dUedt[itf] + aa*dUedt[itsup]
+        dVedt = (1-aa)*dVedt[itf] + aa*dVedt[itsup]
+        
+        d_U = -Ktnow[1]*U + fc*V - dUedt
+        d_V = -Ktnow[1]*V - fc*U - dVedt
+        
         d_y = d_U,d_V
         return d_y
 
@@ -1112,83 +1233,7 @@ class jslab_kt_2D_adv(eqx.Module):
         return dUgdx, dUgdy
   
 
-class jslab_fft(eqx.Module):
-     # variables
-    # U0 : np.float64
-    # V0 : np.float64
-    # control vector
-    pk : jnp.ndarray
-    # forcing
-    TAx : jnp.ndarray         
-    TAy : jnp.ndarray         
-    fc : jnp.ndarray              
-    dt_forcing : jnp.ndarray  
-    # model parameters
-    nl : jnp.ndarray         
-    AD_mode : str          
-    NdT : jnp.ndarray    
-    # run time parameters    
-    t0 : jnp.ndarray         
-    t1 : jnp.ndarray         
-    dt : jnp.ndarray         
-    
-    use_difx : bool 
-    k_base : str
-    
-    def __init__(self, pk, TAx, TAy, fc, dt_forcing, nl, AD_mode, call_args, use_difx=False, k_base='gauss'):
-        t0,t1,dt = call_args
-        self.t0 = t0
-        self.t1 = t1
-        self.dt = dt
-        
-        self.pk = pk
-        
-        self.TAx = TAx
-        self.TAy = TAy
-        self.fc = fc
-        
-        self.dt_forcing = dt_forcing
-        self.nl = nl
-        self.AD_mode = AD_mode
-        
-        self.use_difx = use_difx
-        self.k_base = k_base
-    
-    
-    
-    @eqx.filter_jit
-    def __call__(self, save_traj_at = None): 
-        """
-        """ 
-        
-        if save_traj_at is None:
-                step_save_out = 1
-        else:
-            if save_traj_at<self.dt_forcing:
-                raise Exception('You want to save at dt<dt_forcing, this is not available.\n Choose a bigger dt')
-            else:
-                step_save_out = int(save_traj_at//self.dt_forcing)
-        
-        # forcing: time -> fourier space 
-        TA      = self.TAx + 1j*self.TAy
-        time    = jnp.arrange(self.t0, self.t1, self.dt)
-        nt      = len(time)
-        ffl     = jnp.arange(nt)/(nt*self.dt)
-        wind_fft = jnp.fft(TA)
-        # solving in fourier
-        U1f = self.H(ffl) * wind_fft
-        # going back to time space
-        U,V = jnp.ifft(U1f)
-
-        # get solution at 'save_traj_at'
-        solution = U[::step_save_out], V[::step_save_out]
-        
-        return solution
-        
-    def H(self,s):
-        K = self.pk
-        return K[0] / (1j*(2*np.pi*s +self.fc) + K[1])
-    
+   
 # class jslab_kt_fft(eqx.Module):
 # -> k(t) donc FFT(K*tau) <=> FFT(K) convolution FFT(tau)
 # et pareil pour un potentiel terme en grad Ug
@@ -1267,7 +1312,7 @@ def pkt2Kt_matrix(NdT, dTK, t0, t1, dt_forcing, base='gauss'):
             #cond = jnp.abs(distt) < 3 * dTK
             cond = jnp.ones(distt.shape) * True
             #tmp = jnp.exp(-2*distt**2 / dTK**2) * cond  # The condition zeros out values outside range
-            coeff = 2.
+            coeff = 1 # if =2, exp do not recover
             tmp = jnp.exp(-coeff*distt**2 / dTK**2) * cond
             # Sum across the appropriate axis for S
             S = jnp.sum(tmp, axis=1)

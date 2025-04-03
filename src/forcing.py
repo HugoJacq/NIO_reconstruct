@@ -52,6 +52,7 @@ class Forcing2D:
         itmin = nearest(time_a, t0)
         itmax = nearest(time_a, t1)
         ds = ds.isel(time=slice(itmin,itmax))     
+        self.dx,self.dy = 0.1, 0.1
         self.data = ds.sel(lon=slice(LON_bounds[0],LON_bounds[1]),lat=slice(LAT_bounds[0],LAT_bounds[1]))
         self.U,self.V,self.MLD = self.data.U.values,self.data.V.values,self.data.MLD
         self.Ug, self.Vg = self.data.Ug.values, self.data.Vg.values
@@ -85,7 +86,7 @@ class Forcing_from_PAPA:
         self.dt_forcing = dt_forcing
 
 
-
+# WIP
 class Forcing_idealized_1D:
     def __init__(self, dt_forcing, t0, t1):
         
@@ -127,3 +128,4 @@ class Forcing_idealized_2D:
         self.nt = len(time)
         self.time = np.arange(0,self.nt*dt_forcing,dt_forcing) 
         self.dt_forcing = dt_forcing
+        self.dx,self.dy = 0.1, 0.1

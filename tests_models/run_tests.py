@@ -44,8 +44,9 @@ dt                  = 60.        # timestep of the model (s)
 # What to test
 FORWARD_PASS        = True      # tests forward, cost, gradcost
 MINIMIZE            = True      # switch to do the minimisation process
-maxiter             = 50         # max number of iteration
+maxiter             = 100         # max number of iteration
 PLOT_TRAJ           = True
+ON_PAPA             = False      # use PAPA station data, only for 1D models
 
 # Switches
 TEST_SLAB                   = False
@@ -55,9 +56,9 @@ TEST_SLAB_KT_2D             = False
 TEST_SLAB_RXRY              = False # WIP
 TEST_SLAB_Ue_Unio           = False
 TEST_SLAB_KT_Ue_Unio        = False # WIP
-TEST_SLAB_KT_2D_ADV         = False # WIP
+TEST_SLAB_KT_2D_ADV         = True # WIP
 
-TEST_SLAB_FFT               = True
+TEST_SLAB_FFT               = False
 
 
 # PLOT
@@ -72,7 +73,7 @@ point_loc = [-50.,35.]
 #point_loc = [-50.,46.] # should have more NIOs ?
 point_loc = [-70., 35.]
 # 2D
-R = 0.2 # 5.0 
+R = 5. # 5.0 
 LON_bounds = [point_loc[0]-R,point_loc[0]+R]
 LAT_bounds = [point_loc[1]-R,point_loc[1]+R]
 # Forcing
@@ -101,6 +102,17 @@ name_regrid = ['croco_1h_inst_surf_2005-01-01-2005-01-31_0.1deg_conservative.nc'
 #               'croco_1h_inst_surf_2005-06-01-2005-06-30_0.1deg_conservative.nc',]
 #name_regrid = ['croco_1h_inst_surf_2006-02-01-2006-02-28_0.1deg_conservative.nc']
 
+path_papa = '../data_PAPA_2018/'
+name_papa = ['cur50n145w_hr.nc',
+              'd50n145w_hr.nc',
+              'lw50n145w_hr.nc',
+              'rad50n145w_hr.nc',
+              's50n145w_hr.nc',
+              'sss50n145w_hr.nc',
+              'sst50n145w_hr.nc',
+              't50n145w_hr.nc',
+              'w50n145w_hr.nc']
+
 # Observations
 period_obs          = oneday #86400      # s, how many second between observations  
 
@@ -117,9 +129,18 @@ if __name__ == "__main__":
     file = []
     for ifile in range(len(name_regrid)):
         file.append(path_regrid+name_regrid[ifile])
+        
+    file_papa = []
+    for ifile in range(len(name_papa)):
+        file_papa.append(path_papa+name_papa[ifile])
+    
     #file = path_regrid+name_regrid 
-    forcing1D = forcing.Forcing1D(point_loc, t0, t1, dt_forcing, file)
-    observations1D = observations.Observation1D(point_loc, period_obs, t0, t1, dt_OSSE, file)
+    if ON_PAPA:
+        forcing1D = forcing.Forcing_from_PAPA(dt_forcing, t0, t1, file_papa)
+        observations1D = observations.Observation_from_PAPA(period_obs, t0, t1, dt_forcing, file_papa)
+    else:
+        forcing1D = forcing.Forcing1D(point_loc, t0, t1, dt_forcing, file)
+        observations1D = observations.Observation1D(point_loc, period_obs, t0, t1, dt_OSSE, file)
     if TEST_SLAB_KT_2D or TEST_SLAB_KT_2D_ADV:
         forcing2D = forcing.Forcing2D(dt_forcing, t0, t1, file, LON_bounds, LAT_bounds)
         observations2D = observations.Observation2D(period_obs, t0, t1, dt_OSSE, file, LON_bounds, LAT_bounds)
@@ -328,7 +349,7 @@ if __name__ == "__main__":
     if TEST_SLAB_Ue_Unio:
         print('* test jslab_Ue_Unio')
         # control vector
-        pk = jnp.asarray([-11.,-10.,-10.,-9])    
+        pk = jnp.asarray([-11.,-10.])    
         
         # parameters
         TA = forcing1D.TAx + 1j*forcing1D.TAy
@@ -359,7 +380,8 @@ if __name__ == "__main__":
     if TEST_SLAB_KT_Ue_Unio:
         print('* test jslab_kt_Ue_Unio')
         # control vector
-        pk = jnp.asarray([-11.,-10.,-10.,-9])    
+        #pk = jnp.asarray([-11.,-10.,-10.,-9])   
+        pk = jnp.asarray([-11.,-10.]) 
         NdT = len(np.arange(t0, t1,dTK)) # int((t1-t0)//dTK) 
         pk = kt_ini(pk, NdT)
         
