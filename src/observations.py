@@ -21,7 +21,7 @@ class Observation1D:
         ds = xr.open_mfdataset(path_file)
         indx = nearest(ds.lon.values,point_loc[0])
         indy = nearest(ds.lat.values,point_loc[1])
-        time_a = np.arange(t0,t1+dt_forcing,dt_forcing)
+        time_a = np.arange(0,len(ds.time)*dt_forcing, dt_forcing)
         itmin = nearest(time_a, t0)
         itmax = nearest(time_a, t1)
         self.data = ds.isel(time=slice(itmin,itmax), lon=indx,lat=indy)
@@ -72,7 +72,7 @@ class Observation2D:
         
         # from dataset for OSSE
         ds = xr.open_mfdataset(path_file) 
-        time_a = np.arange(t0,t1+dt_forcing,dt_forcing)
+        time_a = np.arange(0,len(ds.time)*dt_forcing, dt_forcing)
         itmin = nearest(time_a, t0)
         itmax = nearest(time_a, t1)
         ds = ds.isel(time=slice(itmin,itmax))        
@@ -106,7 +106,7 @@ class Observation_from_PAPA:
         
         # opening dataset
         ds = open_PAPA_station_file(path_file)        
-        time_a = np.arange(t0,t1+dt_forcing,dt_forcing)
+        time_a = np.arange(0,len(ds.time)*dt_forcing, dt_forcing)
         itmin = nearest(time_a, t0)
         itmax = nearest(time_a, t1)
         ds = ds.isel(time=slice(itmin,itmax))     
@@ -130,7 +130,7 @@ class Observation_from_PAPA:
 class Observations_idealized_1D:
     def __init__(self, periode_obs, dt_forcing, t0, t1):
         
-        time = np.arange(t0,t1,dt_forcing)  
+        time = np.arange(0, t1-t0, dt_forcing) 
         TAx = 0.4
         TAy = 0.
         self.TAx,self.TAy = np.ones(len(time))*TAx, np.zeros(len(time))
@@ -157,7 +157,7 @@ class Observations_idealized_1D:
 class Observations_idealized_2D:
     def __init__(self, periode_obs, dt_forcing, t0, t1, nx, ny):
         
-        time = np.arange(t0,t1,dt_forcing)  
+        time = np.arange(0, t1-t0, dt_forcing) 
         TAx = 0.4
         TAy = 0.
 

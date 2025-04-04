@@ -4,6 +4,7 @@ A class that make a forcing object
 
 import xarray as xr
 import numpy as np
+import matplotlib.pyplot as plt
 # import cdflib.xarray as xrcdf  # to read cdf files
 # import cdflib
  
@@ -25,9 +26,10 @@ class Forcing1D:
         ds = xr.open_mfdataset(path_file)
         indx = nearest(ds.lon.values,point_loc[0])
         indy = nearest(ds.lat.values,point_loc[1])
-        time_a = np.arange(t0,t1+dt_forcing,dt_forcing)
+        time_a = np.arange(0,len(ds.time)*dt_forcing, dt_forcing)
         itmin = nearest(time_a, t0)
         itmax = nearest(time_a, t1)
+                
         self.data = ds.isel(time=slice(itmin,itmax), lon=indx,lat=indy)
         self.U,self.V,self.MLD = self.data.U.values,self.data.V.values,self.data.MLD
         self.TAx,self.TAy = self.data.oceTAUX.values,self.data.oceTAUY.values
@@ -75,7 +77,7 @@ class Forcing_from_PAPA:
         
         # opening dataset
         ds = open_PAPA_station_file(path_file)        
-        time_a = np.arange(t0,t1+dt_forcing,dt_forcing)
+        time_a = np.arange(0,len(ds.time)*dt_forcing, dt_forcing)
         itmin = nearest(time_a, t0)
         itmax = nearest(time_a, t1)
         ds = ds.isel(time=slice(itmin,itmax))     
@@ -90,13 +92,16 @@ class Forcing_from_PAPA:
 
 # WIP
 class Forcing_idealized_1D:
-    def __init__(self, dt_forcing, t0, t1, TAx, TAy):
+    def __init__(self, dt_forcing, t0, t1, TAx, TAy, dt_spike):
         
         time = np.arange(t0,t1,dt_forcing)  
         # self.TAx,self.TAy = np.ones(len(time))*TAx, np.zeros(len(time))
         self.TAx,self.TAy = np.zeros(len(time)), np.zeros(len(time))
-        self.TAx[0] = TAx
-        self.TAy[0] = TAy
+        nspikes = (t1-t0)//dt_spike
+        step = int(len(time)//nspikes)
+        for k in range(0,len(time),step):
+            self.TAx[k] = TAx
+            self.TAy[k] = TAy
         
         # impulse response
         r=5e-6
