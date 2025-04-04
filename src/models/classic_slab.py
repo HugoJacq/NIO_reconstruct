@@ -143,28 +143,28 @@ class jslab(eqx.Module):
 
     # vector field is common whether we use diffrax or not
     def vector_field(self, t, C, args):
-            U,V = C
-            fc, K, TAx, TAy, nsubsteps = args
-            
-            # on the fly interpolation
-            it = jnp.array(t//self.dt, int)
-            itf = jnp.array(it//nsubsteps, int)
-            
-            aa = jnp.mod(it,nsubsteps)/nsubsteps
-            itsup = jnp.where(itf+1>=len(TAx), -1, itf+1) 
-            TAx = (1-aa)*TAx[itf] + aa*TAx[itsup]
-            TAy = (1-aa)*TAy[itf] + aa*TAy[itsup]
-            # physic
-            d_U = fc*V + K[0]*TAx - K[1]*U
-            d_V = -fc*U + K[0]*TAy - K[1]*V
-            d_y = d_U,d_V
-            
-            # def cond_print(it):
-            #     jax.debug.print('it,itf, TA, {}, {}, {}',it,itf,(TAx,TAy))
-            
-            # jax.lax.cond(it<=10, cond_print, lambda x:None, it)
+        U,V = C
+        fc, K, TAxt, TAyt, nsubsteps = args
+        
+        # on the fly interpolation
+        it = jnp.array(t//self.dt, int)
+        itf = jnp.array(it//nsubsteps, int)
+        
+        aa = jnp.mod(it,nsubsteps)/nsubsteps
+        itsup = jnp.where(itf+1>=len(TAxt), -1, itf+1) 
+        TAx = (1-aa)*TAxt[itf] + aa*TAxt[itsup]
+        TAy = (1-aa)*TAyt[itf] + aa*TAyt[itsup]
+        # physic
+        d_U = fc*V + K[0]*TAx - K[1]*U
+        d_V = -fc*U + K[0]*TAy - K[1]*V
+        d_y = d_U,d_V
+        
+        # def cond_print(it):
+        #     jax.debug.print('it,itf, TA, {}, {}, {}',it,itf,(TAx,TAy))
+        
+        # jax.lax.cond(it<=10, cond_print, lambda x:None, it)
 
-            return d_y
+        return d_y
 
 class jslab_fft(eqx.Module):
      # variables

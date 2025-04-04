@@ -36,7 +36,7 @@ start = clock.time()
 #ON_HPC      = False      # on HPC
 
 # model parameters
-Nl                  = 1         # number of layers for multilayer models
+Nl                  = 2         # number of layers for multilayer models
 dTK                 = 30*oneday   # how much vectork K changes with time, basis change to exp
 k_base              = 'gauss'   # base of K transform. 'gauss' or 'id'
 AD_mode             = 'F'       # forward mode for AD 
@@ -47,7 +47,7 @@ t1                  = 300*oneday
 dt                  = 60.        # timestep of the model (s) 
 
 # What to test
-FORWARD_PASS        = False     # tests forward, cost, gradcost
+FORWARD_PASS        = True     # tests forward, cost, gradcost
 MINIMIZE            = True      # switch to do the minimisation process
 maxiter             = 20         # max number of iteration
 PLOT_TRAJ           = True
@@ -529,7 +529,10 @@ if __name__ == "__main__":
     if TEST_SLAB_UNSTEAK:
         print('* test junsteak')
         # control vector
-        pk = jnp.asarray([-11.31980127, -10.28525189])    
+        if Nl==1:
+            pk = jnp.asarray([-11.31980127, -10.28525189])    
+        elif Nl==2:
+            pk = jnp.asarray([-11.31980127, -10.28525189, -9, 9])    
         
         # parameters
         TAx = jnp.asarray(forcing1D.TAx)
@@ -539,7 +542,7 @@ if __name__ == "__main__":
         call_args = t0, t1, dt
         
         #mymodel = jslab(pk, TAx, TAy, fc, dt_forcing, nl=1, AD_mode=AD_mode)
-        mymodel = junsteak(pk, TAx, TAy, fc, dt_forcing, nl=1, AD_mode=AD_mode, call_args=call_args)
+        mymodel = junsteak(pk, TAx, TAy, fc, dt_forcing, nl=Nl, AD_mode=AD_mode, call_args=call_args)
         var_dfx = inv.Variational(mymodel,observations1D)
         
         if FORWARD_PASS:

@@ -56,6 +56,10 @@ class Variational:
             sol = final
         else:
             sol = mymodel(save_traj_at=dtime_obs) # use diffrax and equinox 
+            
+        if type(mymodel).__name__ in ['junsteak']:
+            sol = (sol[0][:,0], sol[1][:,0]) # <- we observe first layer only
+            
         return self.loss_fn(sol, obs)
         
    
