@@ -42,13 +42,16 @@ class Observation1D:
         # use a fill value ?
         # or see https://stackoverflow.com/questions/71692885/handle-varying-shapes-in-jax-numpy-arrays-jit-compatible
         
-        # if False:
-        #     U, V = my_fc_filter(self.dt_forcing, self.U+1j*self.V, self.fc )
+        
 
         if is_utotal:
             U, V = self.U + self.Ug , self.V + self.Vg
         else:
             U, V = self.U, self.V
+            
+        if False:
+            U, V = my_fc_filter(self.dt_forcing, U+1j*V, self.fc )
+        
         step_obs = int(self.obs_period)//int(self.dt_forcing)
         self.Uo = U[::step_obs]
         self.Vo = V[::step_obs]

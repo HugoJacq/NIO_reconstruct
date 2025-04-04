@@ -229,3 +229,26 @@ def plot_traj_2D(mymodel, var_dfx, forcing2D, observations2D, name_save, point_l
     ax[1].set_title('U')
     ax[1].set_aspect(1.0)
     
+    
+def idealized_run(mymodel, forcing1D, name_save, path_save_png, dpi):
+
+    Ua,Va = mymodel(save_traj_at=mymodel.dt_forcing)
+    print(Ua.shape)
+    if type(mymodel).__name__ in ['junsteak','junsteak_kt']:
+        Ua, Va = Ua[:,0], Va[:,0]
+    stressX = forcing1D.TAx
+    fig, ax = plt.subplots(1,1,figsize = (10,5),constrained_layout=True,dpi=dpi)
+    ax.plot((mymodel.t0 + forcing1D.time)/oneday, Ua, c='k')
+    ax.set_ylabel('U current m/s')
+    ax2 = ax.twinx()
+    ax2.plot((mymodel.t0 + forcing1D.time)/oneday, stressX, c='b')
+    ax2.set_ylabel('Step stress')
+    ax.grid()
+    ax.set_xlabel('days')
+    fig.savefig(path_save_png + name_save + 'U.png')
+    
+    fig, ax = plt.subplots(1,1,figsize = (10,5),constrained_layout=True,dpi=dpi)
+    ax.plot(Ua, Va, c='k')
+    ax.set_xlabel('U m/s')
+    ax.set_ylabel('V m/s')
+    fig.savefig(path_save_png + name_save + 'UV.png')

@@ -121,7 +121,6 @@ class junsteak(eqx.Module):
                     
             # initialisation at null current
             U, V = jnp.zeros((Nforcing, self.nl)), jnp.zeros((Nforcing, self.nl))
-            print(U.shape, V.shape)
             # inner loop at dt
             def __inner_loop(carry, iin):
                 Uold, Vold, iout = carry
@@ -341,7 +340,7 @@ class junsteak_kt(eqx.Module):
                     
             # initialisation at null current
             U, V = jnp.zeros((Nforcing, self.nl)), jnp.zeros((Nforcing, self.nl))
-            print(U.shape, V.shape)
+            
             # inner loop at dt
             def __inner_loop(carry, iin):
                 Uold, Vold, iout = carry

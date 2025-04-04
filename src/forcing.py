@@ -8,6 +8,8 @@ import numpy as np
 # import cdflib
  
 from tools import nearest, open_PAPA_station_file
+from constants import rho
+
 
 class Forcing1D:
     """
@@ -79,7 +81,7 @@ class Forcing_from_PAPA:
         ds = ds.isel(time=slice(itmin,itmax))     
         self.data = ds.isel(time=slice(itmin,itmax))
         self.U,self.V = self.data.U.values,self.data.V.values
-        self.TAx,self.TAy = self.data.TAx.values,self.data.TAy.values # stress = Cd*U**2 !
+        self.TAx,self.TAy = self.data.TAx.values*rho,self.data.TAy.values*rho # stress = Cd*U**2 !
         self.fc = 2*2*np.pi/86164*np.sin(LAT*np.pi/180)
         self.nt = len(self.data.time)
         self.time = np.arange(0,self.nt*dt_forcing,dt_forcing) 
@@ -88,12 +90,13 @@ class Forcing_from_PAPA:
 
 # WIP
 class Forcing_idealized_1D:
-    def __init__(self, dt_forcing, t0, t1):
+    def __init__(self, dt_forcing, t0, t1, TAx, TAy):
         
         time = np.arange(t0,t1,dt_forcing)  
-        TAx = 0.4
-        TAy = 0.
-        self.TAx,self.TAy = np.ones(len(time))*TAx, np.zeros(len(time))
+        # self.TAx,self.TAy = np.ones(len(time))*TAx, np.zeros(len(time))
+        self.TAx,self.TAy = np.zeros(len(time)), np.zeros(len(time))
+        self.TAx[0] = TAx
+        self.TAy[0] = TAy
         
         # impulse response
         r=5e-6

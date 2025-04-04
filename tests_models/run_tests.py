@@ -14,9 +14,11 @@ import xarray as xr
 sys.path.insert(0, '../src')
 os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false" # for jax
 import jax.numpy as jnp
+import equinox as eqx
 #import jax
 #jax.config.update('jax_platform_name', 'cpu')
 
+# my inmports
 from models.classic_slab import jslab, jslab_Ue_Unio, jslab_kt, jslab_kt_2D, jslab_kt_2D_adv_Ut, jslab_rxry, jslab_kt_Ue_Unio, jslab_kt_2D_adv
 from models.unsteak import junsteak, junsteak_kt
 from basis import kt_ini
@@ -24,7 +26,7 @@ from basis import kt_ini
 import forcing
 import inv
 import observations
-from tests_functions import run_forward_cost_grad, plot_traj_1D, plot_traj_2D
+from tests_functions import run_forward_cost_grad, plot_traj_1D, plot_traj_2D, idealized_run
 import tools
 from constants import *
 
@@ -36,23 +38,25 @@ start = clock.time()
 #ON_HPC      = False      # on HPC
 
 # model parameters
-Nl                  = 2         # number of layers for multilayer models
-dTK                 = 10*oneday   # how much vectork K changes with time, basis change to exp
-k_base              = 'gauss'   # base of K transform. 'gauss' or 'id'
-AD_mode             = 'F'       # forward mode for AD 
+Nl                  = 2             # number of layers for multilayer models
+dTK                 = 10*oneday     # how much vectork K changes with time, basis change to 'k_base'
+k_base              = 'gauss'       # base of K transform. 'gauss' or 'id'
+AD_mode             = 'F'           # forward mode for AD (for diffrax' diffeqsolve)
 
 # run parameters
-t0                  = 270*oneday
-t1                  = 300*oneday
-dt                  = 60.        # timestep of the model (s) 
+t0                  = 20*oneday    # start day 
+t1                  = 50*oneday    # end day
+dt                  = 60.           # timestep of the model (s) 
 
 # What to test
-FORWARD_PASS        = True     # tests forward, cost, gradcost
-MINIMIZE            = True      # switch to do the minimisation process
-maxiter             = 20         # max number of iteration
-PLOT_TRAJ           = True
+FORWARD_PASS        = False      # How fast the model is running ?
+MINIMIZE            = True      # Does the model converges to a solution ?
+maxiter             = 50        # if MINIMIZE: max number of iteration
+PLOT_TRAJ           = True      # Show a trajectory
 
 ON_PAPA             = False      # use PAPA station data, only for 1D models
+FILTER_AT_FC        = False      # minimize filtered ageo current with obs if model has this option
+IDEALIZED_RUN       = True       # try the model on a step wind stress
 
 # Switches
 TEST_SLAB                   = False
@@ -82,6 +86,7 @@ point_loc = [-50.,35.]
 #point_loc = [-50.,46.] # should have more NIOs ?
 point_loc = [-70., 35.]
 point_loc = [-50., 40.]
+point_loc = [-46., 40.] # wind gust from early january 2018
 # 2D
 R = 0.5 # 5.0 
 LON_bounds = [point_loc[0]-R,point_loc[0]+R]
@@ -104,12 +109,6 @@ name_regrid = ['croco_1h_inst_surf_2005-01-01-2005-01-31_0.1deg_conservative.nc'
               'croco_1h_inst_surf_2005-10-01-2005-10-31_0.1deg_conservative.nc',
               'croco_1h_inst_surf_2005-11-01-2005-11-30_0.1deg_conservative.nc',
               'croco_1h_inst_surf_2005-12-01-2005-12-31_0.1deg_conservative.nc']
-# name_regrid = ['croco_1h_inst_surf_2005-01-01-2005-01-31_0.1deg_conservative.nc',
-#               'croco_1h_inst_surf_2005-02-01-2005-02-28_0.1deg_conservative.nc',
-#               'croco_1h_inst_surf_2005-03-01-2005-03-31_0.1deg_conservative.nc',
-#               'croco_1h_inst_surf_2005-04-01-2005-04-30_0.1deg_conservative.nc',
-#               'croco_1h_inst_surf_2005-05-01-2005-05-31_0.1deg_conservative.nc',
-#               'croco_1h_inst_surf_2005-06-01-2005-06-30_0.1deg_conservative.nc',]
 #name_regrid = ['croco_1h_inst_surf_2006-02-01-2006-02-28_0.1deg_conservative.nc']
 
 path_papa = '../data_PAPA_2018/'
@@ -578,7 +577,7 @@ if __name__ == "__main__":
         
         #mymodel = jslab(pk, TAx, TAy, fc, dt_forcing, nl=1, AD_mode=AD_mode)
         mymodel = junsteak_kt(pk, TAx, TAy, fc, dTK, dt_forcing, nl=Nl, AD_mode=AD_mode, call_args=call_args, use_difx=False, k_base='gauss')
-        var_dfx = inv.Variational(mymodel,observations1D, filter_at_fc=True)
+        var_dfx = inv.Variational(mymodel,observations1D, filter_at_fc=FILTER_AT_FC)
         
         if FORWARD_PASS:
             run_forward_cost_grad(mymodel, var_dfx)   
@@ -592,6 +591,15 @@ if __name__ == "__main__":
         name_save = 'junsteak_kt_'+namesave_loc
         if PLOT_TRAJ:
             plot_traj_1D(mymodel, var_dfx, forcing1D, observations1D, name_save, path_save_png, dpi)   
+            
+            
+        if IDEALIZED_RUN:
+            mypk = mymodel.pk
+            frc_idealized = forcing.Forcing_idealized_1D(dt_forcing, t0, t1, TAx=0.4, TAy=0.)
+            step_model = eqx.tree_at(lambda t:t.TAx, mymodel, frc_idealized.TAx)
+            step_model = eqx.tree_at(lambda t:t.TAy, step_model, frc_idealized.TAy)
+            
+            idealized_run(step_model, frc_idealized, name_save, path_save_png, dpi)
             
     end = clock.time()
     print('Total execution time = '+str(jnp.round(end-start,2))+' s')
