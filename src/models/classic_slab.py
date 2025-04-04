@@ -77,7 +77,7 @@ class jslab(eqx.Module):
             if save_traj_at is None:
                 saveat = diffrax.SaveAt(steps=True)
             else:
-                saveat = diffrax.SaveAt(ts=jnp.arange(t0,t1,save_traj_at)) # slower than above (no idea why)
+                saveat = diffrax.SaveAt(ts=jnp.arange(t0,t1,0., self.t1-self.t0, save_traj_at)) # slower than above (no idea why)
             # Auto-diff mode
             if self.AD_mode=='F':
                 adjoint = diffrax.ForwardMode()
@@ -91,7 +91,7 @@ class jslab(eqx.Module):
                             args=args, 
                             dt0=None, #dt, #dt, None
                             saveat=saveat,
-                            stepsize_controller=diffrax.StepTo(jnp.arange(t0, t1+dt, dt)),
+                            stepsize_controller=diffrax.StepTo(jnp.arange(0., self.t1-self.t0+dt, dt)),
                             adjoint=adjoint,
                             max_steps=maxstep,
                             made_jump=False).ys # here this is needed to be able to forward AD
@@ -308,7 +308,7 @@ class jslab_kt(eqx.Module):
             if save_traj_at is None:
                 saveat = diffrax.SaveAt(steps=True)
             else:
-                saveat = diffrax.SaveAt(ts=jnp.arange(t0,t1,save_traj_at)) # slower than above (no idea why)
+                saveat = diffrax.SaveAt(ts=jnp.arange(0., self.t1-self.t0,save_traj_at)) # slower than above (no idea why)
             # Auto-diff mode
             if self.AD_mode=='F':
                 adjoint = diffrax.ForwardMode()
@@ -323,7 +323,7 @@ class jslab_kt(eqx.Module):
                             args=args, 
                             dt0=None, #dt, #dt, None
                             saveat=saveat,
-                            stepsize_controller=diffrax.StepTo(jnp.arange(t0, t1+dt, dt)),
+                            stepsize_controller=diffrax.StepTo(jnp.arange(0., self.t1-self.t0+dt, dt)),
                             adjoint=adjoint,
                             max_steps=maxstep,
                             made_jump=False).ys # here this is needed to be able to forward AD
@@ -471,7 +471,7 @@ class jslab_kt_2D(eqx.Module):
             if save_traj_at is None:
                 saveat = diffrax.SaveAt(steps=True)
             else:
-                saveat = diffrax.SaveAt(ts=jnp.arange(t0,t1,save_traj_at)) # slower than above (no idea why)
+                saveat = diffrax.SaveAt(ts=jnp.arange(0., self.t1-self.t0,save_traj_at)) # slower than above (no idea why)
             # Auto-diff mode
             if self.AD_mode=='F':
                 adjoint = diffrax.ForwardMode()
@@ -486,7 +486,7 @@ class jslab_kt_2D(eqx.Module):
                             args=args, 
                             dt0=None, #dt, #dt, None
                             saveat=saveat,
-                            stepsize_controller=diffrax.StepTo(jnp.arange(t0, t1+dt, dt)),
+                            stepsize_controller=diffrax.StepTo(jnp.arange(0., self.t1-self.t0+dt, dt)),
                             adjoint=adjoint,
                             max_steps=maxstep,
                             made_jump=False).ys # here this is needed to be able to forward AD
@@ -609,7 +609,7 @@ class jslab_rxry(eqx.Module):
             if save_traj_at is None:
                 saveat = diffrax.SaveAt(steps=True)
             else:
-                saveat = diffrax.SaveAt(ts=jnp.arange(t0,t1,save_traj_at)) # slower than above (no idea why)
+                saveat = diffrax.SaveAt(ts=jnp.arange(0., self.t1-self.t0,save_traj_at)) # slower than above (no idea why)
             # Auto-diff mode
             if self.AD_mode=='F':
                 adjoint = diffrax.ForwardMode()
@@ -623,7 +623,7 @@ class jslab_rxry(eqx.Module):
                             args=args, 
                             dt0=None, #dt, #dt, None
                             saveat=saveat,
-                            stepsize_controller=diffrax.StepTo(jnp.arange(t0, t1+dt, dt)),
+                            stepsize_controller=diffrax.StepTo(jnp.arange(0., self.t1-self.t0+dt, dt)),
                             adjoint=adjoint,
                             max_steps=maxstep,
                             made_jump=False).ys # here this is needed to be able to forward AD
@@ -765,7 +765,7 @@ class jslab_Ue_Unio(eqx.Module):
             if save_traj_at is None:
                 saveat = diffrax.SaveAt(steps=True)
             else:
-                saveat = diffrax.SaveAt(ts=jnp.arange(t0,t1,save_traj_at)) # slower than above (no idea why)
+                saveat = diffrax.SaveAt(ts=jnp.arange(0., self.t1-self.t0,save_traj_at)) # slower than above (no idea why)
             # Auto-diff mode
             if self.AD_mode=='F':
                 adjoint = diffrax.ForwardMode()
@@ -779,7 +779,7 @@ class jslab_Ue_Unio(eqx.Module):
                             args=args, 
                             dt0=None, #dt, #dt, None
                             saveat=saveat,
-                            stepsize_controller=diffrax.StepTo(jnp.arange(t0, t1+dt, dt)),
+                            stepsize_controller=diffrax.StepTo(jnp.arange(0., self.t1-self.t0+dt, dt)),
                             adjoint=adjoint,
                             max_steps=maxstep,
                             made_jump=False).ys # here this is needed to be able to forward AD
@@ -953,7 +953,7 @@ class jslab_kt_Ue_Unio(eqx.Module):
             if save_traj_at is None:
                 saveat = diffrax.SaveAt(steps=True)
             else:
-                saveat = diffrax.SaveAt(ts=jnp.arange(t0,t1,save_traj_at)) # slower than above (no idea why)
+                saveat = diffrax.SaveAt(ts=jnp.arange(0., self.t1-self.t0,save_traj_at)) # slower than above (no idea why)
             # Auto-diff mode
             if self.AD_mode=='F':
                 adjoint = diffrax.ForwardMode()
@@ -968,7 +968,7 @@ class jslab_kt_Ue_Unio(eqx.Module):
                             args=args, 
                             dt0=None, #dt, #dt, None
                             saveat=saveat,
-                            stepsize_controller=diffrax.StepTo(jnp.arange(t0, t1+dt, dt)),
+                            stepsize_controller=diffrax.StepTo(jnp.arange(0., self.t1-self.t0+dt, dt)),
                             adjoint=adjoint,
                             max_steps=maxstep,
                             made_jump=False).ys # here this is needed to be able to forward AD
@@ -1139,7 +1139,7 @@ class jslab_kt_2D_adv(eqx.Module):
             if save_traj_at is None:
                 saveat = diffrax.SaveAt(steps=True)
             else:
-                saveat = diffrax.SaveAt(ts=jnp.arange(t0,t1,save_traj_at)) # slower than above (no idea why)
+                saveat = diffrax.SaveAt(ts=jnp.arange(0., self.t1-self.t0,save_traj_at)) # slower than above (no idea why)
             # Auto-diff mode
             if self.AD_mode=='F':
                 adjoint = diffrax.ForwardMode()
@@ -1154,7 +1154,7 @@ class jslab_kt_2D_adv(eqx.Module):
                             args=args, 
                             dt0=None, #dt, #dt, None
                             saveat=saveat,
-                            stepsize_controller=diffrax.StepTo(jnp.arange(t0, t1+dt, dt)),
+                            stepsize_controller=diffrax.StepTo(jnp.arange(0., self.t1-self.t0+dt, dt)),
                             adjoint=adjoint,
                             max_steps=maxstep,
                             made_jump=False).ys # here this is needed to be able to forward AD
@@ -1323,7 +1323,7 @@ class jslab_kt_2D_adv_Ut(eqx.Module):
             if save_traj_at is None:
                 saveat = diffrax.SaveAt(steps=True)
             else:
-                saveat = diffrax.SaveAt(ts=jnp.arange(t0,t1,save_traj_at)) # slower than above (no idea why)
+                saveat = diffrax.SaveAt(ts=jnp.arange(0., self.t1-self.t0, save_traj_at)) # slower than above (no idea why)
             # Auto-diff mode
             if self.AD_mode=='F':
                 adjoint = diffrax.ForwardMode()
@@ -1338,7 +1338,7 @@ class jslab_kt_2D_adv_Ut(eqx.Module):
                             args=args, 
                             dt0=None, #dt, #dt, None
                             saveat=saveat,
-                            stepsize_controller=diffrax.StepTo(jnp.arange(t0, t1+dt, dt)),
+                            stepsize_controller=diffrax.StepTo(jnp.arange(0., self.t1-self.t0+dt, dt)),
                             adjoint=adjoint,
                             max_steps=maxstep,
                             made_jump=False).ys # here this is needed to be able to forward AD
