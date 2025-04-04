@@ -39,7 +39,7 @@ start = clock.time()
 
 # model parameters
 Nl                  = 2             # number of layers for multilayer models
-dTK                 = 10*oneday     # how much vectork K changes with time, basis change to 'k_base'
+dTK                 = 40*oneday     # how much vectork K changes with time, basis change to 'k_base'
 k_base              = 'gauss'       # base of K transform. 'gauss' or 'id'
 AD_mode             = 'F'           # forward mode for AD (for diffrax' diffeqsolve)
 
@@ -50,8 +50,8 @@ dt                  = 60.           # timestep of the model (s)
 
 # What to test
 PLOT_TRAJ           = True      # Show a trajectory
-FORWARD_PASS        = False      # How fast the model is running ?
-MINIMIZE            = False      # Does the model converges to a solution ?
+FORWARD_PASS        = True      # How fast the model is running ?
+MINIMIZE            = True      # Does the model converges to a solution ?
 maxiter             = 50        # if MINIMIZE: max number of iteration
 
 
@@ -93,7 +93,7 @@ point_loc = [-46., 40.] # wind gust from early january 2018
 point_loc = [-55., 37.5] # february 13th
 point_loc = [-47.4,34.6] # march 8th 0300, t0=60 t1=100
 # 2D
-R = 0.5 # 5.0 
+R = 1. # 5.0 
 LON_bounds = [point_loc[0]-R,point_loc[0]+R]
 LAT_bounds = [point_loc[1]-R,point_loc[1]+R]
 # Forcing

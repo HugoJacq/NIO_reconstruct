@@ -12,7 +12,7 @@ import models.classic_slab as classic_slab
 from basis import kt_ini, kt_1D_to_2D, pkt2Kt_matrix
 from constants import *
 from inv import my_partition
-from Listes_models import L_variable_Kt, L_nlayers_models, L_models_total_current
+from Listes_models import L_slabs, L_unsteaks, L_variable_Kt, L_nlayers_models, L_models_total_current
 
 def run_forward_cost_grad(mymodel, var_dfx):
     """
@@ -166,10 +166,12 @@ def plot_traj_2D(mymodel, var_dfx, forcing2D, observations2D, name_save, point_l
     
     RMSE = tools.score_RMSE(Ua1D, U1D) 
 
-    if type(mymodel).__name__ in L_variable_Kt:
+    if type(mymodel).__name__ in L_unsteaks:
         modeltype = 'unsteak'
-    else:
+    elif type(mymodel).__name__ in L_slabs:
         modeltype = 'slab'
+    else:
+        raise Exception(f'Your model {type(mymodel).__name__} is not recognied.')
 
     print('RMSE at point_loc '+str(point_loc)+' is',RMSE)
     # PLOT trajectory at point_loc
@@ -222,7 +224,8 @@ def plot_traj_2D(mymodel, var_dfx, forcing2D, observations2D, name_save, point_l
     # 2D plot
     # U total comparison
     nx, ny = U[0,:,:].shape
-    indt = -1
+    attime = 70 # day number of the year
+    indt = tools.nearest( (t0 + forcing2D.time)/oneday, attime)
     x = np.linspace(LON_bounds[0],LON_bounds[1], nx+1)
     y = np.linspace(LAT_bounds[0],LAT_bounds[1], ny+1)
 
