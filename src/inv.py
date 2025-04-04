@@ -34,10 +34,23 @@ class Variational:
         else:
             utotal = False # Uag
         obs = self.observations.get_obs(utotal)
+        
+        
+        if self.filter_at_fc:
+            dt_out = mymodel.dt_forcing
+        else:
+            dt_out = dtime_obs
+        sol = mymodel(save_traj_at=dt_out)
+        
+        if type(mymodel).__name__ in ['junsteak','junsteak_kt']:
+            sol = (sol[0][:,0], sol[1][:,0]) 
+        
+        
         if self.filter_at_fc:
             
             # run the model at high frequency
-            Ua,Va = mymodel(save_traj_at=mymodel.dt_forcing)
+            #Ua,Va = mymodel(save_traj_at=mymodel.dt_forcing)
+            Ua, Va = sol
             Uf, Vf = tools.my_fc_filter(mymodel.dt_forcing, Ua + 1j*Va, mymodel.fc) # here filter at fc
             
             # lets now create an array of size 'obs', with the value from the filtered estimate
@@ -54,11 +67,11 @@ class Variational:
                 return X0, X0
             final, _ = lax.scan(lambda X0, k:_fn_for_scan(X0, k, Uf, Vf, step), init=(Uffc,Vffc), xs=np.arange(0,len(Uffc)))     
             sol = final
-        else:
-            sol = mymodel(save_traj_at=dtime_obs) # use diffrax and equinox 
+        # else:
+        #     sol = mymodel(save_traj_at=dtime_obs) # use diffrax and equinox 
             
-        if type(mymodel).__name__ in ['junsteak']:
-            sol = (sol[0][:,0], sol[1][:,0]) # <- we observe first layer only
+        # if type(mymodel).__name__ in ['junsteak']:
+        #     sol = (sol[0][:,0], sol[1][:,0]) # <- we observe first layer only
             
         return self.loss_fn(sol, obs)
         

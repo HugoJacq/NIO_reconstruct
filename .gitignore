@@ -193,3 +193,5 @@ tests_models/png_tests_models/jslab_kt_2D_adv_Ut_-50.0E_40.0N.png
 tests_models/png_tests_models/junsteak_-50.0E_40.0N_t270_300.png
 src/__pycache__/basis.cpython-311.pyc
 src/models/__pycache__/unsteak.cpython-311.pyc
+tests_models/png_tests_models/jslab_-50.0E_40.0N_t270_300.png
+tests_models/png_tests_models/junsteak_kt_-50.0E_40.0N_t270_300.png

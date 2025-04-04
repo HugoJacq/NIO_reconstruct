@@ -18,7 +18,7 @@ import jax.numpy as jnp
 #jax.config.update('jax_platform_name', 'cpu')
 
 from models.classic_slab import jslab, jslab_Ue_Unio, jslab_kt, jslab_kt_2D, jslab_kt_2D_adv_Ut, jslab_rxry, jslab_kt_Ue_Unio, jslab_kt_2D_adv
-from models.unsteak import junsteak
+from models.unsteak import junsteak, junsteak_kt
 from basis import kt_ini
 
 import forcing
@@ -37,7 +37,7 @@ start = clock.time()
 
 # model parameters
 Nl                  = 2         # number of layers for multilayer models
-dTK                 = 30*oneday   # how much vectork K changes with time, basis change to exp
+dTK                 = 10*oneday   # how much vectork K changes with time, basis change to exp
 k_base              = 'gauss'   # base of K transform. 'gauss' or 'id'
 AD_mode             = 'F'       # forward mode for AD 
 
@@ -67,8 +67,8 @@ TEST_SLAB_KT_2D_ADV_UT      = False
 
 TEST_SLAB_FFT               = False
 
-TEST_SLAB_UNSTEAK           = True
-
+TEST_UNSTEAK                = False
+TEST_UNSTEAK_KT             = True
 
 # PLOT
 dpi=200
@@ -186,8 +186,7 @@ if __name__ == "__main__":
         
         call_args = t0, t1, dt
         
-        #mymodel = jslab(pk, TAx, TAy, fc, dt_forcing, nl=1, AD_mode=AD_mode)
-        mymodel = jslab(pk, TAx, TAy, fc, dt_forcing, nl=1, AD_mode=AD_mode, call_args=call_args)
+        mymodel = jslab(pk, TAx, TAy, fc, dt_forcing, nl=1, AD_mode=AD_mode, call_args=call_args) # 
         var_dfx = inv.Variational(mymodel,observations1D)
         
         if FORWARD_PASS:
@@ -526,13 +525,14 @@ if __name__ == "__main__":
             plot_traj_1D(mymodel, var_dfx, forcing1D, observations1D, name_save, path_save_png, dpi)   
       
       
-    if TEST_SLAB_UNSTEAK:
+    if TEST_UNSTEAK:
         print('* test junsteak')
         # control vector
         if Nl==1:
             pk = jnp.asarray([-11.31980127, -10.28525189])    
         elif Nl==2:
-            pk = jnp.asarray([-11.31980127, -10.28525189, -9, 9])    
+            pk = jnp.asarray([-10.,-10., -9., -9.])    
+        
         
         # parameters
         TAx = jnp.asarray(forcing1D.TAx)
@@ -542,8 +542,8 @@ if __name__ == "__main__":
         call_args = t0, t1, dt
         
         #mymodel = jslab(pk, TAx, TAy, fc, dt_forcing, nl=1, AD_mode=AD_mode)
-        mymodel = junsteak(pk, TAx, TAy, fc, dt_forcing, nl=Nl, AD_mode=AD_mode, call_args=call_args)
-        var_dfx = inv.Variational(mymodel,observations1D)
+        mymodel = junsteak(pk, TAx, TAy, fc, dt_forcing, nl=Nl, AD_mode=AD_mode, call_args=call_args, use_difx=False)
+        var_dfx = inv.Variational(mymodel,observations1D, filter_at_fc=True)
         
         if FORWARD_PASS:
             run_forward_cost_grad(mymodel, var_dfx)   
@@ -558,7 +558,41 @@ if __name__ == "__main__":
         if PLOT_TRAJ:
             plot_traj_1D(mymodel, var_dfx, forcing1D, observations1D, name_save, path_save_png, dpi)   
         
+    if TEST_UNSTEAK_KT:
+        print('* test junsteak_kt')
+        # control vector
+        if Nl==1:
+            pk = jnp.asarray([-11.31980127, -10.28525189])    
+        elif Nl==2:
+            pk = jnp.asarray([-10.,-10., -9., -9.])    
         
+        NdT = len(np.arange(t0, t1,dTK)) # int((t1-t0)//dTK) 
+        pk = kt_ini(pk, NdT)
+        
+        # parameters
+        TAx = jnp.asarray(forcing1D.TAx)
+        TAy = jnp.asarray(forcing1D.TAy)
+        fc = jnp.asarray(forcing1D.fc)
+        
+        call_args = t0, t1, dt
+        
+        #mymodel = jslab(pk, TAx, TAy, fc, dt_forcing, nl=1, AD_mode=AD_mode)
+        mymodel = junsteak_kt(pk, TAx, TAy, fc, dTK, dt_forcing, nl=Nl, AD_mode=AD_mode, call_args=call_args, use_difx=False, k_base='gauss')
+        var_dfx = inv.Variational(mymodel,observations1D, filter_at_fc=True)
+        
+        if FORWARD_PASS:
+            run_forward_cost_grad(mymodel, var_dfx)   
+
+        if MINIMIZE:
+            print(' minimizing ...')
+            t7 = clock.time()
+            mymodel, _ = var_dfx.scipy_lbfgs_wrapper(mymodel, maxiter, verbose=True)   
+            print(' time, minimize',clock.time()-t7)
+                           
+        name_save = 'junsteak_kt_'+namesave_loc
+        if PLOT_TRAJ:
+            plot_traj_1D(mymodel, var_dfx, forcing1D, observations1D, name_save, path_save_png, dpi)   
+            
     end = clock.time()
     print('Total execution time = '+str(jnp.round(end-start,2))+' s')
     plt.show()

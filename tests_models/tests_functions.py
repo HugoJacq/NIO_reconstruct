@@ -44,7 +44,8 @@ def run_forward_cost_grad(mymodel, var_dfx):
     
 def plot_traj_1D(mymodel, var_dfx, forcing1D, observations1D, name_save, path_save_png, dpi):
     Ua,Va = mymodel(save_traj_at=mymodel.dt_forcing)
-    if type(mymodel).__name__ in ['junsteak']:
+    print(Ua.shape)
+    if type(mymodel).__name__ in ['junsteak','junsteak_kt']:
         Ua, Va = Ua[:,0], Va[:,0]
     U = forcing1D.data.U.values
     V = forcing1D.data.V.values
