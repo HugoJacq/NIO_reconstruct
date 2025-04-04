@@ -90,8 +90,8 @@ class Observation2D:
         else:
             U, V = self.U, self.V
         step_obs = int(self.obs_period)//int(self.dt_forcing)
-        self.Uo = self.U[::step_obs]
-        self.Vo = self.V[::step_obs]
+        self.Uo = U[::step_obs]
+        self.Vo = V[::step_obs]
         return self.Uo,self.Vo
     
 class Observation_from_PAPA:
