@@ -85,8 +85,8 @@ class jslab(eqx.Module):
                 adjoint = diffrax.RecursiveCheckpointAdjoint(checkpoints=10)
             solution = diffeqsolve(terms=ODETerm(self.vector_field), 
                             solver=solver, 
-                            t0=t0, 
-                            t1=t1, 
+                            t0=0., 
+                            t1=self.t1-self.t0, 
                             y0=y0, 
                             args=args, 
                             dt0=None, #dt, #dt, None
@@ -96,6 +96,7 @@ class jslab(eqx.Module):
                             max_steps=maxstep,
                             made_jump=False).ys # here this is needed to be able to forward AD
         else:
+
             Nforcing = int((t1-t0)//self.dt_forcing)
             if save_traj_at is None:
                 step_save_out = 1
@@ -316,8 +317,8 @@ class jslab_kt(eqx.Module):
             
             solution = diffeqsolve(terms=ODETerm(self.vector_field), 
                             solver=solver, 
-                            t0=t0, 
-                            t1=t1, 
+                            t0=0., 
+                            t1=self.t1-self.t0,  
                             y0=y0, 
                             args=args, 
                             dt0=None, #dt, #dt, None
@@ -479,8 +480,8 @@ class jslab_kt_2D(eqx.Module):
             
             solution = diffeqsolve(terms=ODETerm(self.vector_field), 
                             solver=solver, 
-                            t0=t0, 
-                            t1=t1, 
+                            t0=0., 
+                            t1=self.t1-self.t0, 
                             y0=y0, 
                             args=args, 
                             dt0=None, #dt, #dt, None
@@ -616,8 +617,8 @@ class jslab_rxry(eqx.Module):
                 adjoint = diffrax.RecursiveCheckpointAdjoint(checkpoints=10)
             solution = diffeqsolve(terms=ODETerm(self.vector_field), 
                             solver=solver, 
-                            t0=t0, 
-                            t1=t1, 
+                            t0=0., 
+                            t1=self.t1-self.t0,  
                             y0=y0, 
                             args=args, 
                             dt0=None, #dt, #dt, None
@@ -772,8 +773,8 @@ class jslab_Ue_Unio(eqx.Module):
                 adjoint = diffrax.RecursiveCheckpointAdjoint(checkpoints=10)
             solution = diffeqsolve(terms=ODETerm(self.vector_field), 
                             solver=solver, 
-                            t0=t0, 
-                            t1=t1, 
+                            t0=0., 
+                            t1=self.t1-self.t0,  
                             y0=y0, 
                             args=args, 
                             dt0=None, #dt, #dt, None
@@ -961,8 +962,8 @@ class jslab_kt_Ue_Unio(eqx.Module):
             
             solution = diffeqsolve(terms=ODETerm(self.vector_field), 
                             solver=solver, 
-                            t0=t0, 
-                            t1=t1, 
+                            t0=0., 
+                            t1=self.t1-self.t0,  
                             y0=y0, 
                             args=args, 
                             dt0=None, #dt, #dt, None
@@ -1147,8 +1148,8 @@ class jslab_kt_2D_adv(eqx.Module):
             
             solution = diffeqsolve(terms=ODETerm(self.vector_field), 
                             solver=solver, 
-                            t0=t0, 
-                            t1=t1, 
+                            t0=0., 
+                            t1=self.t1-self.t0, 
                             y0=y0, 
                             args=args, 
                             dt0=None, #dt, #dt, None
@@ -1331,8 +1332,8 @@ class jslab_kt_2D_adv_Ut(eqx.Module):
             
             solution = diffeqsolve(terms=ODETerm(self.vector_field), 
                             solver=solver, 
-                            t0=t0, 
-                            t1=t1, 
+                            t0=0., 
+                            t1=self.t1-self.t0, 
                             y0=y0, 
                             args=args, 
                             dt0=None, #dt, #dt, None
