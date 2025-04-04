@@ -12,6 +12,7 @@ import models.classic_slab as classic_slab
 from basis import kt_ini, kt_1D_to_2D, pkt2Kt_matrix
 from constants import *
 from inv import my_partition
+from Listes_models import L_variable_Kt, L_nlayers_models, L_models_total_current
 
 def run_forward_cost_grad(mymodel, var_dfx):
     """
@@ -132,6 +133,8 @@ def plot_traj_1D(mymodel, var_dfx, forcing1D, observations1D, name_save, path_sa
     
 def plot_traj_2D(mymodel, var_dfx, forcing2D, observations2D, name_save, point_loc, LON_bounds, LAT_bounds, path_save_png, dpi):
     Ua,Va = mymodel(save_traj_at=mymodel.dt_forcing)
+    if type(mymodel).__name__ in L_nlayers_models:
+        Ua, Va = Ua[:,0], Va[:,0]
     U = forcing2D.data.U
     V = forcing2D.data.V
     Ug = forcing2D.data.Ug
@@ -142,7 +145,7 @@ def plot_traj_2D(mymodel, var_dfx, forcing2D, observations2D, name_save, point_l
     
     indx = tools.nearest(forcing2D.data.lon.values, point_loc[0])
     indy = tools.nearest(forcing2D.data.lat.values, point_loc[1])
-    if type(mymodel).__name__ in ['jslab_kt_2D_adv_Ut']:
+    if type(mymodel).__name__ in L_models_total_current:
         U1D = U.values + Ug.values
         V1D = V.values + Vg.values
         Uo, _ = observations2D.get_obs(is_utotal=True)
@@ -150,17 +153,20 @@ def plot_traj_2D(mymodel, var_dfx, forcing2D, observations2D, name_save, point_l
         U1D = U.values
         V1D = V.values
         Uo, _ = observations2D.get_obs(is_utotal=False)
-    U1D = U1D[:,indx,indy]
-    V1D = V1D[:,indx,indy]
-    TAx1D = TAx.values[:,indx,indy]
-    TAy1D = TAy.values[:,indx,indy]
-    Ua1D = Ua[:,indx,indy]
-    Va1D = Va[:,indx,indy]
-    Uo1D = Uo[:,indx,indy]
+    
+    print(U1D.shape, Ua.shape)
+        
+    U1D = U1D[:,indy,indx]
+    V1D = V1D[:,indy,indx]
+    TAx1D = TAx.values[:,indy,indx]
+    TAy1D = TAy.values[:,indy,indx]
+    Ua1D = Ua[:,indy,indx]
+    Va1D = Va[:,indy,indx]
+    Uo1D = Uo[:,indy,indx]
     
     RMSE = tools.score_RMSE(Ua1D, U1D) 
 
-    if type(mymodel).__name__ in ['junsteak','junsteak_kt']:
+    if type(mymodel).__name__ in L_variable_Kt:
         modeltype = 'unsteak'
     else:
         modeltype = 'slab'

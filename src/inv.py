@@ -10,6 +10,7 @@ import numpy as np
 import scipy
 
 import tools
+from Listes_models import L_variable_Kt, L_nlayers_models, L_models_total_current
 
 class Variational:
     """
@@ -29,7 +30,7 @@ class Variational:
     def cost(self, dynamic_model, static_model):
         mymodel = eqx.combine(dynamic_model, static_model)
         dtime_obs = self.observations.obs_period
-        if type(mymodel).__name__ in ['jslab_kt_2D_press']:
+        if type(mymodel).__name__ in L_models_total_current:
             utotal = True # Ut = Uag + Ug
         else:
             utotal = False # Uag
@@ -42,7 +43,7 @@ class Variational:
             dt_out = dtime_obs
         sol = mymodel(save_traj_at=dt_out)
         
-        if type(mymodel).__name__ in ['junsteak','junsteak_kt']:
+        if type(mymodel).__name__ in L_nlayers_models:
             sol = (sol[0][:,0], sol[1][:,0]) 
         
         
