@@ -54,7 +54,6 @@ class junsteak(eqx.Module):
         self.fc = fc
         self.dt_forcing = dt_forcing
         self.nl = nl
-        print('nl',nl)
         self.AD_mode = AD_mode
         
         t0,t1,dt = call_args

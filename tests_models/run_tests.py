@@ -44,8 +44,8 @@ k_base              = 'gauss'       # base of K transform. 'gauss' or 'id'
 AD_mode             = 'F'           # forward mode for AD (for diffrax' diffeqsolve)
 
 # run parameters
-t0                  = 20*oneday    # start day 
-t1                  = 50*oneday    # end day
+t0                  = 60*oneday    # start day 
+t1                  = 100*oneday    # end day
 dt                  = 60.           # timestep of the model (s) 
 
 # What to test
@@ -56,11 +56,12 @@ PLOT_TRAJ           = True      # Show a trajectory
 
 ON_PAPA             = False      # use PAPA station data, only for 1D models
 FILTER_AT_FC        = False      # minimize filtered ageo current with obs if model has this option
-IDEALIZED_RUN       = True       # try the model on a step wind stress
+IDEALIZED_RUN       = False       # try the model on a step wind stress
 
 # Switches
+# slab based models
 TEST_SLAB                   = False
-TEST_SLAB_KT                = False
+TEST_SLAB_KT                = True
 TEST_SLAB_KT_FILTERED_FC    = False
 TEST_SLAB_KT_2D             = False
 TEST_SLAB_RXRY              = False # WIP
@@ -68,11 +69,11 @@ TEST_SLAB_Ue_Unio           = False
 TEST_SLAB_KT_Ue_Unio        = False # WIP
 TEST_SLAB_KT_2D_ADV         = False # WIP, crash
 TEST_SLAB_KT_2D_ADV_UT      = False
-
+# fourier solving
 TEST_SLAB_FFT               = False
-
+# unsteak based
 TEST_UNSTEAK                = False
-TEST_UNSTEAK_KT             = True
+TEST_UNSTEAK_KT             = False
 
 # PLOT
 dpi=200
@@ -87,6 +88,8 @@ point_loc = [-50.,35.]
 point_loc = [-70., 35.]
 point_loc = [-50., 40.]
 point_loc = [-46., 40.] # wind gust from early january 2018
+point_loc = [-55., 37.5] # february 13th
+point_loc = [-47.4,34.6] # march 8th 0300, t0=60 t1=100
 # 2D
 R = 0.5 # 5.0 
 LON_bounds = [point_loc[0]-R,point_loc[0]+R]
@@ -135,6 +138,8 @@ os.system('mkdir -p '+path_save_png)
 
 if __name__ == "__main__": 
     
+    print('Running: tests_models.py')
+    
     file = []
     for ifile in range(len(name_regrid)):
         file.append(path_regrid+name_regrid[ifile])
@@ -171,7 +176,12 @@ if __name__ == "__main__":
         raise Exception(f"your choice of LAT in 'point_loc'({point_loc}) and 'R'({R}) is outside of the domain, please retry")
     ### END WARNINGSM
     
-    
+    if not ON_PAPA:
+        indx = tools.nearest(dsfull.lon.values,point_loc[0])
+        indy = tools.nearest(dsfull.lat.values,point_loc[1])
+        print('**************')
+        print(f'Location is {dsfull.lon.values[indx]}°E, {dsfull.lat.values[indy]}°N')
+        print('**************\n')
     
     if TEST_SLAB:
         print('* test jslab')
@@ -542,7 +552,7 @@ if __name__ == "__main__":
         
         #mymodel = jslab(pk, TAx, TAy, fc, dt_forcing, nl=1, AD_mode=AD_mode)
         mymodel = junsteak(pk, TAx, TAy, fc, dt_forcing, nl=Nl, AD_mode=AD_mode, call_args=call_args, use_difx=False)
-        var_dfx = inv.Variational(mymodel,observations1D, filter_at_fc=True)
+        var_dfx = inv.Variational(mymodel,observations1D, filter_at_fc=FILTER_AT_FC)
         
         if FORWARD_PASS:
             run_forward_cost_grad(mymodel, var_dfx)   
@@ -556,6 +566,14 @@ if __name__ == "__main__":
         name_save = 'junsteak_'+namesave_loc
         if PLOT_TRAJ:
             plot_traj_1D(mymodel, var_dfx, forcing1D, observations1D, name_save, path_save_png, dpi)   
+        
+        if IDEALIZED_RUN:
+            mypk = mymodel.pk
+            frc_idealized = forcing.Forcing_idealized_1D(dt_forcing, t0, t1, TAx=0.4, TAy=0., dt_spike=t1-t0)
+            step_model = eqx.tree_at(lambda t:t.TAx, mymodel, frc_idealized.TAx)
+            step_model = eqx.tree_at(lambda t:t.TAy, step_model, frc_idealized.TAy)
+            
+            idealized_run(step_model, frc_idealized, name_save, path_save_png, dpi)
         
     if TEST_UNSTEAK_KT:
         print('* test junsteak_kt')
@@ -595,7 +613,7 @@ if __name__ == "__main__":
             
         if IDEALIZED_RUN:
             mypk = mymodel.pk
-            frc_idealized = forcing.Forcing_idealized_1D(dt_forcing, t0, t1, TAx=0.4, TAy=0.)
+            frc_idealized = forcing.Forcing_idealized_1D(dt_forcing, t0, t1, TAx=0.4, TAy=0., dt_spike=dTK)
             step_model = eqx.tree_at(lambda t:t.TAx, mymodel, frc_idealized.TAx)
             step_model = eqx.tree_at(lambda t:t.TAy, step_model, frc_idealized.TAy)
             

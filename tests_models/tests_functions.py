@@ -59,20 +59,26 @@ def plot_traj_1D(mymodel, var_dfx, forcing1D, observations1D, name_save, path_sa
     SHOW_MLD = False
     
     nlines = 3 if SHOW_MLD else 2
-        
+    
+    if type(mymodel).__name__ in ['junsteak','junsteak_kt']:
+        modeltype = 'unsteak'
+    else:
+        modeltype = 'slab'
+    
+    
     print('RMSE is',RMSE)
     # PLOT trajectory
     fig, ax = plt.subplots(nlines,1,figsize = (10,10),constrained_layout=True,dpi=dpi)
     if var_dfx.filter_at_fc:
         ax[0].plot((t0 + forcing1D.time)/oneday, U, c='k', lw=2, label='Croco', alpha=0.3)
-        ax[0].plot((t0 + forcing1D.time)/oneday, Ua, c='g', label='slab', alpha = 0.3)
+        ax[0].plot((t0 + forcing1D.time)/oneday, Ua, c='g', label=modeltype, alpha = 0.3)
         (Ut_nio,Vt_nio) = tools.my_fc_filter(mymodel.dt_forcing,U+1j*V, mymodel.fc)
         ax[0].plot((t0 + forcing1D.time)/oneday, Ut_nio, c='k', lw=2, label='Croco at fc', alpha=1)
         (Unio,Vnio) = tools.my_fc_filter(mymodel.dt_forcing, Ua+1j*Va, mymodel.fc)
-        ax[0].plot((t0 + forcing1D.time)/oneday, Unio, c='b', label='slab at fc')
+        ax[0].plot((t0 + forcing1D.time)/oneday, Unio, c='b', label=modeltype+' at fc')
     else:
         ax[0].plot((t0 + forcing1D.time)/oneday, U, c='k', lw=2, label='Croco', alpha=1)
-        ax[0].plot((t0 + forcing1D.time)/oneday, Ua, c='g', label='slab')
+        ax[0].plot((t0 + forcing1D.time)/oneday, Ua, c='g', label=modeltype)
     ax[0].scatter((t0 + observations1D.time_obs)/oneday,Uo, c='r', label='obs', marker='x')
     ax[0].set_ylim([-0.6,0.6])
     #ax.set_xlim([15,25])
@@ -154,6 +160,11 @@ def plot_traj_2D(mymodel, var_dfx, forcing2D, observations2D, name_save, point_l
     
     RMSE = tools.score_RMSE(Ua1D, U1D) 
 
+    if type(mymodel).__name__ in ['junsteak','junsteak_kt']:
+        modeltype = 'unsteak'
+    else:
+        modeltype = 'slab'
+
     print('RMSE at point_loc '+str(point_loc)+' is',RMSE)
     # PLOT trajectory at point_loc
     if True:
@@ -165,14 +176,14 @@ def plot_traj_2D(mymodel, var_dfx, forcing2D, observations2D, name_save, point_l
             
         if var_dfx.filter_at_fc:
             ax[0].plot((t0 + forcing2D.time)/oneday, U1D, c='k', lw=2, label='Croco', alpha=0.3)
-            ax[0].plot((t0 + forcing2D.time)/oneday, Ua1D, c='g', label='slab', alpha = 0.3)
+            ax[0].plot((t0 + forcing2D.time)/oneday, Ua1D, c='g', label=modeltype, alpha = 0.3)
             (Ut_nio,Vt_nio) = tools.my_fc_filter(mymodel.dt_forcing,U1D+1j*V1D, mymodel.fc)
             ax[0].plot((t0 + forcing2D.time)/oneday, Ut_nio, c='k', lw=2, label='Croco at fc', alpha=1)
             (Unio,Vnio) = tools.my_fc_filter(mymodel.dt_forcing, Ua1D+1j*Va1D, mymodel.fc)
-            ax[0].plot((t0 + forcing2D.time)/oneday, Unio, c='b', label='slab at fc')
+            ax[0].plot((t0 + forcing2D.time)/oneday, Unio, c='b', label=modeltype+' at fc')
         else:
             ax[0].plot((t0 + forcing2D.time)/oneday, U1D, c='k', lw=2, label='Croco at loc', alpha=1)
-            ax[0].plot((t0 + forcing2D.time)/oneday, Ua1D, c='g', label='slab at loc')
+            ax[0].plot((t0 + forcing2D.time)/oneday, Ua1D, c='g', label=modeltype+' at loc')
         ax[0].scatter((t0 +observations2D.time_obs)/oneday, Uo1D, c='r', label='obs at loc', marker='x')
         ax[0].set_ylim([-0.6,0.6])
         ax[0].set_ylabel('Ageo zonal current (m/s)')
@@ -233,7 +244,6 @@ def plot_traj_2D(mymodel, var_dfx, forcing2D, observations2D, name_save, point_l
 def idealized_run(mymodel, forcing1D, name_save, path_save_png, dpi):
 
     Ua,Va = mymodel(save_traj_at=mymodel.dt_forcing)
-    print(Ua.shape)
     if type(mymodel).__name__ in ['junsteak','junsteak_kt']:
         Ua, Va = Ua[:,0], Va[:,0]
     stressX = forcing1D.TAx
