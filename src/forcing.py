@@ -52,7 +52,7 @@ class Forcing2D:
         
         # from dataset
         ds = xr.open_mfdataset(path_file)  
-        time_a = np.arange(t0,t1+dt_forcing,dt_forcing)
+        time_a = np.arange(0,len(ds.time)*dt_forcing, dt_forcing)
         itmin = nearest(time_a, t0)
         itmax = nearest(time_a, t1)
         ds = ds.isel(time=slice(itmin,itmax))     
