@@ -20,7 +20,7 @@ import equinox as eqx
 
 # my inmports
 from models.classic_slab import jslab, jslab_Ue_Unio, jslab_kt, jslab_kt_2D, jslab_kt_2D_adv_Ut, jslab_rxry, jslab_kt_Ue_Unio, jslab_kt_2D_adv
-from models.unsteak import junsteak, junsteak_kt
+from models.unsteak import junsteak, junsteak_kt, junsteak_kt_2D
 from basis import kt_ini
 
 import forcing
@@ -49,10 +49,11 @@ t1                  = 100*oneday    # end day
 dt                  = 60.           # timestep of the model (s) 
 
 # What to test
-FORWARD_PASS        = False      # How fast the model is running ?
-MINIMIZE            = True      # Does the model converges to a solution ?
-maxiter             = 50        # if MINIMIZE: max number of iteration
 PLOT_TRAJ           = True      # Show a trajectory
+FORWARD_PASS        = False      # How fast the model is running ?
+MINIMIZE            = False      # Does the model converges to a solution ?
+maxiter             = 50        # if MINIMIZE: max number of iteration
+
 
 ON_PAPA             = False      # use PAPA station data, only for 1D models
 FILTER_AT_FC        = False      # minimize filtered ageo current with obs if model has this option
@@ -61,7 +62,7 @@ IDEALIZED_RUN       = False       # try the model on a step wind stress
 # Switches
 # slab based models
 TEST_SLAB                   = False
-TEST_SLAB_KT                = True
+TEST_SLAB_KT                = False
 TEST_SLAB_KT_FILTERED_FC    = False
 TEST_SLAB_KT_2D             = False
 TEST_SLAB_RXRY              = False # WIP
@@ -74,6 +75,7 @@ TEST_SLAB_FFT               = False
 # unsteak based
 TEST_UNSTEAK                = False
 TEST_UNSTEAK_KT             = False
+TEST_UNSTEAK_KT_2D          = True
 
 # PLOT
 dpi=200
@@ -138,8 +140,6 @@ os.system('mkdir -p '+path_save_png)
 
 if __name__ == "__main__": 
     
-    print('Running: tests_models.py')
-    
     file = []
     for ifile in range(len(name_regrid)):
         file.append(path_regrid+name_regrid[ifile])
@@ -155,7 +155,10 @@ if __name__ == "__main__":
     else:
         forcing1D = forcing.Forcing1D(point_loc, t0, t1, dt_forcing, file)
         observations1D = observations.Observation1D(point_loc, period_obs, t0, t1, dt_OSSE, file)
-    if TEST_SLAB_KT_2D or TEST_SLAB_KT_2D_ADV or TEST_SLAB_KT_2D_ADV_UT:
+    if (TEST_SLAB_KT_2D or 
+        TEST_SLAB_KT_2D_ADV or 
+        TEST_SLAB_KT_2D_ADV_UT or
+        TEST_UNSTEAK_KT_2D):
         forcing2D = forcing.Forcing2D(dt_forcing, t0, t1, file, LON_bounds, LAT_bounds)
         observations2D = observations.Observation2D(period_obs, t0, t1, dt_OSSE, file, LON_bounds, LAT_bounds)
     
@@ -176,12 +179,19 @@ if __name__ == "__main__":
         raise Exception(f"your choice of LAT in 'point_loc'({point_loc}) and 'R'({R}) is outside of the domain, please retry")
     ### END WARNINGSM
     
+    
     if not ON_PAPA:
         indx = tools.nearest(dsfull.lon.values,point_loc[0])
         indy = tools.nearest(dsfull.lat.values,point_loc[1])
-        print('**************')
-        print(f'Location is {dsfull.lon.values[indx]}°E, {dsfull.lat.values[indy]}°N')
-        print('**************\n')
+        txt_location = f'{dsfull.lon.values[indx]}°E, {dsfull.lat.values[indy]}°N'
+    else:
+        txt_location = 'PAPA station'
+    print('Running: tests_models.py')   
+    print('**************')
+    print('Location is '+txt_location)
+    print(f'2D slice is {LON_bounds}°E {LAT_bounds}°N')
+    print(f'if multi layer, nl={Nl}')
+    print('**************\n')
     
     if TEST_SLAB:
         print('* test jslab')
@@ -614,6 +624,50 @@ if __name__ == "__main__":
         if IDEALIZED_RUN:
             mypk = mymodel.pk
             frc_idealized = forcing.Forcing_idealized_1D(dt_forcing, t0, t1, TAx=0.4, TAy=0., dt_spike=dTK)
+            step_model = eqx.tree_at(lambda t:t.TAx, mymodel, frc_idealized.TAx)
+            step_model = eqx.tree_at(lambda t:t.TAy, step_model, frc_idealized.TAy)
+            
+            idealized_run(step_model, frc_idealized, name_save, path_save_png, dpi)
+       
+    if TEST_UNSTEAK_KT_2D:
+        print('* test junsteak_kt_2D')
+        # control vector
+        if Nl==1:
+            pk = jnp.asarray([-11.31980127, -10.28525189])    
+        elif Nl==2:
+            pk = jnp.asarray([-10.,-10., -9., -9.])    
+        
+        NdT = len(np.arange(t0, t1,dTK)) # int((t1-t0)//dTK) 
+        pk = kt_ini(pk, NdT)
+        
+        # parameters
+        TAx = jnp.asarray(forcing2D.TAx)
+        TAy = jnp.asarray(forcing2D.TAy)
+        fc = jnp.asarray(forcing2D.fc)
+        
+        call_args = t0, t1, dt
+        
+        #mymodel = jslab(pk, TAx, TAy, fc, dt_forcing, nl=1, AD_mode=AD_mode)
+        mymodel = junsteak_kt_2D(pk, TAx, TAy, fc, dTK, dt_forcing, nl=Nl, AD_mode=AD_mode, call_args=call_args, use_difx=False, k_base='gauss')
+        var_dfx = inv.Variational(mymodel,observations2D, filter_at_fc=FILTER_AT_FC)
+        
+        if FORWARD_PASS:
+            run_forward_cost_grad(mymodel, var_dfx)   
+
+        if MINIMIZE:
+            print(' minimizing ...')
+            t7 = clock.time()
+            mymodel, _ = var_dfx.scipy_lbfgs_wrapper(mymodel, maxiter, verbose=True)   
+            print(' time, minimize',clock.time()-t7)
+                           
+        name_save = 'junsteak_kt_2D_'+namesave_loc
+        if PLOT_TRAJ:
+            plot_traj_2D(mymodel, var_dfx, forcing2D, observations2D, name_save, point_loc, LON_bounds, LAT_bounds, path_save_png, dpi)   
+            
+            
+        if IDEALIZED_RUN:
+            mypk = mymodel.pk
+            frc_idealized = forcing.Forcing_idealized_2D(dt_forcing, t0, t1, TAx=0.4, TAy=0., dt_spike=dTK)
             step_model = eqx.tree_at(lambda t:t.TAx, mymodel, frc_idealized.TAx)
             step_model = eqx.tree_at(lambda t:t.TAy, step_model, frc_idealized.TAy)
             
