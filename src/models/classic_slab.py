@@ -11,19 +11,18 @@ Wang et al. 2023: https://www.mdpi.com/2072-4292/15/18/4526
 By: Hugo Jacquet march 2025
 """
 import numpy as np
-import xarray as xr
 
 import jax
 jax.config.update("jax_enable_x64", True)
 import jax.numpy as jnp
 from jax import jit, lax
-from functools import partial
+# from functools import partial
 import equinox as eqx
-from diffrax import Dopri5, ODETerm, diffeqsolve, Euler
+from diffrax import ODETerm, diffeqsolve, Euler
 import diffrax
 
+from basis import kt_1D_to_2D, pkt2Kt_matrix
 from constants import *
-import tools
 
 class jslab(eqx.Module):
     # variables
@@ -242,7 +241,7 @@ class jslab_fft(eqx.Module):
         
     def H(self,s):
         K = self.pk
-        return K[0] / (1j*(2*np.pi*s +self.fc) + K[1])
+        return K[0] / (1j*(2*jnp.pi*s +self.fc) + K[1])
       
 class jslab_kt(eqx.Module):
     # variables
@@ -1053,6 +1052,8 @@ class jslab_kt_Ue_Unio(eqx.Module):
         d_y = d_U,d_V
         return d_y
 
+
+# TO BE TESTED
 class jslab_kt_2D_adv(eqx.Module):
    # variables
     # U0 : np.float64
@@ -1229,8 +1230,6 @@ class jslab_kt_2D_adv(eqx.Module):
         
         return d_y 
 
-    
-
 # TO BE TESTED
 class jslab_kt_2D_adv_Ut(eqx.Module):
     """
@@ -1402,137 +1401,24 @@ class jslab_kt_2D_adv_Ut(eqx.Module):
         gradUgnow = (1-aa)*gradUgt[0][itf] + aa*gradUgt[0][itsup], (1-aa)*gradUgt[1][itf] + aa*gradUgt[1][itsup]
         gradVgnow = (1-aa)*gradVgt[0][itf] + aa*gradVgt[0][itsup], (1-aa)*gradVgt[1][itf] + aa*gradVgt[1][itsup]
         
-        # def cond_print(it):
-        #     jax.debug.print('it,itf, TA, {}, {}, {}',it,itf,(TAx,TAy))
-        # jax.lax.cond(it<=10, cond_print, lambda x:None, it)
-        # print(U.shape, TAx.shape)
-        
         # physic
         d_U = fc*V + Ktnow[0]*TAxt - Ktnow[1]*U - fc*Vgnow #- (U*gradUgnow[0] + V*gradUgnow[1])
-        d_V = -fc*U + Ktnow[0]*TAyt - Ktnow[1]*V + fc*Ugnow #- (U*gradVgnow[0] + V*gradVgnow[1])
-        d_y = d_U,d_V
+        d_V = -fc*U + Ktnow[0]*TAyt - Ktnow[1]*V  + fc*Ugnow #- (U*gradVgnow[0] + V*gradVgnow[1])
+        
+        # def cond_print(it):
+        #     #jax.debug.print("d_U, Coriolis, stress, damping, adv: {}, {}, {}, {}, {}", d_U[0,0], fc[0]*V[0,0], Ktnow[0]*TAxt[0,0], - Ktnow[1]*U[0,0], - Ktnow[0]*(U[0,0]*gradUgt[0][0,0] + V[0,0]*gradUgt[1][0,0]))
+        #     jax.debug.print("d_U, Coriolis, stress, damping: {}, {}, {}, {}", d_U[0,0], fc[0]*V[0,0], Ktnow[0]*TAxt[0,0], - Ktnow[1]*U[0,0])
+        # jax.lax.cond(it<=70, cond_print, lambda x:None, it)
+        
+        d_y = d_U, d_V
         return d_y 
+
 
 
 # class jslab_kt_fft(eqx.Module):
 # -> k(t) donc FFT(K*tau) <=> FFT(K) convolution FFT(tau)
 # et pareil pour un potentiel terme en grad Ug
  
-# K(t)
-# all of this could be moved to a different file ...
-def kt_ini(pk, NdT):
-    a_2D = jnp.repeat(pk, NdT)
-    return kt_2D_to_1D(a_2D)
-
-def kt_1D_to_2D(vector_kt_1D, NdT, npk):
-    return vector_kt_1D.reshape((NdT,npk))
-
-def kt_2D_to_1D(vector_kt):
-    return vector_kt.flatten()
-
-@partial(jax.jit, static_argnames=['NdT', 'dTK', 't0', 't1', 'dt_forcing', 'base']) # 
-def pkt2Kt_matrix(NdT, dTK, t0, t1, dt_forcing, base='gauss'):
-        """
-        Reduced basis matrix
-        
-        original numpy function:
-        
-            def pkt2Kt_matrix(dT, gtime):
-                if dT<gtime[-1]-gtime[0] : gptime = numpy.arange(gtime[0], gtime[-1]+dT,dT)
-                else: gptime = numpy.array([gtime[0]])
-                nt=len(gtime)
-                npt = len(gptime)
-                M = numpy.zeros((nt,npt))
-                # Ks=numpy.zeros((ny,nx))
-                S=numpy.zeros((nt))
-                for ip in range(npt):
-                    distt = (gtime-gptime[ip])
-                    iit = numpy.where((numpy.abs(distt) < (3*dT)))[0]
-                    tmp = numpy.exp(-distt[iit]**2/dT**2)
-                    S[iit] += tmp
-                    M[iit,ip] += tmp
-                M = (M.T / S.T).T
-                return M
-        
-        To transform in JAX compatible code, we need to work on array dimensions.
-        Short description of what is done in the first 'if' statement:
-            if we have a period dT shorter than the total time 'gtime',
-                then we create an array with time values spaced by dT.
-                last value if 'gtime[-1]'.
-            else
-                no variation of K along 'gtime' so only 1 vector K
-                
-        Example with nt = 22, with 1 dot is 1 day, dT = 5 days:
-        vector_K :
-            X * * * * * * * * * * * * * * * * * * * * X  # 22 values
-        vector_Kt :
-            X - - - - * - - - - * - - - - * - - - - * X  # 6 values
-        """
-        if NdT>0:    
-            gptime = jnp.arange(t0+ dTK/2, t1+ dTK/2,dTK) # here +dTK/2 so that gaussian are at the middle of dTK intervals
-            #gptime = jnp.arange(t0, t1,dTK)
-        else:
-            gptime = jnp.array([t0])
-        # gptime = lax.select(NdT>0, jnp.arange(t0+ dTK/2, t1,dTK), jnp.array([t0]))
-        gtime = jnp.arange(t0,t1,dt_forcing)
-        
-        # # see : https://docs.kidger.site/equinox/faq/#how-to-use-non-array-modules-as-inputs-to-scancondwhile-etc
-        # # |   so you need to use scan with a custom made lambda function
-        # # v
-        # #_, _, S, M = lax.fori_loop(0, npt, self.__step_pkt2Kt_matrix, arg0) 
-        # arg0,_ = lax.scan(lambda it,arg0: __step_pkt2Kt_matrix(it,arg0), arg0, xs=jnp.arange(0,npt))
-        
-        if base=='gauss':
-            # CLAUDE VERSION
-            # Vectorize the distance calculation
-            # Shape: (nt, npt)
-            distt = gtime[:, jnp.newaxis] - gptime[jnp.newaxis, :]
-            
-            # Vectorized condition and exponential calculation
-            #cond = jnp.abs(distt) < 3 * dTK
-            cond = jnp.ones(distt.shape) * True
-            #tmp = jnp.exp(-2*distt**2 / dTK**2) * cond  # The condition zeros out values outside range
-            coeff = 1 # if =2, exp do not recover
-            tmp = jnp.exp(-coeff*distt**2 / dTK**2) * cond
-            # Sum across the appropriate axis for S
-            S = jnp.sum(tmp, axis=1)
-            
-            # Division with proper broadcasting
-            M = tmp / S[:, jnp.newaxis]      
-        elif base=='id':
-            
-            M = jnp.zeros((len(gtime),len(gptime)))
-            
-            nsteps = int(dTK//dt_forcing)
-            slice_ones = jnp.ones(nsteps)
-            if NdT*nsteps>len(gtime):
-                last_slice = jnp.ones(len(gtime)-(NdT-1)*nsteps )
-            else:
-                last_slice = slice_ones
-            def __fn_scan(arg0, it):
-                """
-                """
-                M = arg0
-                imin = jnp.array(it*nsteps,int)
-                myslice = lax.select( it*nsteps> len(gtime), last_slice, slice_ones)
-                #jax.debug.print('M[:,it] {} \n myslice {} \n imin {}/{} \n', M[:,it], myslice, imin, len(gtime))
-                #jax.debug.print('len(myslice) {}, imin= {} / {}', len(myslice), imin, len(gtime))
-                update = lax.dynamic_update_slice(M[:,it], myslice, (imin,))                            
-                M = M.at[:,it].set(update)
-                
-                return M, M
-            
-            arg0 = M
-            final, _ = lax.scan( __fn_scan, arg0, xs=jnp.arange(0,len(gptime)))
-            
-            M = final
-        elif base=='linearInterp':
-            """
-            """
-        else:
-            raise Exception(f'You want to use the reduced basis {base} but it is not coded in pkt2Kt_matrix, aborting ...')
-        return M
-
 
 # this could be moved to a different file
 def compute_hgrad(Ug, dx, dy):

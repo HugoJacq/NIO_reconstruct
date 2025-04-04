@@ -12,6 +12,7 @@ sys.path.insert(0, '../src')
 
 import tools
 import models.classic_slab as classic_slab
+from basis import kt_ini, kt_1D_to_2D, pkt2Kt_matrix
 from constants import *
 from inv import my_partition
 
@@ -184,8 +185,8 @@ def plot_traj_2D(mymodel, var_dfx, forcing2D, observations2D, name_save, point_l
         # if type(mymodel).__name__ in ['jslab_kt_2D_adv','jslab_kt_2D']:
         #     if hasattr(mymodel, 'dTK'):
         #         NdT = len(np.arange(mymodel.t0, mymodel.t1, mymodel.dTK))
-        #         M = classic_slab.pkt2Kt_matrix(NdT, mymodel.dTK, mymodel.t0, mymodel.t1, mymodel.dt_forcing, base=mymodel.k_base)
-        #         kt2D = classic_slab.kt_1D_to_2D(mymodel.pk, NdT, npk=len(mymodel.pk)//NdT*mymodel.nl)
+        #         M = pkt2Kt_matrix(NdT, mymodel.dTK, mymodel.t0, mymodel.t1, mymodel.dt_forcing, base=mymodel.k_base)
+        #         kt2D = kt_1D_to_2D(mymodel.pk, NdT, npk=len(mymodel.pk)//NdT*mymodel.nl)
         #         new_kt = np.dot(M,kt2D)
         #     else:
         #         new_kt = mymodel.pk

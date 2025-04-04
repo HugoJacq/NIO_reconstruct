@@ -13,11 +13,14 @@ import os
 import xarray as xr
 sys.path.insert(0, '../src')
 os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false" # for jax
-import jax
 import jax.numpy as jnp
+#import jax
 #jax.config.update('jax_platform_name', 'cpu')
 
-from models.classic_slab import jslab, jslab_Ue_Unio, jslab_kt, jslab_kt_2D, jslab_kt_2D_adv_Ut, jslab_rxry, jslab_kt_Ue_Unio, jslab_kt_2D_adv, kt_ini, kt_1D_to_2D, pkt2Kt_matrix
+from models.classic_slab import jslab, jslab_Ue_Unio, jslab_kt, jslab_kt_2D, jslab_kt_2D_adv_Ut, jslab_rxry, jslab_kt_Ue_Unio, jslab_kt_2D_adv
+from models.unsteak import junsteak
+from basis import kt_ini
+
 import forcing
 import inv
 import observations
@@ -44,9 +47,9 @@ t1                  = 300*oneday
 dt                  = 60.        # timestep of the model (s) 
 
 # What to test
-FORWARD_PASS        = False      # tests forward, cost, gradcost
+FORWARD_PASS        = False     # tests forward, cost, gradcost
 MINIMIZE            = True      # switch to do the minimisation process
-maxiter             = 100         # max number of iteration
+maxiter             = 20         # max number of iteration
 PLOT_TRAJ           = True
 
 ON_PAPA             = False      # use PAPA station data, only for 1D models
@@ -60,9 +63,11 @@ TEST_SLAB_RXRY              = False # WIP
 TEST_SLAB_Ue_Unio           = False
 TEST_SLAB_KT_Ue_Unio        = False # WIP
 TEST_SLAB_KT_2D_ADV         = False # WIP, crash
-TEST_SLAB_KT_2D_ADV_UT      = True
+TEST_SLAB_KT_2D_ADV_UT      = False
 
 TEST_SLAB_FFT               = False
+
+TEST_SLAB_UNSTEAK           = True
 
 
 # PLOT
@@ -429,7 +434,7 @@ if __name__ == "__main__":
     if TEST_SLAB_KT_2D_ADV:
         print('* test jslab_kt_2D_adv')
         # control vector
-        pk = jnp.asarray([-20., -5.])   
+        pk = jnp.asarray([-11.31980127, -10.28525189])        
         NdT = len(np.arange(t0, t1,dTK)) # int((t1-t0)//dTK) 
         pk = kt_ini(pk, NdT)
         
@@ -462,7 +467,7 @@ if __name__ == "__main__":
         print('* test jslab_kt_2D_adv_Ut')
         
         # control vector
-        pk = jnp.asarray([-20., -5.])   
+        pk = jnp.asarray([-11.31980127, -10.28525189])     
         NdT = len(np.arange(t0, t1,dTK)) # int((t1-t0)//dTK) 
         pk = kt_ini(pk, NdT)
         
@@ -519,6 +524,37 @@ if __name__ == "__main__":
         name_save = 'jslab_fft_'+namesave_loc
         if PLOT_TRAJ:
             plot_traj_1D(mymodel, var_dfx, forcing1D, observations1D, name_save, path_save_png, dpi)   
+      
+      
+    if TEST_SLAB_UNSTEAK:
+        print('* test junsteak')
+        # control vector
+        pk = jnp.asarray([-11.31980127, -10.28525189])    
+        
+        # parameters
+        TAx = jnp.asarray(forcing1D.TAx)
+        TAy = jnp.asarray(forcing1D.TAy)
+        fc = jnp.asarray(forcing1D.fc)
+        
+        call_args = t0, t1, dt
+        
+        #mymodel = jslab(pk, TAx, TAy, fc, dt_forcing, nl=1, AD_mode=AD_mode)
+        mymodel = junsteak(pk, TAx, TAy, fc, dt_forcing, nl=1, AD_mode=AD_mode, call_args=call_args)
+        var_dfx = inv.Variational(mymodel,observations1D)
+        
+        if FORWARD_PASS:
+            run_forward_cost_grad(mymodel, var_dfx)   
+
+        if MINIMIZE:
+            print(' minimizing ...')
+            t7 = clock.time()
+            mymodel, _ = var_dfx.scipy_lbfgs_wrapper(mymodel, maxiter, verbose=True)   
+            print(' time, minimize',clock.time()-t7)
+                           
+        name_save = 'junsteak_'+namesave_loc
+        if PLOT_TRAJ:
+            plot_traj_1D(mymodel, var_dfx, forcing1D, observations1D, name_save, path_save_png, dpi)   
+        
         
     end = clock.time()
     print('Total execution time = '+str(jnp.round(end-start,2))+' s')
