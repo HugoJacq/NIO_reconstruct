@@ -175,3 +175,5 @@ benchmarks/benchmark_results_t00.0_t140.0_maison.txt
 benchmarks/benchmark_results_t00.0_t160.0_maison.txt
 benchmarks/benchmark_results_t00.0_t180.0_maison.txt
 benchmarks/benchmark_results_t00.0_t1100.0_maison.txt
+tests_models/memory_profile_junsteak_kt_2D_forward.prof
+tests_models/profile002.svg
