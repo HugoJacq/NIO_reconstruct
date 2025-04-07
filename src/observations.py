@@ -21,18 +21,19 @@ class Observation1D:
         ds = xr.open_mfdataset(path_file)
         indx = nearest(ds.lon.values,point_loc[0])
         indy = nearest(ds.lat.values,point_loc[1])
-        time_a = np.arange(t0,t1+dt_forcing,dt_forcing)
+        time_a = np.arange(0,len(ds.time)*dt_forcing, dt_forcing)
         itmin = nearest(time_a, t0)
         itmax = nearest(time_a, t1)
         self.data = ds.isel(time=slice(itmin,itmax), lon=indx,lat=indy)
         
         self.U,self.V = self.data.U.values,self.data.V.values
+        self.Ug,self.Vg = self.data.Ug.values,self.data.Vg.values
         self.fc = 2*2*np.pi/86164*np.sin(self.data.lat.values*np.pi/180)
         self.dt_forcing = dt_forcing
         self.obs_period = periode_obs
         self.time_obs = np.arange(0., len(self.data.time)*dt_forcing,periode_obs)
 
-    def get_obs(self):
+    def get_obs(self, is_utotal=False):
         """
         OSSE of current from the coupled OA model
         """
@@ -41,10 +42,16 @@ class Observation1D:
         # use a fill value ?
         # or see https://stackoverflow.com/questions/71692885/handle-varying-shapes-in-jax-numpy-arrays-jit-compatible
         
-        if False:
-            U, V = my_fc_filter(self.dt_forcing, self.U+1j*self.V, self.fc )
+        
+
+        if is_utotal:
+            U, V = self.U + self.Ug , self.V + self.Vg
         else:
             U, V = self.U, self.V
+            
+        if False:
+            U, V = my_fc_filter(self.dt_forcing, U+1j*V, self.fc )
+        
         step_obs = int(self.obs_period)//int(self.dt_forcing)
         self.Uo = U[::step_obs]
         self.Vo = V[::step_obs]
@@ -65,24 +72,29 @@ class Observation2D:
         
         # from dataset for OSSE
         ds = xr.open_mfdataset(path_file) 
-        time_a = np.arange(t0,t1+dt_forcing,dt_forcing)
+        time_a = np.arange(0,len(ds.time)*dt_forcing, dt_forcing)
         itmin = nearest(time_a, t0)
         itmax = nearest(time_a, t1)
         ds = ds.isel(time=slice(itmin,itmax))        
         self.data = ds.sel(lon=slice(LON_bounds[0],LON_bounds[1]),lat=slice(LAT_bounds[0],LAT_bounds[1]))
         self.U,self.V = self.data.U.values,self.data.V.values
+        self.Ug,self.Vg = self.data.Ug.values,self.data.Vg.values
         self.dt_forcing = dt_forcing
         self.obs_period = periode_obs
         
         self.time_obs = np.arange(0, len(self.data.time)*dt_forcing,periode_obs)
 
-    def get_obs(self):
+    def get_obs(self, is_utotal=False):
         """
         OSSE of current from the coupled OA model
         """
+        if is_utotal:
+            U, V = self.U + self.Ug , self.V + self.Vg
+        else:
+            U, V = self.U, self.V
         step_obs = int(self.obs_period)//int(self.dt_forcing)
-        self.Uo = self.U[::step_obs]
-        self.Vo = self.V[::step_obs]
+        self.Uo = U[::step_obs]
+        self.Vo = V[::step_obs]
         return self.Uo,self.Vo
     
 class Observation_from_PAPA:
@@ -94,7 +106,7 @@ class Observation_from_PAPA:
         
         # opening dataset
         ds = open_PAPA_station_file(path_file)        
-        time_a = np.arange(t0,t1+dt_forcing,dt_forcing)
+        time_a = np.arange(0,len(ds.time)*dt_forcing, dt_forcing)
         itmin = nearest(time_a, t0)
         itmax = nearest(time_a, t1)
         ds = ds.isel(time=slice(itmin,itmax))     
@@ -104,9 +116,11 @@ class Observation_from_PAPA:
         self.obs_period = periode_obs
         self.time_obs = np.arange(0, len(self.data.time)*dt_forcing,periode_obs)
         
-    def get_obs(self):
+    def get_obs(self, is_utotal=False):
         """
         Get current time spaced by 'obs_period'
+        
+        Here, we make the hypothesis Utotal = Uag
         """
         step_obs = int(self.obs_period)//int(self.dt_forcing)
         self.Uo = self.U[::step_obs]
@@ -116,7 +130,7 @@ class Observation_from_PAPA:
 class Observations_idealized_1D:
     def __init__(self, periode_obs, dt_forcing, t0, t1):
         
-        time = np.arange(t0,t1,dt_forcing)  
+        time = np.arange(0, t1-t0, dt_forcing) 
         TAx = 0.4
         TAy = 0.
         self.TAx,self.TAy = np.ones(len(time))*TAx, np.zeros(len(time))
@@ -143,7 +157,7 @@ class Observations_idealized_1D:
 class Observations_idealized_2D:
     def __init__(self, periode_obs, dt_forcing, t0, t1, nx, ny):
         
-        time = np.arange(t0,t1,dt_forcing)  
+        time = np.arange(0, t1-t0, dt_forcing) 
         TAx = 0.4
         TAy = 0.
 

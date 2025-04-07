@@ -10,6 +10,7 @@ import numpy as np
 import scipy
 
 import tools
+from Listes_models import L_variable_Kt, L_nlayers_models, L_models_total_current
 
 class Variational:
     """
@@ -23,17 +24,34 @@ class Variational:
 
     def loss_fn(self, sol, obs):
         sol = jnp.asarray(sol)
-        return jnp.mean( (sol[0]-obs[0])**2 + (sol[1]-obs[1])**2 )
+        return jnp.nanmean( (sol[0]-obs[0])**2 + (sol[1]-obs[1])**2 )
     
     @eqx.filter_jit
     def cost(self, dynamic_model, static_model):
         mymodel = eqx.combine(dynamic_model, static_model)
         dtime_obs = self.observations.obs_period
-        obs = self.observations.get_obs()
+        
+        # getting observations
+        if type(mymodel).__name__ in L_models_total_current:
+            utotal = True # Ut = Uag + Ug
+        else:
+            utotal = False # Uag
+        obs = self.observations.get_obs(utotal)
+        
+        # setting ouput frequency
         if self.filter_at_fc:
-            
-            # run the model at high frequency
-            Ua,Va = mymodel(save_traj_at=mymodel.dt_forcing)
+            dt_out = mymodel.dt_forcing
+        else:
+            dt_out = dtime_obs
+        sol = mymodel(save_traj_at=dt_out)
+        
+        # we want to use only surface current
+        if type(mymodel).__name__ in L_nlayers_models:
+            sol = (sol[0][:,0], sol[1][:,0]) 
+        
+        # in the case of filtering at fc, we apply a filter on the solution
+        if self.filter_at_fc:
+            Ua, Va = sol
             Uf, Vf = tools.my_fc_filter(mymodel.dt_forcing, Ua + 1j*Va, mymodel.fc) # here filter at fc
             
             # lets now create an array of size 'obs', with the value from the filtered estimate
@@ -50,8 +68,7 @@ class Variational:
                 return X0, X0
             final, _ = lax.scan(lambda X0, k:_fn_for_scan(X0, k, Uf, Vf, step), init=(Uffc,Vffc), xs=np.arange(0,len(Uffc)))     
             sol = final
-        else:
-            sol = mymodel(save_traj_at=dtime_obs) # use diffrax and equinox 
+            
         return self.loss_fn(sol, obs)
         
    
