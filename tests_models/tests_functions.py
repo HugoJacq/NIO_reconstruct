@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import sys
 sys.path.insert(0, '../src')
+import os
 
 import tools
 import models.classic_slab as classic_slab
@@ -271,3 +272,54 @@ def idealized_run(mymodel, forcing1D, name_save, path_save_png, dpi):
     ax.set_xlabel('U m/s')
     ax.set_ylabel('V m/s')
     fig.savefig(path_save_png + name_save + 'UV.png')
+    
+    
+def make_film(mymodel, forcing2D, LON_bounds, LAT_bounds, namesave_loc_area, path_save_png):
+    
+    # getting data
+    Ua,Va = mymodel(save_traj_at=mymodel.dt_forcing)
+    if type(mymodel).__name__ in L_nlayers_models:
+        Ua, Va = Ua[:,0], Va[:,0]
+    U = forcing2D.data.U
+    V = forcing2D.data.V
+    Ug = forcing2D.data.Ug
+    Vg = forcing2D.data.Vg
+    TAx, TAy = forcing2D.data.oceTAUX, forcing2D.data.oceTAUY
+    t0, t1 = mymodel.t0, mymodel.t1
+    nx, ny = U[0,:,:].shape
+    x = np.linspace(LON_bounds[0],LON_bounds[1], nx+1)
+    y = np.linspace(LAT_bounds[0],LAT_bounds[1], ny+1)
+    
+    vmin, vmax = -0.6, 0.6
+    
+    subfolder = path_save_png + type(mymodel).__name__ + namesave_loc_area
+    os.system('mkdir -p '+subfolder)
+    
+    
+    for it in range(len(forcing2D.time)): # 
+        
+        fig, ax = plt.subplots(2,2,figsize = (12,10),constrained_layout=True,dpi=100)
+
+        # Ua
+        s = ax[0,0].pcolormesh(x, y, np.array(Ua)[it], vmin=-0.6, vmax=0.6)
+        plt.colorbar(s, ax=ax[0,0])
+        ax[0,0].set_title('Ua')
+        ax[0,0].set_aspect(1.0)
+        # U
+        s = ax[0,1].pcolormesh(x, y, U[it], vmin=-0.6, vmax=0.6)
+        plt.colorbar(s, ax=ax[0,1])
+        ax[0,1].set_title('U')
+        ax[0,1].set_aspect(1.0)
+        # Ua+Ug
+        s = ax[1,0].pcolormesh(x, y, (np.array(Ua)+Ug)[it], vmin=-0.6, vmax=0.6)
+        plt.colorbar(s, ax=ax[1,0])
+        ax[1,0].set_title('Ua+Ug')
+        ax[1,0].set_aspect(1.0)
+        # U+Ug
+        s = ax[1,1].pcolormesh(x, y, (U+Ug)[it], vmin=-0.6, vmax=0.6)
+        plt.colorbar(s, ax=ax[1,1])
+        ax[1,1].set_title('U+Ug')
+        ax[1,1].set_aspect(1.0)
+
+        fig.savefig(subfolder + f'/frame_{it}.png')
+        plt.close(fig)

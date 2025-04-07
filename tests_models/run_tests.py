@@ -26,7 +26,7 @@ from basis import kt_ini
 import forcing
 import inv
 import observations
-from tests_functions import run_forward_cost_grad, plot_traj_1D, plot_traj_2D, idealized_run
+from tests_functions import run_forward_cost_grad, plot_traj_1D, plot_traj_2D, idealized_run, make_film
 import tools
 from constants import *
 
@@ -50,10 +50,10 @@ dt                  = 60.           # timestep of the model (s)
 
 # What to test
 PLOT_TRAJ           = True      # Show a trajectory
-FORWARD_PASS        = True      # How fast the model is running ?
-MINIMIZE            = True      # Does the model converges to a solution ?
+FORWARD_PASS        = False      # How fast the model is running ?
+MINIMIZE            = False      # Does the model converges to a solution ?
 maxiter             = 50        # if MINIMIZE: max number of iteration
-
+MAKE_FILM           = True      # for 2D models, plot each hour
 
 ON_PAPA             = False      # use PAPA station data, only for 1D models
 FILTER_AT_FC        = False      # minimize filtered ageo current with obs if model has this option
@@ -636,6 +636,7 @@ if __name__ == "__main__":
             pk = jnp.asarray([-11.31980127, -10.28525189])    
         elif Nl==2:
             pk = jnp.asarray([-10.,-10., -9., -9.])    
+            pk = jnp.asarray([-10.68523578,  -9.46999532, -10.59945365, -12.46102878])
         
         NdT = len(np.arange(t0, t1,dTK)) # int((t1-t0)//dTK) 
         pk = kt_ini(pk, NdT)
@@ -663,8 +664,7 @@ if __name__ == "__main__":
         name_save = 'junsteak_kt_2D_'+namesave_loc
         if PLOT_TRAJ:
             plot_traj_2D(mymodel, var_dfx, forcing2D, observations2D, name_save, point_loc, LON_bounds, LAT_bounds, path_save_png, dpi)   
-            
-            
+              
         if IDEALIZED_RUN:
             mypk = mymodel.pk
             frc_idealized = forcing.Forcing_idealized_2D(dt_forcing, t0, t1, TAx=0.4, TAy=0., dt_spike=dTK)
@@ -672,6 +672,9 @@ if __name__ == "__main__":
             step_model = eqx.tree_at(lambda t:t.TAy, step_model, frc_idealized.TAy)
             
             idealized_run(step_model, frc_idealized, name_save, path_save_png, dpi)
+          
+        if MAKE_FILM:
+            make_film(mymodel, forcing2D, LON_bounds, LAT_bounds, namesave_loc_area, path_save_png)
             
     end = clock.time()
     print('Total execution time = '+str(jnp.round(end-start,2))+' s')
