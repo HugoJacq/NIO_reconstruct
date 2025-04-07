@@ -13,10 +13,12 @@ import os
 import xarray as xr
 sys.path.insert(0, '../src')
 os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "True" # for jax
+import jax
 import jax.numpy as jnp
 import equinox as eqx
 #import jax
 #jax.config.update('jax_platform_name', 'cpu')
+jax.config.update("jax_transfer_guard", "log_explicit")
 
 # my inmports
 from models.classic_slab import jslab, jslab_Ue_Unio, jslab_kt, jslab_kt_2D, jslab_kt_2D_adv_Ut, jslab_rxry, jslab_kt_Ue_Unio, jslab_kt_2D_adv

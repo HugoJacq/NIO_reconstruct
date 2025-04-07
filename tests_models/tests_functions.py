@@ -375,4 +375,11 @@ def memory_profiler(mymodel):
     name_out = 'memory_profile_'+type(mymodel).__name__+'_forward.prof'
 
     jax.profiler.save_device_memory_profile(name_out)
+    
+    
+    # THIS IS WIP    
+    traced = jax.jit(mymodel).trace() 
+    print(traced.jaxpr)
+    
+    
     # pprof --svg memory.prof
