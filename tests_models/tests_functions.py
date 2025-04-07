@@ -2,11 +2,14 @@
 Here function that runs the tests
 """
 import time as clock
+from certifi import where
+import jax
 import matplotlib.pyplot as plt
 import numpy as np
 import sys
 sys.path.insert(0, '../src')
 import os
+import xarray as xr
 
 import tools
 import models.classic_slab as classic_slab
@@ -296,7 +299,7 @@ def make_film(mymodel, forcing2D, LON_bounds, LAT_bounds, namesave_loc_area, pat
     os.system('mkdir -p '+subfolder)
     
     
-    for it in range(len(forcing2D.time)): # 
+    for it in range(len(forcing2D.time)): 
         
         fig, ax = plt.subplots(2,2,figsize = (12,10),constrained_layout=True,dpi=100)
 
@@ -323,3 +326,53 @@ def make_film(mymodel, forcing2D, LON_bounds, LAT_bounds, namesave_loc_area, pat
 
         fig.savefig(subfolder + f'/frame_{it}.png')
         plt.close(fig)
+        
+def save_output_as_nc(mymodel, forcing2D, LON_bounds, LAT_bounds, name_save, where_to_save):
+    
+    # getting data
+    Ua,Va = mymodel(save_traj_at=mymodel.dt_forcing)
+    if type(mymodel).__name__ in L_nlayers_models:
+        Ua, Va = Ua[:,0], Va[:,0]
+    U = forcing2D.data.U
+    V = forcing2D.data.V
+    Ug = forcing2D.data.Ug
+    Vg = forcing2D.data.Vg
+    
+    t0, t1 = mymodel.t0, mymodel.t1
+    x = np.arange(LON_bounds[0],LON_bounds[1], 0.1)
+    y = np.arange(LAT_bounds[0],LAT_bounds[1], 0.1)  
+    
+    #time = np.arange(t0,t1,forcing2D.dt_forcing)
+    
+    
+    os.system('mkdir -p ' + where_to_save)
+    
+    # making the dataset
+    ds = xr.Dataset({"Ua": (["time", "lat", "lon"], Ua),
+                     "Ug": (["time", "lat", "lon"], Ug.data),
+                     "Uat": (["time", "lat", "lon"], np.asarray(Ua)+Ug.values),
+                     "Ut": (["time", "lat", "lon"], (U+Ug).data),
+                    },
+                    coords={
+                        "lon": (["lon"], x),
+                        "lat": (["lat"], y),
+                        "time": forcing2D.data.time,
+                            },
+                    attrs={
+                        "made_from":"save_output_as_nc",
+                        "model_used":type(mymodel).__name__
+                    }
+
+                    )
+    ds.to_netcdf(where_to_save + name_save + '.nc')
+    
+def memory_profiler(mymodel):
+    
+    U,V = mymodel()
+    U.block_until_ready()
+    V.block_until_ready()
+
+    name_out = 'memory_profile_'+type(mymodel).__name__+'_forward.prof'
+
+    jax.profiler.save_device_memory_profile(name_out)
+    # pprof --svg memory.prof

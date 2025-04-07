@@ -12,7 +12,7 @@ import sys
 import os
 import xarray as xr
 sys.path.insert(0, '../src')
-os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false" # for jax
+os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "True" # for jax
 import jax.numpy as jnp
 import equinox as eqx
 #import jax
@@ -26,7 +26,7 @@ from basis import kt_ini
 import forcing
 import inv
 import observations
-from tests_functions import run_forward_cost_grad, plot_traj_1D, plot_traj_2D, idealized_run, make_film
+from tests_functions import run_forward_cost_grad, plot_traj_1D, plot_traj_2D, idealized_run, make_film, save_output_as_nc, memory_profiler
 import tools
 from constants import *
 
@@ -49,11 +49,14 @@ t1                  = 100*oneday    # end day
 dt                  = 60.           # timestep of the model (s) 
 
 # What to test
-PLOT_TRAJ           = True      # Show a trajectory
+PLOT_TRAJ           = False      # Show a trajectory
 FORWARD_PASS        = False      # How fast the model is running ?
 MINIMIZE            = False      # Does the model converges to a solution ?
 maxiter             = 50        # if MINIMIZE: max number of iteration
-MAKE_FILM           = True      # for 2D models, plot each hour
+MAKE_FILM           = False      # for 2D models, plot each hour
+SAVE_AS_NC          = False      # for 2D models
+MEM_PROFILER        = True       # memory profiler
+
 
 ON_PAPA             = False      # use PAPA station data, only for 1D models
 FILTER_AT_FC        = False      # minimize filtered ageo current with obs if model has this option
@@ -676,6 +679,13 @@ if __name__ == "__main__":
         if MAKE_FILM:
             make_film(mymodel, forcing2D, LON_bounds, LAT_bounds, namesave_loc_area, path_save_png)
             
+        if SAVE_AS_NC:
+            save_output_as_nc(mymodel, forcing2D, LON_bounds, LAT_bounds, name_save, where_to_save='./saved_outputs/')    
+        
+        if MEM_PROFILER:
+            inialisation_args = pk, TAx, TAy, fc, dTK, dt_forcing, Nl, AD_mode, call_args, False, 'gauss'
+            memory_profiler(mymodel) #, inialisation_args)
+        
     end = clock.time()
     print('Total execution time = '+str(jnp.round(end-start,2))+' s')
     plt.show()
