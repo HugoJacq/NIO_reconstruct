@@ -23,7 +23,7 @@ point_loc = [-47.4,34.6]
 ds = xr.open_mfdataset('../../data_regrid/croco_1h_inst_surf_2005-05-01-2005-05-31_0.1deg_conservative.nc')
 #ds = ds.sel(lon=point_loc[0],lat=point_loc[1], method='nearest')
 Nsize = 128 # 256
-ds = ds.isel(lon=slice(200,200+Nsize),lat=slice(72,72+Nsize))
+ds = ds.isel(lon=slice(-Nsize,-1),lat=slice(-Nsize,-1))
 
 
 # forcing
