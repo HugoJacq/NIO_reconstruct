@@ -215,3 +215,5 @@ NN_attempts/NN_solve/examples/MNIST/MNIST/raw/train-labels-idx1-ubyte.gz
 NN_attempts/simple_NN_solve/__pycache__/dissipation_NN.cpython-311.pyc
 NN_attempts/simple_NN_solve/__pycache__/ode_solver.cpython-311.pyc
 NN_attempts/simple_NN_solve/__pycache__/training.cpython-311.pyc
+NN_attempts/my_attempt/__pycache__/model.cpython-311.pyc
+NN_attempts/my_attempt/__pycache__/training.cpython-311.pyc

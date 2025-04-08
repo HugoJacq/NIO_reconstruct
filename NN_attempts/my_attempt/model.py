@@ -15,28 +15,22 @@ class DissipationNN(eqx.Module):
     # layers: list
     layer1 : eqx.Module
     layer2 : eqx.Module
-    layer3 : eqx.Module
+    #layer3 : eqx.Module
 
     def __init__(self, key):
         key1, key2, key3 = jax.random.split(key, 3)
-        # MLP
-        # self.layers = [
-        #     eqx.nn.Conv(2, 2, 10, padding='SAME', kernel_size=3, key=key1),
-        #     jax.nn.relu,
-        #     eqx.nn.Conv(2, 10, 2, padding='SAME', kernel_size=3, key=key2),
-        #     jax.nn.relu,
-        # ]
-        self.layer1 = eqx.nn.Conv2d(2, 16, padding='SAME', kernel_size=3, key=key1)
-        self.layer2 = eqx.nn.Conv2d(16, 16, padding='SAME', kernel_size=3, key=key2)
-        self.layer3 = eqx.nn.Conv2d(16, 2, padding='SAME', kernel_size=3, key=key3)
 
+        self.layer1 = eqx.nn.Conv2d(2, 16, padding='SAME', kernel_size=3, key=key1)
+        # self.layer2 = eqx.nn.Conv2d(16, 16, padding='SAME', kernel_size=3, key=key2)
+        # self.layer3 = eqx.nn.Conv2d(16, 2, padding='SAME', kernel_size=3, key=key3)
+        self.layer2 = eqx.nn.Conv2d(16, 2, padding='SAME', kernel_size=3, key=key2)
 
     def __call__(self, x: Float[Array, "2 128 128"]) -> Float[Array, "2 128 128"]:
         # for layer in self.layers:
         #     x = layer(x)
         x = jax.nn.relu( self.layer1(x) )
         x = jax.nn.relu( self.layer2(x) )
-        x = jax.nn.relu( self.layer3(x) )
+        #x = jax.nn.relu( self.layer3(x) )
         
         return x
 
@@ -48,21 +42,21 @@ class jslab(eqx.Module):
     TAy : jnp.ndarray   #= eqx.static_field()
     fc : jnp.ndarray    #= eqx.static_field()
     dt_forcing : jnp.ndarray          
-    t0 : jnp.ndarray          
-    t1 : jnp.ndarray          
+    # t0 : jnp.ndarray          
+    # t1 : jnp.ndarray          
     dt : jnp.ndarray         
     
     dissipation_model : DissipationNN
     
-    def __init__(self, K0, TAx, TAy, fc, dt_forcing, dissipationNN, call_args=(0.0,oneday,60.)):
+    def __init__(self, K0, TAx, TAy, fc, dt_forcing, dissipationNN, dt): #, call_args
         self.K0 = K0
         self.TAx = TAx
         self.TAy = TAy
         self.fc = fc
         self.dt_forcing = dt_forcing
-        t0,t1,dt = call_args
-        self.t0 = t0
-        self.t1 = t1
+        # t0,t1,dt = call_args
+        # self.t0 = t0
+        # self.t1 = t1
         self.dt = dt
         
         self.dissipation_model = dissipationNN
@@ -70,9 +64,10 @@ class jslab(eqx.Module):
 
     
     @eqx.filter_jit
-    def __call__(self, save_traj_at = None):
-        t0, t1, dt = self.t0, self.t1, self.dt # call_args
-        nsubsteps = self.dt_forcing // dt
+    def __call__(self, call_args=(0.0,oneday), save_traj_at = None):
+        #t0, t1, dt = self.t0, self.t1, self.dt # call_args
+        t0, t1 = call_args
+        nsubsteps = self.dt_forcing // self.dt
         
         # control
         K = jnp.exp( jnp.asarray(self.K0) )
@@ -142,6 +137,7 @@ class jslab(eqx.Module):
         # evaluate the NN at specific forcing
         
         input = jnp.stack([U,V])
+        print(input.shape)
         dissipation = dissipation_model(input)
         #print(dissipation.shape)
         
