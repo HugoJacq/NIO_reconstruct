@@ -3,6 +3,7 @@ import jax
 from jax import lax
 import equinox as eqx
 from jaxtyping import Array, Float
+from functools import partial
 
 import sys
 sys.path.insert(0, '../../src')
@@ -41,10 +42,10 @@ class jslab(eqx.Module):
     TAx : jnp.ndarray   #= eqx.static_field()
     TAy : jnp.ndarray   #= eqx.static_field()
     fc : jnp.ndarray    #= eqx.static_field()
-    dt_forcing : jnp.ndarray          
+    dt_forcing : jnp.ndarray          = eqx.static_field()
     # t0 : jnp.ndarray          
     # t1 : jnp.ndarray          
-    dt : jnp.ndarray         
+    dt : jnp.ndarray         = eqx.static_field()
     
     dissipation_model : DissipationNN
     
@@ -53,7 +54,7 @@ class jslab(eqx.Module):
         self.TAx = TAx
         self.TAy = TAy
         self.fc = fc
-        self.dt_forcing = dt_forcing
+        self.dt_forcing = dt_forcing            
         # t0,t1,dt = call_args
         # self.t0 = t0
         # self.t1 = t1
@@ -63,10 +64,14 @@ class jslab(eqx.Module):
 
 
     
-    @eqx.filter_jit
-    def __call__(self, call_args=(0.0,oneday), save_traj_at = None):
+    
+    #@jax.checkpoint
+    # @partial(eqx.filter_jit, static_argnums=0)
+    @partial(jax.jit, static_argnums=(1,2))
+    # def __call__(self, call_args=[0.0,oneday], save_traj_at = None):
+    def __call__(self, t0=0.0, t1=oneday, save_traj_at = None):
         #t0, t1, dt = self.t0, self.t1, self.dt # call_args
-        t0, t1 = call_args
+        # t0, t1 = call_args
         nsubsteps = self.dt_forcing // self.dt
         
         # control
@@ -76,6 +81,7 @@ class jslab(eqx.Module):
 
 
         Nforcing = int((t1-t0)//self.dt_forcing)
+        
         if save_traj_at is None:
             step_save_out = 1
         else:
@@ -94,8 +100,9 @@ class jslab(eqx.Module):
             t = iout*self.dt_forcing + iin*self.dt
             C = Uold, Vold
             d_U,d_V = self.vector_field(t, C, args)
-            newU,newV = Uold + self.dt*d_U, Vold + self.dt*d_V # Euler hard coded
-            X1 = newU,newV,iout
+            # newU,newV = Uold + self.dt*d_U, Vold + self.dt*d_V 
+            # Euler hard coded
+            X1 = Uold + self.dt*d_U, Vold + self.dt*d_V, iout
             return X1, X1
         
         # outer loop at dt_forcing
@@ -104,14 +111,42 @@ class jslab(eqx.Module):
             X1 = U[iout], V[iout], iout
             final, _ = lax.scan(__inner_loop, X1, jnp.arange(0,nsubsteps)) #jnp.arange(0,self.nt-1))
             newU, newV, _ = final
-            U = U.at[iout+1].set(newU)
-            V = V.at[iout+1].set(newV)
-            X0 = U,V
+            X0 = U.at[iout+1].set(newU), V.at[iout+1].set(newV)
             return X0, X0
         
-        X1 = U, V
-        final, _ = lax.scan(__outer_loop, X1, jnp.arange(0,Nforcing))
+        # old way        
+        # final, _ = lax.scan(__outer_loop, init=(U,V), xs=jnp.arange(0,Nforcing))
+            
+        def __outer_loop_for_while(val):
+            carry, iout = val
+            X0,_ = __outer_loop(carry, iout)
+            return X0, iout+1
+        # new way, backward AD
+        final, _ = eqx.internal.while_loop(cond_fun = lambda val: val[1] < Nforcing,
+                                           body_fun = __outer_loop_for_while,
+                                           init_val = ((U,V), 0),
+                                           kind='checkpointed',
+                                           max_steps = Nforcing)
+        # new way, forward AD
+        # final, _ = eqx.internal.while_loop(cond_fun = lambda val: cond_fun(val, Nforcing),
+        #                                    body_fun = __outer_loop_for_while,
+        #                                    init_val = ((U,V), 0),
+        #                                    kind='lax',
+        #                                    max_steps = Nforcing)
+        
+        """
+        equinox/internal/_loop/checkpointed.py
+        
+        `checkpoints`: The number of steps at which to checkpoint. The memory consumed
+        will be that of `checkpoints`-many copies of `init_val`. (As the state is
+        updated throughout the loop.
+        """
+        
+        
         U,V = final
+        
+        
+        
         
         if save_traj_at is None:
             solution = U,V
@@ -142,8 +177,10 @@ class jslab(eqx.Module):
         #print(dissipation.shape)
         
         # physic
-        d_U = fc*V + K*TAx - dissipation[0]
-        d_V = -fc*U + K*TAy - dissipation[1]
+        d_U = fc*V + K*( TAx )  - dissipation[0]
+        d_V = -fc*U + K*( TAy ) - dissipation[1]
+        # d_U = fc*V + K*( (1-aa)*TAxt[itf] + aa*TAxt[itsup] )  - dissipation[0]
+        # d_V = -fc*U + K*( (1-aa)*TAyt[itf] + aa*TAyt[itsup] ) - dissipation[1]
         d_y = d_U,d_V
         
         # def cond_print(it):

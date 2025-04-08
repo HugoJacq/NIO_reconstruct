@@ -50,7 +50,7 @@ dissipation_model = eqx.tree_at( lambda t:t.layer1.bias, dissipation_model, diss
 t0 = 0.0
 t1 = len(ds.time)*dt_forcing
 dt = 60.
-call_args = t0, t1
+call_args = [t0, t1]
 
 
 # model definition
@@ -60,17 +60,24 @@ mymodel = jslab( K0, TAx, TAy, fc, dt_forcing, dissipation_model, dt)
 # U_before,V_before = mymodel()
 U_test, t0_t, t1_t = test_data['U'], test_data['t0'], test_data['t1']
 print(t0_t/3600, t1_t/3600)
-U_before,V_before = mymodel(call_args=(t0_t,t1_t))
+# U_before,V_before = mymodel(call_args=[t0_t,t1_t])
+U_before,V_before = mymodel(t0_t,t1_t)
+
+fig, ax = plt.subplots(1,1,figsize = (10,5),constrained_layout=True,dpi=100)
+plt.show()
 
 # optimiser
 optim = optax.adam(LEARNING_RATE)
 
+
+
 # training
-model = train(mymodel, optim, train_data, test_data, maxstep=50, print_every=10)
+model = train(mymodel, optim, train_data, test_data, maxstep=2, print_every=10)
 
 
 
-U_after, V_after = model(call_args=(t0_t,t1_t))
+# U_after, V_after = model(call_args=[t0_t,t1_t])
+U_after, V_after = model(t0_t,t1_t)
 
 time = np.arange(t0_t, t1_t, dt_forcing)/(86400)
 

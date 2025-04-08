@@ -1,12 +1,12 @@
 import optax
-import model
 import equinox as eqx
 import jax
 import jax.numpy as jnp
+import numpy as np
 from jaxtyping import PyTree, Float, Int, Array
 import jax.tree_util as jtu
-from model import jslab
 
+from model import jslab
 from tools import my_fc_filter
 
 def my_partition(model):
@@ -23,22 +23,12 @@ def my_filter(model):
 def loss(dynamic_model, static_model, data_obs):
     mymodel = eqx.combine(dynamic_model, static_model)
     t0, t1 = data_obs['t0'], data_obs['t1']
-    sol = mymodel(call_args=(t0,t1))
-    #print(sol[0].shape, data_obs['U'].shape)
-    
-    #jax.debug.print('nb of nan in sol U {}', jnp.sum(jnp.isnan(sol[0])))
-    #jax.debug.print('nb of nan in obs U {}', jnp.sum(jnp.isnan(data_obs['U'])))
-    
+    sol = mymodel(t0,t1)    
     J = jnp.nanmean( (sol[0]-data_obs['U'])**2 + (sol[1]-data_obs['V'])**2 ) # , axis=(0,-1,-2)
     return J
 
 def evaluate(model, test_data):
     dynamic_model, static_model = my_partition(model)
-    # nt = test_data['U'].shape[0]
-    # t0 = 0.
-    # t1 = nt*model.dt_forcing
-    # mymodel = eqx.tree_at( lambda t:t.t0, model, t0)
-    # mymodel = eqx.tree_at( lambda t:t.t1, mymodel, t1)
     avg_loss = jnp.mean(loss(dynamic_model, static_model, test_data))
     return avg_loss
 
@@ -62,7 +52,11 @@ def train(
         
         #jax.debug.print('before grad compute K0: {}', dynamic_model.K0)
         
+        # BACKWARD AD
         loss_value, grads = eqx.filter_value_and_grad(loss)(dynamic_model, static_model, train_data)
+        # FORWARD AD
+        # grads = eqx.filter_jacfwd(loss)(dynamic_model, static_model, train_data)
+        # loss_value = loss(dynamic_model, static_model, train_data)
         
         #jax.debug.print('after grad compute loss, K0: {}, {}', loss_value, grads.K0)
 
@@ -111,7 +105,11 @@ def dataset_maker(ds, Nhours, dt_forcing):
     for var in ['U','V']:
         ds_train[var] = jnp.asarray(train_data[var].values)
         ds_test[var] = jnp.asarray(test_data[var].values)
-    ds_train['t0'] = t0
+    # ds_train['t0'] = jnp.asarray(t0)
+    # ds_train['t1'] = jnp.asarray(tmid)
+    # ds_test['t0'] = jnp.asarray(tmid)
+    # ds_test['t1'] = jnp.asarray(t1)
+    ds_train['t0'] =  t0
     ds_train['t1'] = tmid
     ds_test['t0'] = tmid
     ds_test['t1'] = t1
