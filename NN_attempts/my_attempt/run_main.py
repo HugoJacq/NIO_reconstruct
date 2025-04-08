@@ -22,7 +22,7 @@ dissipation_model = DissipationNN(subkey)
 point_loc = [-47.4,34.6]
 ds = xr.open_mfdataset('../../data_regrid/croco_1h_inst_surf_2005-05-01-2005-05-31_0.1deg_conservative.nc')
 #ds = ds.sel(lon=point_loc[0],lat=point_loc[1], method='nearest')
-Nsize = 32 # 256
+Nsize = 128 # 256
 ds = ds.isel(lon=slice(200,200+Nsize),lat=slice(72,72+Nsize))
 
 
@@ -72,8 +72,9 @@ optim = optax.adam(LEARNING_RATE)
 
 
 # training
-model = train(mymodel, optim, train_data, test_data, maxstep=2, print_every=10)
-
+print('* Training...')
+model = train(mymodel, optim, train_data, test_data, maxstep=50, print_every=10)
+print('     done !')
 
 
 # U_after, V_after = model(call_args=[t0_t,t1_t])
@@ -81,7 +82,7 @@ U_after, V_after = model(t0_t,t1_t)
 
 time = np.arange(t0_t, t1_t, dt_forcing)/(86400)
 
-
+print('* Plotting')
 fig, ax = plt.subplots(1,1,figsize = (10,5),constrained_layout=True,dpi=100)
 ax.plot( time, test_data['U'][:,5,5], label='target', c='k')
 ax.plot( time, U_before[:,5,5], label='before', ls='--') 

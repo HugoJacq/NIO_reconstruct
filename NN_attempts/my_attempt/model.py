@@ -141,12 +141,7 @@ class jslab(eqx.Module):
         will be that of `checkpoints`-many copies of `init_val`. (As the state is
         updated throughout the loop.
         """
-        
-        
         U,V = final
-        
-        
-        
         
         if save_traj_at is None:
             solution = U,V
