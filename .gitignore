@@ -196,3 +196,6 @@ src/models/__pycache__/unsteak.cpython-311.pyc
 tests_models/png_tests_models/
 tests_models/memory_profile_junsteak_kt_2D_forward.prof
 tests_models/saved_outputs/junsteak_kt_2D_-47.4E_34.6N.nc
+NN_attempts/my_attempt/__pycache__/model.cpython-310.pyc
+NN_attempts/my_attempt/__pycache__/training.cpython-310.pyc
+tests_models/profile002.svg
