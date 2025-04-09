@@ -12,13 +12,20 @@ import sys
 import os
 import xarray as xr
 sys.path.insert(0, '../src')
-os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "True" # for jax
+os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false" # for jax
+
+os.environ["XLA_FLAGS"] = (
+    "--xla_gpu_enable_triton_gemm=true "
+    "--xla_gpu_enable_latency_hiding_scheduler=true "
+    "--xla_gpu_enable_highest_priority_async_stream=true "
+)
+
 import jax
 import jax.numpy as jnp
 import equinox as eqx
 #import jax
 #jax.config.update('jax_platform_name', 'cpu')
-jax.config.update("jax_transfer_guard", "log_explicit")
+#jax.config.update("jax_transfer_guard", "log_explicit") 
 
 # my inmports
 from models.classic_slab import jslab, jslab_Ue_Unio, jslab_kt, jslab_kt_2D, jslab_kt_2D_adv_Ut, jslab_rxry, jslab_kt_Ue_Unio, jslab_kt_2D_adv
@@ -40,24 +47,24 @@ start = clock.time()
 #ON_HPC      = False      # on HPC
 
 # model parameters
-Nl                  = 2             # number of layers for multilayer models
+Nl                  = 2            # number of layers for multilayer models
 dTK                 = 40*oneday     # how much vectork K changes with time, basis change to 'k_base'
 k_base              = 'gauss'       # base of K transform. 'gauss' or 'id'
 AD_mode             = 'F'           # forward mode for AD (for diffrax' diffeqsolve)
 
 # run parameters
 t0                  = 60*oneday    # start day 
-t1                  = 100*oneday    # end day
+t1                  = 90*oneday    # end day
 dt                  = 60.           # timestep of the model (s) 
 
 # What to test
-PLOT_TRAJ           = False      # Show a trajectory
+PLOT_TRAJ           = True      # Show a trajectory
 FORWARD_PASS        = False      # How fast the model is running ?
 MINIMIZE            = False      # Does the model converges to a solution ?
 maxiter             = 50        # if MINIMIZE: max number of iteration
 MAKE_FILM           = False      # for 2D models, plot each hour
 SAVE_AS_NC          = False      # for 2D models
-MEM_PROFILER        = True       # memory profiler
+MEM_PROFILER        = False       # memory profiler
 
 
 ON_PAPA             = False      # use PAPA station data, only for 1D models
@@ -98,7 +105,7 @@ point_loc = [-46., 40.] # wind gust from early january 2018
 point_loc = [-55., 37.5] # february 13th
 point_loc = [-47.4,34.6] # march 8th 0300, t0=60 t1=100
 # 2D
-R = 1. # 5.0 
+R = 5. # 5.0 
 LON_bounds = [point_loc[0]-R,point_loc[0]+R]
 LAT_bounds = [point_loc[1]-R,point_loc[1]+R]
 # Forcing
@@ -687,6 +694,7 @@ if __name__ == "__main__":
         if MEM_PROFILER:
             inialisation_args = pk, TAx, TAy, fc, dTK, dt_forcing, Nl, AD_mode, call_args, False, 'gauss'
             memory_profiler(mymodel) #, inialisation_args)
+            
         
     end = clock.time()
     print('Total execution time = '+str(jnp.round(end-start,2))+' s')
