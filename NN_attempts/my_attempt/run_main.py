@@ -11,6 +11,25 @@ os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false" # for jax
 from model import DissipationNN, jslab
 from training import train, dataset_maker
 
+
+
+"""
+Things i need to do:
+
+- normalize inputs of NN, then de-normalize its ouput
+- use a dataloader with batches (faster training)
+- save parameters of the best model during training (at min of loss(train_data) )
+- during training, start with a few timestep then increase the time horizon. -> interactive code ?
+- tweak NN architecture: use CNN or MLP.
+
+
+
+
+"""
+
+
+
+
 LEARNING_RATE = 1e-2
 SEED = 5678
 
@@ -22,7 +41,7 @@ dissipation_model = DissipationNN(subkey)
 point_loc = [-47.4,34.6]
 ds = xr.open_mfdataset('../../data_regrid/croco_1h_inst_surf_2005-05-01-2005-05-31_0.1deg_conservative.nc')
 #ds = ds.sel(lon=point_loc[0],lat=point_loc[1], method='nearest')
-Nsize = 128 # 256
+Nsize = 32 # 256
 ds = ds.isel(lon=slice(-Nsize,-1),lat=slice(-Nsize,-1))
 
 
@@ -63,8 +82,8 @@ print(t0_t/3600, t1_t/3600)
 # U_before,V_before = mymodel(call_args=[t0_t,t1_t])
 U_before,V_before = mymodel(t0_t,t1_t)
 
-fig, ax = plt.subplots(1,1,figsize = (10,5),constrained_layout=True,dpi=100)
-plt.show()
+# fig, ax = plt.subplots(1,1,figsize = (10,5),constrained_layout=True,dpi=100)
+# plt.show()
 
 # optimiser
 optim = optax.adam(LEARNING_RATE)
@@ -73,7 +92,7 @@ optim = optax.adam(LEARNING_RATE)
 
 # training
 print('* Training...')
-model = train(mymodel, optim, train_data, test_data, maxstep=50, print_every=10)
+model = train(mymodel, optim, train_data, test_data, maxstep=2, print_every=10)
 print('     done !')
 
 

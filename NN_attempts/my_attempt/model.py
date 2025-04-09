@@ -12,6 +12,8 @@ jax.config.update("jax_enable_x64", True)
 
 from constants import *
 
+# tester avec un MLP (dense layers)
+
 class DissipationNN(eqx.Module):
     # layers: list
     layer1 : eqx.Module
@@ -25,8 +27,9 @@ class DissipationNN(eqx.Module):
         # self.layer2 = eqx.nn.Conv2d(16, 16, padding='SAME', kernel_size=3, key=key2)
         # self.layer3 = eqx.nn.Conv2d(16, 2, padding='SAME', kernel_size=3, key=key3)
         self.layer2 = eqx.nn.Conv2d(16, 2, padding='SAME', kernel_size=3, key=key2)
+        # mettre un dense layer à la fin !
 
-    def __call__(self, x: Float[Array, "2 128 128"]) -> Float[Array, "2 128 128"]:
+    def __call__(self, x: Float[Array, "2 256 256"]) -> Float[Array, "2 256 256"]:
         # for layer in self.layers:
         #     x = layer(x)
         x = jax.nn.relu( self.layer1(x) )
@@ -103,7 +106,7 @@ class jslab(eqx.Module):
             # newU,newV = Uold + self.dt*d_U, Vold + self.dt*d_V 
             # Euler hard coded
             X1 = Uold + self.dt*d_U, Vold + self.dt*d_V, iout
-            return X1, X1
+            return X1, None #X1, X1
         
         # outer loop at dt_forcing
         def __outer_loop(carry, iout):
@@ -112,14 +115,14 @@ class jslab(eqx.Module):
             final, _ = lax.scan(__inner_loop, X1, jnp.arange(0,nsubsteps)) #jnp.arange(0,self.nt-1))
             newU, newV, _ = final
             X0 = U.at[iout+1].set(newU), V.at[iout+1].set(newV)
-            return X0, X0
+            return X0 #X0, X0
         
         # old way        
         # final, _ = lax.scan(__outer_loop, init=(U,V), xs=jnp.arange(0,Nforcing))
             
         def __outer_loop_for_while(val):
             carry, iout = val
-            X0,_ = __outer_loop(carry, iout)
+            X0 = __outer_loop(carry, iout)
             return X0, iout+1
         # new way, backward AD
         final, _ = eqx.internal.while_loop(cond_fun = lambda val: val[1] < Nforcing,
@@ -167,13 +170,16 @@ class jslab(eqx.Module):
         # evaluate the NN at specific forcing
         
         input = jnp.stack([U,V])
-        print(input.shape)
-        dissipation = dissipation_model(input)
+        mean = input.mean()
+        std = input.std()
+        #input = (input-mean)/std
+        dissipation_undim = dissipation_model(input)
         #print(dissipation.shape)
+        #dissipation_term = dissipation_undim*std + mean
         
         # physic
-        d_U = fc*V + K*( TAx )  - dissipation[0]
-        d_V = -fc*U + K*( TAy ) - dissipation[1]
+        d_U = fc*V + K*( TAx )  - dissipation_undim[0]
+        d_V = -fc*U + K*( TAy ) - dissipation_undim[1]
         # d_U = fc*V + K*( (1-aa)*TAxt[itf] + aa*TAxt[itsup] )  - dissipation[0]
         # d_V = -fc*U + K*( (1-aa)*TAyt[itf] + aa*TAyt[itsup] ) - dissipation[1]
         d_y = d_U,d_V
