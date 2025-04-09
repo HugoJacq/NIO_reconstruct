@@ -24,17 +24,15 @@ class DissipationNN(eqx.Module):
         key1, key2, key3 = jax.random.split(key, 3)
 
         self.layer1 = eqx.nn.Conv2d(2, 16, padding='SAME', kernel_size=3, key=key1)
-        # self.layer2 = eqx.nn.Conv2d(16, 16, padding='SAME', kernel_size=3, key=key2)
-        # self.layer3 = eqx.nn.Conv2d(16, 2, padding='SAME', kernel_size=3, key=key3)
-        self.layer2 = eqx.nn.Conv2d(16, 2, padding='SAME', kernel_size=3, key=key2)
-        # mettre un dense layer à la fin !
+        self.layer2 = eqx.nn.Conv2d(16, 32, padding='SAME', kernel_size=3, key=key2)
+        #self.layer3 = eqx.nn.MLP(32, 2, width_size=10, depth=2, final_activation=jax.nn.relu, key=key3)
 
     def __call__(self, x: Float[Array, "2 256 256"]) -> Float[Array, "2 256 256"]:
         # for layer in self.layers:
         #     x = layer(x)
         x = jax.nn.relu( self.layer1(x) )
         x = jax.nn.relu( self.layer2(x) )
-        #x = jax.nn.relu( self.layer3(x) )
+        #x = self.layer3(x) 
         
         return x
 
