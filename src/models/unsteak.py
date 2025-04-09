@@ -25,6 +25,8 @@ from jax import jit, lax
 import equinox as eqx
 from diffrax import ODETerm, diffeqsolve, Euler
 import diffrax
+from functools import partial
+
 
 from constants import *
 from basis import kt_1D_to_2D, pkt2Kt_matrix
@@ -581,7 +583,7 @@ class junsteak_kt_2D(eqx.Module):
                 U = U.at[iout+1].set(newU)
                 V = V.at[iout+1].set(newV)
                 X0 = U,V
-                return X0, X0
+                return X0, None #X0, X0
             
             # loop on forcing time steps
             X1 = U, V
@@ -621,7 +623,7 @@ class junsteak_kt_2D(eqx.Module):
                                 - K[2*ik]*(V[ik]-V[ik-1])
                                 - K[2*ik+1]*(V[ik]-V[ik+1]) )
             X = U, V, K, fc, TAxnow, TAynow, d_U, d_V
-            return X, X
+            return X, None #X
             
         def Nlayer(args0, nl):
             """  """
