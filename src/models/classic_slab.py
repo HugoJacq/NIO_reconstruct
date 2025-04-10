@@ -23,6 +23,7 @@ import diffrax
 
 from basis import kt_1D_to_2D, pkt2Kt_matrix
 from constants import *
+from tools import compute_hgrad
 
 class jslab(eqx.Module):
     # variables
@@ -1422,8 +1423,3 @@ class jslab_kt_2D_adv_Ut(eqx.Module):
  
 
 # this could be moved to a different file
-def compute_hgrad(Ug, dx, dy):
-    # we assume that geostrophic current is on regular lat longrid
-    dUgdx = jnp.gradient(Ug, dx, axis=-1)
-    dUgdy = jnp.gradient(Ug, dy, axis=-2)
-    return dUgdx, dUgdy

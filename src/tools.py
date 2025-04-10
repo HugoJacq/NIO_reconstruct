@@ -629,4 +629,8 @@ def open_PAPA_station_file(file_list):
 	return ds
 
     
-    
+def compute_hgrad(Ug, dx, dy):
+    # we assume that geostrophic current is on regular lat longrid
+    dUgdx = jnp.gradient(Ug, dx, axis=-1)
+    dUgdy = jnp.gradient(Ug, dy, axis=-2)
+    return dUgdx, dUgdy  
