@@ -135,7 +135,7 @@ def plot_traj_1D(mymodel, var_dfx, forcing1D, observations1D, name_save, path_sa
         ax[2].set_xlabel('Time (days)')
     fig.savefig(path_save_png+name_save+'_t'+str(int(mymodel.t0//oneday))+'_'+str(int(mymodel.t1//oneday))+'.png')
     
-def plot_traj_2D(mymodel, var_dfx, forcing2D, observations2D, name_save, point_loc, LON_bounds, LAT_bounds, path_save_png, dpi):
+def plot_traj_2D(mymodel, var_dfx, forcing2D, observations2D, name_save, point_loc, LON_bounds, LAT_bounds, attime, path_save_png, dpi):
     Ua,Va = mymodel(save_traj_at=mymodel.dt_forcing)
     if type(mymodel).__name__ in L_nlayers_models:
         Ua, Va = Ua[:,0], Va[:,0]
@@ -157,8 +157,6 @@ def plot_traj_2D(mymodel, var_dfx, forcing2D, observations2D, name_save, point_l
         U1D = U.values
         V1D = V.values
         Uo, _ = observations2D.get_obs(is_utotal=False)
-    
-    print(U1D.shape, Ua.shape)
         
     U1D = U1D[:,indy,indx]
     V1D = V1D[:,indy,indx]
@@ -228,7 +226,7 @@ def plot_traj_2D(mymodel, var_dfx, forcing2D, observations2D, name_save, point_l
     # 2D plot
     # U total comparison
     nx, ny = U[0,:,:].shape
-    attime = 70 # day number of the year
+    #attime = 70 # day number of the year
     indt = tools.nearest( (t0 + forcing2D.time)/oneday, attime)
     x = np.linspace(LON_bounds[0],LON_bounds[1], nx+1)
     y = np.linspace(LAT_bounds[0],LAT_bounds[1], ny+1)
@@ -344,6 +342,17 @@ def save_output_as_nc(mymodel, forcing2D, LON_bounds, LAT_bounds, name_save, whe
     
     #time = np.arange(t0,t1,forcing2D.dt_forcing)
     
+    """
+    TO BE ADDED
+    - the pk vector
+    - has the parameters been through minimization ?
+    - U truth
+    - model static parameters: time window, dt, ...
+    - origin of truth -> Croco
+    
+    - let the possibility for the user to add a note in the terminal window ??
+    
+    """
     
     os.system('mkdir -p ' + where_to_save)
     

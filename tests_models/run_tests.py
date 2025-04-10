@@ -29,7 +29,7 @@ import equinox as eqx
 
 # my inmports
 from models.classic_slab import jslab, jslab_Ue_Unio, jslab_kt, jslab_kt_2D, jslab_kt_2D_adv_Ut, jslab_rxry, jslab_kt_Ue_Unio, jslab_kt_2D_adv
-from models.unsteak import junsteak, junsteak_kt, junsteak_kt_2D
+from models.unsteak import junsteak, junsteak_kt, junsteak_kt_2D, junsteak_kt_2D_adv
 from basis import kt_ini
 
 import forcing
@@ -48,13 +48,13 @@ start = clock.time()
 
 # model parameters
 Nl                  = 2            # number of layers for multilayer models
-dTK                 = 40*oneday     # how much vectork K changes with time, basis change to 'k_base'
+dTK                 = 10*oneday     # how much vectork K changes with time, basis change to 'k_base'
 k_base              = 'gauss'       # base of K transform. 'gauss' or 'id'
 AD_mode             = 'F'           # forward mode for AD (for diffrax' diffeqsolve)
 
 # run parameters
 t0                  = 60*oneday    # start day 
-t1                  = 90*oneday    # end day
+t1                  = 100*oneday    # end day
 dt                  = 60.           # timestep of the model (s) 
 
 # What to test
@@ -63,7 +63,7 @@ FORWARD_PASS        = False      # How fast the model is running ?
 MINIMIZE            = False      # Does the model converges to a solution ?
 maxiter             = 50        # if MINIMIZE: max number of iteration
 MAKE_FILM           = False      # for 2D models, plot each hour
-SAVE_AS_NC          = False      # for 2D models
+SAVE_AS_NC          = True      # for 2D models
 MEM_PROFILER        = False       # memory profiler
 
 
@@ -80,14 +80,15 @@ TEST_SLAB_KT_2D             = False
 TEST_SLAB_RXRY              = False # WIP
 TEST_SLAB_Ue_Unio           = False
 TEST_SLAB_KT_Ue_Unio        = False # WIP
-TEST_SLAB_KT_2D_ADV         = False # WIP, crash
+TEST_SLAB_KT_2D_ADV         = False # WIP, crash when using advection
 TEST_SLAB_KT_2D_ADV_UT      = False
 # fourier solving
 TEST_SLAB_FFT               = False
 # unsteak based
 TEST_UNSTEAK                = False
 TEST_UNSTEAK_KT             = False
-TEST_UNSTEAK_KT_2D          = True
+TEST_UNSTEAK_KT_2D          = False
+TEST_UNSTEAK_KT_2D_ADV      = True # WIP, crash when using advection
 
 # PLOT
 dpi=200
@@ -170,7 +171,8 @@ if __name__ == "__main__":
     if (TEST_SLAB_KT_2D or 
         TEST_SLAB_KT_2D_ADV or 
         TEST_SLAB_KT_2D_ADV_UT or
-        TEST_UNSTEAK_KT_2D):
+        TEST_UNSTEAK_KT_2D or
+        TEST_UNSTEAK_KT_2D_ADV):
         forcing2D = forcing.Forcing2D(dt_forcing, t0, t1, file, LON_bounds, LAT_bounds)
         observations2D = observations.Observation2D(period_obs, t0, t1, dt_OSSE, file, LON_bounds, LAT_bounds)
     
@@ -675,7 +677,7 @@ if __name__ == "__main__":
                            
         name_save = 'junsteak_kt_2D_'+namesave_loc
         if PLOT_TRAJ:
-            plot_traj_2D(mymodel, var_dfx, forcing2D, observations2D, name_save, point_loc, LON_bounds, LAT_bounds, path_save_png, dpi)   
+            plot_traj_2D(mymodel, var_dfx, forcing2D, observations2D, name_save, point_loc, LON_bounds, LAT_bounds, attime=70, path_save_png=path_save_png, dpi=dpi)   
               
         if IDEALIZED_RUN:
             mypk = mymodel.pk
@@ -695,7 +697,63 @@ if __name__ == "__main__":
             inialisation_args = pk, TAx, TAy, fc, dTK, dt_forcing, Nl, AD_mode, call_args, False, 'gauss'
             memory_profiler(mymodel) #, inialisation_args)
             
+    if TEST_UNSTEAK_KT_2D_ADV:
+        print('* test junsteak_kt_2D_adv')
+        # control vector
+        if Nl==1:
+            pk = jnp.asarray([-11.31980127, -10.28525189])    
+        elif Nl==2:
+            pk = jnp.asarray([-10.,-10., -9., -9.])    
+            pk = jnp.asarray([-10.68523578,  -9.46999532, -10.59945365, -12.46102878])
         
+        NdT = len(np.arange(t0, t1,dTK)) # int((t1-t0)//dTK) 
+        pk = kt_ini(pk, NdT)
+        
+        # parameters
+        TAx = jnp.asarray(forcing2D.TAx)
+        TAy = jnp.asarray(forcing2D.TAy)
+        fc = jnp.asarray(forcing2D.fc)
+        Ug = jnp.asarray(forcing2D.Ug)
+        Vg = jnp.asarray(forcing2D.Vg)
+        dx, dy = 0.1, 0.1
+        
+        call_args = t0, t1, dt
+        
+        #mymodel = jslab(pk, TAx, TAy, fc, dt_forcing, nl=1, AD_mode=AD_mode)
+        mymodel = junsteak_kt_2D_adv(pk, TAx, TAy, fc, Ug, Vg, dx, dy, dTK, dt_forcing, nl=Nl, AD_mode=AD_mode, call_args=call_args, use_difx=False, k_base='gauss')
+        var_dfx = inv.Variational(mymodel,observations2D, filter_at_fc=FILTER_AT_FC)
+        
+        if FORWARD_PASS:
+            run_forward_cost_grad(mymodel, var_dfx)   
+
+        if MINIMIZE:
+            print(' minimizing ...')
+            t7 = clock.time()
+            mymodel, _ = var_dfx.scipy_lbfgs_wrapper(mymodel, maxiter, verbose=True)   
+            print(' time, minimize',clock.time()-t7)
+                           
+        name_save = 'junsteak_kt_2D_adv_'+namesave_loc
+        if PLOT_TRAJ:
+            plot_traj_2D(mymodel, var_dfx, forcing2D, observations2D, name_save, point_loc, LON_bounds, LAT_bounds, attime=70, path_save_png=path_save_png, dpi=dpi)   
+              
+        if IDEALIZED_RUN:
+            mypk = mymodel.pk
+            frc_idealized = forcing.Forcing_idealized_2D(dt_forcing, t0, t1, TAx=0.4, TAy=0., dt_spike=dTK)
+            step_model = eqx.tree_at(lambda t:t.TAx, mymodel, frc_idealized.TAx)
+            step_model = eqx.tree_at(lambda t:t.TAy, step_model, frc_idealized.TAy)
+            
+            idealized_run(step_model, frc_idealized, name_save, path_save_png, dpi)
+          
+        if MAKE_FILM:
+            make_film(mymodel, forcing2D, LON_bounds, LAT_bounds, namesave_loc_area, path_save_png)
+            
+        if SAVE_AS_NC:
+            save_output_as_nc(mymodel, forcing2D, LON_bounds, LAT_bounds, name_save, where_to_save='./saved_outputs/')    
+        
+        if MEM_PROFILER:
+            inialisation_args = pk, TAx, TAy, fc, dTK, dt_forcing, Nl, AD_mode, call_args, False, 'gauss'
+            memory_profiler(mymodel) #, inialisation_args)
+           
     end = clock.time()
     print('Total execution time = '+str(jnp.round(end-start,2))+' s')
     plt.show()
