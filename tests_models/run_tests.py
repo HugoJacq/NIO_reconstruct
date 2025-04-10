@@ -38,6 +38,7 @@ import observations
 from tests_functions import run_forward_cost_grad, plot_traj_1D, plot_traj_2D, idealized_run, make_film, save_output_as_nc, memory_profiler
 import tools
 from constants import *
+from Listes_models import L_slabs, L_unsteaks, L_variable_Kt, L_nlayers_models, L_models_total_current, L_1D_models, L_2D_models
 
 start = clock.time()
 
@@ -72,6 +73,7 @@ FILTER_AT_FC        = False      # minimize filtered ageo current with obs if m
 IDEALIZED_RUN       = False       # try the model on a step wind stress
 
 # Switches
+L_model_to_test             = ['jslab','junsteak_kt_2D_adv']
 # slab based models
 TEST_SLAB                   = False
 TEST_SLAB_KT                = False
@@ -88,7 +90,7 @@ TEST_SLAB_FFT               = False
 TEST_UNSTEAK                = False
 TEST_UNSTEAK_KT             = False
 TEST_UNSTEAK_KT_2D          = False
-TEST_UNSTEAK_KT_2D_ADV      = True # WIP, crash when using advection
+TEST_UNSTEAK_KT_2D_ADV      = False # WIP, crash when using advection
 
 # PLOT
 dpi=200
@@ -751,9 +753,87 @@ if __name__ == "__main__":
             save_output_as_nc(mymodel, forcing2D, LON_bounds, LAT_bounds, name_save, where_to_save='./saved_outputs/')    
         
         if MEM_PROFILER:
-            inialisation_args = pk, TAx, TAy, fc, dTK, dt_forcing, Nl, AD_mode, call_args, False, 'gauss'
             memory_profiler(mymodel) #, inialisation_args)
-           
+
+
+    for model_name in L_model_to_test:
+        """
+        """
+        
+        
+        print('* test '+model_name)
+        name_save = model_name+'_'+namesave_loc
+        # control vector
+        
+        # forcing
+        if model_name in L_1D_models:
+            myforcing = forcing1D
+            myobservation = observations1D
+        elif model_name in L_2D_models:
+            myforcing = forcing2D
+            myobservation = observations2D
+        
+        
+        
+        """
+        TO DO:
+        - move call args to __call__ for each models
+                this mean using jax.jit instead of eqx.filter_jit, with eqx.static_field()
+                and also modify the cost/gradcost/minimisation accordingly
+        - gather all forcing in the __init__ and give only the forcing class to the model
+        - ensure that all models are call like model(forcing, AD_mode, use_difx, extra_args)
+            with in extra_args the k_base for eg.
+        
+        - clean up tests_functions module.
+        - clean up models modules.
+        """
+        
+        # model initialization
+        classname = 'toto' # here get the class from getattr of the corresponding module
+        mymodel = classname(myforcing, AD_mode, use_difx=False)
+        var_dfx = inv.Variational(mymodel, myobservation, filter_at_fc=FILTER_AT_FC)
+        
+        if FORWARD_PASS:
+            run_forward_cost_grad(mymodel, var_dfx) 
+       
+        if MINIMIZE:
+            print(' minimizing ...')
+            t7 = clock.time()
+            mymodel, _ = var_dfx.scipy_lbfgs_wrapper(mymodel, maxiter, verbose=True)   
+            print(' time, minimize',clock.time()-t7)
+        
+        if PLOT_TRAJ:
+            if model_name in L_1D_models:
+                """
+                """
+            elif model_name in L_2D_models:
+                attime = 70 # in days
+                plot_traj_2D(mymodel, var_dfx, forcing2D, observations2D, name_save, point_loc, LON_bounds, LAT_bounds, attime=attime, path_save_png=path_save_png, dpi=dpi)
+
+        if MEM_PROFILER:
+            memory_profiler(mymodel)
+            
+        ###############################################
+        # only 2D
+        if model_name in L_2D_models:
+            if IDEALIZED_RUN:
+                mypk = mymodel.pk
+                frc_idealized = forcing.Forcing_idealized_2D(dt_forcing, t0, t1, TAx=0.4, TAy=0., dt_spike=dTK)
+                step_model = eqx.tree_at(lambda t:t.TAx, mymodel, frc_idealized.TAx)
+                step_model = eqx.tree_at(lambda t:t.TAy, step_model, frc_idealized.TAy)
+                
+                idealized_run(step_model, frc_idealized, name_save, path_save_png, dpi)
+
+            if MAKE_FILM:
+                make_film(mymodel, forcing2D, LON_bounds, LAT_bounds, namesave_loc_area, path_save_png)
+                
+            if SAVE_AS_NC:
+                save_output_as_nc(mymodel, forcing2D, LON_bounds, LAT_bounds, name_save, where_to_save='./saved_outputs/')
+        ###############################################   
+            
+            
+            
+            
     end = clock.time()
     print('Total execution time = '+str(jnp.round(end-start,2))+' s')
     plt.show()

@@ -2,6 +2,7 @@
 Tool module for "reconstruct_inertial.py"
 """
 from math import factorial
+import sys, inspect
 import scipy as sp
 import numpy as np
 from scipy.fftpack import fft
@@ -634,3 +635,14 @@ def compute_hgrad(Ug, dx, dy):
     dUgdx = jnp.gradient(Ug, dx, axis=-1)
     dUgdy = jnp.gradient(Ug, dy, axis=-2)
     return dUgdx, dUgdy  
+
+
+def get_models_class_from_module(module_name):
+    liste = [
+    		(name, cls) for name, cls in inspect.getmembers(sys.modules[module_name], inspect.isclass)
+   			 if cls.__module__ == module_name
+       		]
+    return liste
+
+
+# TO DO: split tools into compute tools and practical tools

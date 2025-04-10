@@ -157,8 +157,6 @@ class junsteak(eqx.Module):
                     
         return solution
         
-    
-  
     def vector_field(self, t, C, args):
         """
         """        
