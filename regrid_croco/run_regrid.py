@@ -4,7 +4,6 @@ from regridder import mf_regridder
 from plot_functions import *
 
 path_in_local = '/home/jacqhugo/Datlas_2025/DATA_Crocco/'
-path_in_hpc = '/data2/nobackup/clement/Data/Lionel_coupled_run/'
 path_in_hpc = '/ODYSEA2/Lionel_coupled_run/'
 #L_filename = ['croco_1h_inst_surf_2006-02-01-2006-02-28']
 L_filename = ['croco_1h_inst_surf_2005-01-01-2005-01-31.nc',
