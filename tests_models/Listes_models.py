@@ -15,6 +15,35 @@ import tools
 #   you also need to import them
 #   for e.g. : import unsteak
 L_modules = ['classic_slab','unsteak']
+"""
+L_all
+
+This list gather all models
+"""
+L_all = []
+for module in L_modules:
+    L_all = L_all + tools.get_models_name_from_module(module)
+
+
+
+
+"""
+L_unsteak
+
+This list gather all unsteak models
+"""
+L_unsteaks = tools.get_models_name_from_module('unsteak')
+
+
+
+"""
+L_slab
+
+This list gather all slab models
+"""
+L_slabs = tools.get_models_name_from_module('classic_slab')
+
+
 
 
 """
@@ -22,14 +51,24 @@ L_1D_models
 
 This list gather models that are 1D (only time)
 """
-L_1D_models = []
+L_1D_models = ['jslab',
+               'jslab_fft',
+               'jslab_kt',
+               'jslab_rxry',
+               'jslab_Ue_Unio',
+               'jslab_kt_Ue_Unio',
+               'junsteak',
+               'junsteak_kt',]
 
 """
 L_2D_models
 
 This list gather models that are 2D (time and space XY)
 """
-L_2D_models = ['junsteak_kt_2D',
+L_2D_models = ['jslab_kt_2D',
+               'jslab_kt_2D_adv',
+               'jslab_kt_2D_adv_Ut',
+               'junsteak_kt_2D',
                'junsteak_kt_2D_adv']
 
 
@@ -78,26 +117,8 @@ L_models_total_current = ['jslab_kt_2D_press']
 
 
 """
-L_unsteak
-
-This list gather all unsteak models
-"""
-L_unsteaks = tools.get_models_class_from_module('unsteak')
-
-
-
-"""
-L_slab
-
-This list gather all slab models
-"""
-L_slabs = tools.get_models_class_from_module('classic_slab')
-
-
-
-"""
 L_filtered_forcing
 
 This list gather all models that takes as inputs a filtered (at fc) forcing
 """
-L_slabs = ['jslab_Ue_Unio']
+L_filtered_forcing = ['jslab_Ue_Unio']

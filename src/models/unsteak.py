@@ -35,36 +35,37 @@ from tools import compute_hgrad
 class junsteak(eqx.Module):
     # control
     pk : jnp.ndarray
-    # parameters
+    # forcing
     TAx : jnp.ndarray
     TAy : jnp.ndarray
     fc : jnp.ndarray
-    dt_forcing : jnp.ndarray  
+    dt_forcing : jnp.ndarray 
+    # model definition
     nl : np.int32            = eqx.static_field() 
-    AD_mode : str           
+    # runtime args     
     t0 : jnp.ndarray          
     t1 : jnp.ndarray          
     dt : jnp.ndarray         
-    
+    # extra args
+    AD_mode : str 
     use_difx : bool
     
     # variables declaration
     
-    def __init__(self, pk, TAx, TAy, fc, dt_forcing, nl, AD_mode, call_args=(0.0,oneday,60.), use_difx=False):
+    def __init__(self, pk, forcing, nl, call_args=(0.0,oneday,60.), extra_args = {'AD_mode':'F',
+                                                                                    'use_difx':False}):
         self.pk = pk
-        self.TAx = TAx
-        self.TAy = TAy
-        self.fc = fc
-        self.dt_forcing = dt_forcing
         self.nl = nl
-        self.AD_mode = AD_mode
         
-        t0,t1,dt = call_args
-        self.t0 = t0
-        self.t1 = t1
-        self.dt = dt
+        self.TAx = jnp.asarray(forcing.TAx)
+        self.TAy = jnp.asarray(forcing.TAy)
+        self.fc = jnp.asarray(forcing.fc)
+        self.dt_forcing = forcing.dt_forcing
         
-        self.use_difx = use_difx 
+        self.t0, self.t1, self.dt = call_args
+        
+        self.AD_mode = extra_args['AD_mode']
+        self.use_difx = extra_args['use_difx']
         
         
     @eqx.filter_jit            
@@ -244,41 +245,42 @@ class junsteak(eqx.Module):
 class junsteak_kt(eqx.Module):
     # control
     pk : jnp.ndarray
-    # parameters
+    dTK : float
+    NdT : jnp.ndarray
+    # forcing
     TAx : jnp.ndarray
     TAy : jnp.ndarray
     fc : jnp.ndarray
-    dTK : float 
-    NdT : jnp.ndarray
-    dt_forcing : jnp.ndarray  
+    dt_forcing : jnp.ndarray 
+    # model definition 
     nl : np.int32            = eqx.static_field() 
-    AD_mode : str           
+    # runtime args         
     t0 : jnp.ndarray          
     t1 : jnp.ndarray          
     dt : jnp.ndarray         
-    
+    # extra args
+    AD_mode : str 
     use_difx : bool
     k_base : str
     
-    def __init__(self, pk, TAx, TAy, fc, dTK, dt_forcing, nl, AD_mode, call_args, use_difx=False, k_base='gauss'):
-        t0,t1,dt = call_args
-        self.t0 = t0
-        self.t1 = t1
-        self.dt = dt
+    def __init__(self, pk, dTK, forcing, nl, call_args=(0.0,oneday,60.), extra_args = {'AD_mode':'F',
+                                                                                    'use_difx':False,
+                                                                                    'k_base':'gauss'}):
+        self.t0, self.t1, self.dt = call_args
+        self.dTK = dTK
+        self.NdT = len(np.arange(self.t0, self.t1, dTK))
         
         self.pk = pk
-        self.TAx = TAx
-        self.TAy = TAy
-        self.fc = fc
-        self.dt_forcing = dt_forcing
+        self.TAx = jnp.asarray(forcing.TAx)
+        self.TAy = jnp.asarray(forcing.TAy)
+        self.fc = jnp.asarray(forcing.fc)
+        self.dt_forcing = forcing.dt_forcing
+        
         self.nl = nl
-        self.AD_mode = AD_mode
-        
-        self.dTK = dTK
-        self.NdT = len(np.arange(t0, t1,dTK)) # int((t1-t0)//dTK)   NdT = 
-        
-        self.use_difx = use_difx 
-        self.k_base = k_base
+
+        self.AD_mode = extra_args['AD_mode']
+        self.use_difx = extra_args['use_difx']
+        self.k_base = extra_args['k_base']
         
     @eqx.filter_jit            
     def __call__(self, save_traj_at = None):
@@ -460,48 +462,50 @@ class junsteak_kt(eqx.Module):
         return d_U, d_V
     
 class junsteak_kt_2D(eqx.Module):
-     # control
+    # control
     pk : jnp.ndarray
-    # parameters
+    dTK : float 
+    NdT : jnp.ndarray
+    # forcing
     TAx : jnp.ndarray
     TAy : jnp.ndarray
     fc : jnp.ndarray
-    dTK : float 
-    NdT : jnp.ndarray
+    dt_forcing : jnp.ndarray  
+    # 2D
     nx : jnp.ndarray
     ny : jnp.ndarray
-    dt_forcing : jnp.ndarray  
+    # model defintion
     nl : np.int32            = eqx.static_field() 
-    AD_mode : str           
+    # runtime parameters
     t0 : jnp.ndarray          
     t1 : jnp.ndarray          
     dt : jnp.ndarray         
-    
+    # extra args
+    AD_mode : str
     use_difx : bool
     k_base : str
     
-    def __init__(self, pk, TAx, TAy, fc, dTK, dt_forcing, nl, AD_mode, call_args, use_difx=False, k_base='gauss'):
-        t0,t1,dt = call_args
-        self.t0 = t0
-        self.t1 = t1
-        self.dt = dt
+    def __init__(self, pk, dTK, forcing, Nl, call_args=(0.0,oneday,60.), extra_args = {'AD_mode':'F',
+                                                                                    'use_difx':False,
+                                                                                    'k_base':'gauss'}):
+        self.t0, self.t1, self.dt = call_args
+        self.dTK = dTK
+        self.NdT = len(np.arange(self.t0, self.t1, dTK))
         
         self.pk = pk
-        self.TAx = TAx
-        self.TAy = TAy
-        self.fc = fc
-        self.dt_forcing = dt_forcing
-        self.nl = nl
-        self.AD_mode = AD_mode
+        self.TAx = jnp.asarray(forcing.TAx)
+        self.TAy = jnp.asarray(forcing.TAy)
+        self.fc = jnp.asarray(forcing.fc)
+        self.dt_forcing = forcing.dt_forcing
         
-        self.dTK = dTK
-        self.NdT = len(np.arange(t0, t1,dTK)) # int((t1-t0)//dTK)   NdT = 
-        shape = TAx.shape
+        self.nl = Nl
+        shape = self.TAx.shape
         self.nx = shape[-1]
         self.ny = shape[-2]
         
-        self.use_difx = use_difx 
-        self.k_base = k_base
+        self.AD_mode = extra_args['AD_mode']
+        self.use_difx = extra_args['use_difx']
+        self.k_base = extra_args['k_base']
         
     #@eqx.filter_jit            
     def __call__(self, save_traj_at = None):
@@ -683,59 +687,61 @@ class junsteak_kt_2D(eqx.Module):
         return d_U, d_V
     
 class junsteak_kt_2D_adv(eqx.Module):
-     # control
+    # control
     pk : jnp.ndarray
-    # parameters
+    dTK : float 
+    NdT : jnp.ndarray
+    # forcing
     TAx : jnp.ndarray
     TAy : jnp.ndarray
     fc : jnp.ndarray
-    dTK : float 
-    NdT : jnp.ndarray
+    Ug : jnp.ndarray
+    Vg : jnp.ndarray
+    dt_forcing : jnp.ndarray  
+    # 2D
     nx : jnp.ndarray
     ny : jnp.ndarray
-    Ug : jnp.ndarray         
-    Vg : jnp.ndarray  
     dx : jnp.ndarray
     dy : jnp.ndarray
-    dt_forcing : jnp.ndarray  
+    # model defintion
     nl : np.int32            = eqx.static_field() 
-    AD_mode : str           
+    # runtime parameters
     t0 : jnp.ndarray          
     t1 : jnp.ndarray          
     dt : jnp.ndarray         
-    
+    # extra args
+    AD_mode : str
     use_difx : bool
     k_base : str
     
-    def __init__(self, pk, TAx, TAy, fc, Ug, Vg, dx, dy, dTK, dt_forcing, nl, AD_mode, call_args, use_difx=False, k_base='gauss'):
-        t0,t1,dt = call_args
-        self.t0 = t0
-        self.t1 = t1
-        self.dt = dt
+    def __init__(self, pk, dTK, forcing, Nl, call_args=(0.0,oneday,60.), extra_args = {'AD_mode':'F',
+                                                                                    'use_difx':False,
+                                                                                    'k_base':'gauss'}):
+        self.t0, self.t1, self.dt = call_args
         
         self.pk = pk
-        self.TAx = TAx
-        self.TAy = TAy
-        self.fc = fc
-        self.Ug = Ug
-        self.Vg = Vg
-        
-        self.dx = dx
-        self.dy = dy
-        self.dt_forcing = dt_forcing
-        self.nl = nl
-        self.AD_mode = AD_mode
-        
         self.dTK = dTK
-        self.NdT = len(np.arange(t0, t1,dTK)) # int((t1-t0)//dTK)   NdT = 
-        shape = TAx.shape
+        self.NdT = len(np.arange(self.t0, self.t1, dTK))
+        self.dx = forcing.dx
+        self.dy = forcing.dy
+        self.TAx = jnp.asarray(forcing.TAx)
+        self.TAy = jnp.asarray(forcing.TAy)
+        self.fc = jnp.asarray(forcing.fc)
+        self.Ug = jnp.asarray(forcing.Ug)
+        self.Vg = jnp.asarray(forcing.Vg)
+        self.dt_forcing = forcing.dt_forcing
+               
+        self.nl = Nl
+
+        shape = self.TAx.shape
         self.nx = shape[-1]
         self.ny = shape[-2]
         
-        self.use_difx = use_difx 
-        self.k_base = k_base
+        self.AD_mode = extra_args['AD_mode']
+        self.use_difx = extra_args['use_difx']
+        self.k_base = extra_args['k_base']
         
-    #@eqx.filter_jit            
+    @eqx.filter_jit            
     def __call__(self, save_traj_at = None):
         """
         """
@@ -778,7 +784,7 @@ class junsteak_kt_2D_adv(eqx.Module):
                             args=args, 
                             dt0=None, #dt, #dt, None
                             saveat=saveat,
-                            stepsize_controller=diffrax.StepTo(jnp.arange(0., self.t1-self.t0+dt, dt)),
+                            stepsize_controller=diffrax.StepTo(jnp.arange(0., self.t1-self.t0+self.dt, self.dt)),
                             adjoint=adjoint,    # here this is needed to be able to forward AD
                             max_steps=maxstep,
                             made_jump=False).ys 

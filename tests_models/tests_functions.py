@@ -2,8 +2,8 @@
 Here function that runs the tests
 """
 import time as clock
-from certifi import where
 import jax
+import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import numpy as np
 import sys
@@ -13,6 +13,7 @@ import xarray as xr
 
 import tools
 import models.classic_slab as classic_slab
+import models.unsteak as unsteak
 from basis import kt_ini, kt_1D_to_2D, pkt2Kt_matrix
 from constants import *
 from inv import my_partition
@@ -47,14 +48,14 @@ def run_forward_cost_grad(mymodel, var_dfx):
     _, _ = var_dfx.grad_cost(dynamic_model, static_model)
     print(' time, gradcost (no compile)',clock.time()-time6)
     
-def plot_traj_1D(mymodel, var_dfx, forcing1D, observations1D, name_save, path_save_png, dpi):
+def plot_traj_1D(mymodel, call_args, var_dfx, forcing1D, observations1D, name_save, path_save_png, dpi):
+    
     Ua,Va = mymodel(save_traj_at=mymodel.dt_forcing)
-    print(Ua.shape)
-    if type(mymodel).__name__ in ['junsteak','junsteak_kt']:
+    if type(mymodel).__name__ in L_nlayers_models:
         Ua, Va = Ua[:,0], Va[:,0]
     U = forcing1D.data.U.values
     V = forcing1D.data.V.values
-    t0 = mymodel.t0
+    t0, t1, _ = call_args
     Uo, _ = observations1D.get_obs()
     RMSE = tools.score_RMSE(Ua, U) 
     dynamic_model, static_model = my_partition(mymodel)
@@ -65,9 +66,9 @@ def plot_traj_1D(mymodel, var_dfx, forcing1D, observations1D, name_save, path_sa
     
     nlines = 3 if SHOW_MLD else 2
     
-    if type(mymodel).__name__ in ['junsteak','junsteak_kt']:
+    if type(mymodel).__name__ in L_unsteaks:
         modeltype = 'unsteak'
-    else:
+    elif type(mymodel).__name__ in L_slabs:
         modeltype = 'slab'
     
     
@@ -133,7 +134,7 @@ def plot_traj_1D(mymodel, var_dfx, forcing1D, observations1D, name_save, path_sa
             for kr in range(len(myR)):
                 ax2bis.plot((t0 + forcing1D.time)/oneday, myR[kr],ls=lls[kr])
         ax[2].set_xlabel('Time (days)')
-    fig.savefig(path_save_png+name_save+'_t'+str(int(mymodel.t0//oneday))+'_'+str(int(mymodel.t1//oneday))+'.png')
+    fig.savefig(path_save_png+name_save+'_t'+str(int(t0//oneday))+'_'+str(int(t1//oneday))+'.png')
     
 def plot_traj_2D(mymodel, var_dfx, forcing2D, observations2D, name_save, point_loc, LON_bounds, LAT_bounds, attime, path_save_png, dpi):
     Ua,Va = mymodel(save_traj_at=mymodel.dt_forcing)
@@ -357,7 +358,7 @@ def save_output_as_nc(mymodel, forcing2D, LON_bounds, LAT_bounds, name_save, whe
     os.system('mkdir -p ' + where_to_save)
     
     # making the dataset
-    ds = xr.Dataset({"Ua": (["time", "lat", "lon"], Ua),
+    ds = xr.Dataset({"Ua": (["time", "lat", "lon"], np.asarray(Ua)),
                      "Ug": (["time", "lat", "lon"], Ug.data),
                      "Uat": (["time", "lat", "lon"], np.asarray(Ua)+Ug.values),
                      "Ut": (["time", "lat", "lon"], (U+Ug).data),
@@ -391,4 +392,113 @@ def memory_profiler(mymodel):
     # print(traced.jaxpr)
     
     
+
+def model_instanciation(model_name, forcing, args_model, args_2D, call_args, extra_args):
+    """
+    Wrapper of every model instanciation.
+    
+    
+    TBD: doc of this, with typing
+    """
+    t0, t1, dt = call_args
+    dTK = args_model['dTK']
+    Nl = args_model['Nl']
+    
+    # MODELS FROM MODULE classic_slab
+    if model_name=='jslab':
+        pk = jnp.asarray([-11., -10.]) 
+        model = classic_slab.jslab(pk, forcing, call_args, extra_args)
+        
+    elif model_name=='jslab_fft':
+        pk = jnp.asarray([-11., -10.]) 
+        model = classic_slab.jslab_fft(pk, forcing, call_args, extra_args)
+        
+    elif model_name=='jslab_kt':
+        pk = jnp.asarray([-11., -10.])   
+        NdT = len(np.arange(t0, t1,dTK))
+        pk = kt_ini(pk, NdT)
+        model = classic_slab.jslab_kt(pk, dTK, forcing, call_args, extra_args)
+        
+    elif model_name=='jslab_kt_2D':
+        pk = jnp.asarray([-11., -10.])   
+        NdT = len(np.arange(t0, t1,dTK)) # int((t1-t0)//dTK) 
+        pk = kt_ini(pk, NdT)
+        model = classic_slab.jslab_kt_2D(pk, dTK, forcing, call_args, extra_args)
+        
+    elif model_name=='jslab_rxry':
+        pk = jnp.asarray([-11., -10., -9.]) 
+        model = classic_slab.jslab_rxry(pk, forcing, call_args, extra_args)
+        
+    elif model_name=='jslab_Ue_Unio':
+        TA = forcing.TAx + 1j*forcing.TAy
+        TAx_f,TAy_f = tools.my_fc_filter( forcing.dt_forcing, TA, forcing.fc)
+        forcing.TAx = TAx_f
+        forcing.TAy = TAy_f
+        pk = jnp.asarray([-11., -10.]) 
+        model = classic_slab.jslab_Ue_Unio(pk, forcing, call_args, extra_args)
+        
+    elif model_name=='jslab_kt_Ue_Unio':
+        TA = forcing.TAx + 1j*forcing.TAy
+        TAx_f,TAy_f = tools.my_fc_filter( forcing.dt_forcing, TA, forcing.fc)
+        forcing.TAx = TAx_f
+        forcing.TAy = TAy_f
+        pk = jnp.asarray([-11., -10.])   
+        NdT = len(np.arange(t0, t1,dTK)) # int((t1-t0)//dTK) 
+        pk = kt_ini(pk, NdT)
+        model = classic_slab.jslab_kt_Ue_Unio(pk, dTK, forcing, call_args, extra_args)
+        
+    elif model_name=='jslab_kt_2D_adv':
+        pk = jnp.asarray([-11., -10.])   
+        NdT = len(np.arange(t0, t1,dTK)) # int((t1-t0)//dTK) 
+        pk = kt_ini(pk, NdT)
+        model = classic_slab.jslab_kt_2D_adv(pk, dTK, forcing, call_args, extra_args)
+        
+    elif model_name=='jslab_kt_2D_adv_Ut':
+        pk = jnp.asarray([-11., -10.])   
+        NdT = len(np.arange(t0, t1,dTK)) # int((t1-t0)//dTK) 
+        pk = kt_ini(pk, NdT)
+        model = classic_slab.jslab_kt_2D_adv_Ut(pk, dTK, forcing, call_args, extra_args)
+        
+    
+    
+    # # MODELS FROM MODULE unsteak
+    elif model_name=='junsteak':
+        if Nl==1:
+            pk = jnp.asarray([-11.31980127, -10.28525189])    
+        elif Nl==2:
+            pk = jnp.asarray([-10.,-10., -9., -9.])   
+        model = unsteak.junsteak(pk, forcing, Nl, call_args, extra_args)   
+        
+    elif model_name=='junsteak_kt':
+        if Nl==1:
+            pk = jnp.asarray([-11.31980127, -10.28525189])    
+        elif Nl==2:
+            pk = jnp.asarray([-10.,-10., -9., -9.]) 
+        NdT = len(np.arange(t0, t1,dTK)) # int((t1-t0)//dTK) 
+        pk = kt_ini(pk, NdT)
+        model = unsteak.junsteak_kt(pk, dTK, forcing, Nl, call_args, extra_args)   
+        
+    elif model_name=='junsteak_kt_2D':
+        if Nl==1:
+            pk = jnp.asarray([-11.31980127, -10.28525189])    
+        elif Nl==2:
+            pk = jnp.asarray([-10.,-10., -9., -9.]) 
+        NdT = len(np.arange(t0, t1,dTK)) # int((t1-t0)//dTK) 
+        pk = kt_ini(pk, NdT)
+        model = unsteak.junsteak_kt_2D(pk, dTK, forcing, Nl, call_args, extra_args)   
+    
+    elif model_name=='junsteak_kt_2D_adv':
+        if Nl==1:
+            pk = jnp.asarray([-11.31980127, -10.28525189])    
+        elif Nl==2:
+            pk = jnp.asarray([-10.,-10., -9., -9.]) 
+        NdT = len(np.arange(t0, t1,dTK)) # int((t1-t0)//dTK) 
+        pk = kt_ini(pk, NdT)
+        model = unsteak.junsteak_kt_2D_adv(pk, dTK, forcing, Nl, call_args, extra_args)   
+        
+    else:
+        raise Exception(f'You want to test the mode {model_name} but it is not recognized')
+
+    
+    return model
     

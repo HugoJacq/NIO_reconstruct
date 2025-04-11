@@ -637,12 +637,18 @@ def compute_hgrad(Ug, dx, dy):
     return dUgdx, dUgdy  
 
 
-def get_models_class_from_module(module_name):
+def get_models_name_and_class_from_module(module_name):
     liste = [
     		(name, cls) for name, cls in inspect.getmembers(sys.modules[module_name], inspect.isclass)
    			 if cls.__module__ == module_name
        		]
     return liste
 
+def get_models_name_from_module(module_name):
+    liste = [
+    		name for name, cls in inspect.getmembers(sys.modules[module_name], inspect.isclass)
+   			 if cls.__module__ == module_name
+       		]
+    return liste
 
 # TO DO: split tools into compute tools and practical tools

@@ -65,6 +65,8 @@ class Forcing2D:
         self.nt = len(self.data.time)
         self.time = np.arange(0,self.nt*dt_forcing,dt_forcing)
         self.dt_forcing = dt_forcing
+        self.dx = 0.1
+        self.dy = 0.1
         
 class Forcing_from_PAPA:
     """

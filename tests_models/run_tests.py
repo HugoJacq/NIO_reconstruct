@@ -35,10 +35,10 @@ from basis import kt_ini
 import forcing
 import inv
 import observations
-from tests_functions import run_forward_cost_grad, plot_traj_1D, plot_traj_2D, idealized_run, make_film, save_output_as_nc, memory_profiler
+from tests_functions import *
 import tools
 from constants import *
-from Listes_models import L_slabs, L_unsteaks, L_variable_Kt, L_nlayers_models, L_models_total_current, L_1D_models, L_2D_models
+from Listes_models import *
 
 start = clock.time()
 
@@ -50,8 +50,12 @@ start = clock.time()
 # model parameters
 Nl                  = 2            # number of layers for multilayer models
 dTK                 = 10*oneday     # how much vectork K changes with time, basis change to 'k_base'
-k_base              = 'gauss'       # base of K transform. 'gauss' or 'id'
-AD_mode             = 'F'           # forward mode for AD (for diffrax' diffeqsolve)
+k_base              = 'gauss'       
+AD_mode             = 'F'           
+
+extra_args = {'AD_mode':AD_mode,    # forward mode for AD (for diffrax' diffeqsolve)
+            'use_difx':False,       # use diffrax solver to time integrate
+            'k_base':'gauss'}       # base of K transform. 'gauss' or 'id'
 
 # run parameters
 t0                  = 60*oneday    # start day 
@@ -60,11 +64,11 @@ dt                  = 60.           # timestep of the model (s)
 
 # What to test
 PLOT_TRAJ           = True      # Show a trajectory
-FORWARD_PASS        = False      # How fast the model is running ?
-MINIMIZE            = False      # Does the model converges to a solution ?
-maxiter             = 50        # if MINIMIZE: max number of iteration
+FORWARD_PASS        = True      # How fast the model is running ?
+MINIMIZE            = True      # Does the model converges to a solution ?
+maxiter             = 2        # if MINIMIZE: max number of iteration
 MAKE_FILM           = False      # for 2D models, plot each hour
-SAVE_AS_NC          = True      # for 2D models
+SAVE_AS_NC          = False      # for 2D models
 MEM_PROFILER        = False       # memory profiler
 
 
@@ -73,7 +77,10 @@ FILTER_AT_FC        = False      # minimize filtered ageo current with obs if m
 IDEALIZED_RUN       = False       # try the model on a step wind stress
 
 # Switches
-L_model_to_test             = ['jslab','junsteak_kt_2D_adv']
+L_model_to_test             = L_all # ['junsteak_kt_2D_adv'] # 'jslab','junsteak_kt_2D_adv'
+
+
+
 # slab based models
 TEST_SLAB                   = False
 TEST_SLAB_KT                = False
@@ -85,7 +92,7 @@ TEST_SLAB_KT_Ue_Unio        = False # WIP
 TEST_SLAB_KT_2D_ADV         = False # WIP, crash when using advection
 TEST_SLAB_KT_2D_ADV_UT      = False
 # fourier solving
-TEST_SLAB_FFT               = False
+TEST_SLAB_FFT               = False # WIP
 # unsteak based
 TEST_UNSTEAK                = False
 TEST_UNSTEAK_KT             = False
@@ -163,20 +170,17 @@ if __name__ == "__main__":
     for ifile in range(len(name_papa)):
         file_papa.append(path_papa+name_papa[ifile])
     
-    #file = path_regrid+name_regrid 
     if ON_PAPA:
         forcing1D = forcing.Forcing_from_PAPA(dt_forcing, t0, t1, file_papa)
         observations1D = observations.Observation_from_PAPA(period_obs, t0, t1, dt_forcing, file_papa)
     else:
         forcing1D = forcing.Forcing1D(point_loc, t0, t1, dt_forcing, file)
         observations1D = observations.Observation1D(point_loc, period_obs, t0, t1, dt_OSSE, file)
-    if (TEST_SLAB_KT_2D or 
-        TEST_SLAB_KT_2D_ADV or 
-        TEST_SLAB_KT_2D_ADV_UT or
-        TEST_UNSTEAK_KT_2D or
-        TEST_UNSTEAK_KT_2D_ADV):
+    if False:
         forcing2D = forcing.Forcing2D(dt_forcing, t0, t1, file, LON_bounds, LAT_bounds)
         observations2D = observations.Observation2D(period_obs, t0, t1, dt_OSSE, file, LON_bounds, LAT_bounds)
+    forcing2D = 'toto'
+    observations2D = 'toto'
     
     ### WARNINGS
     dsfull = xr.open_mfdataset(file)
@@ -405,7 +409,8 @@ if __name__ == "__main__":
         call_args = t0, t1, dt
         
         #mymodel = jslab(pk, TAx, TAy, fc, dt_forcing, nl=1, AD_mode=AD_mode)
-        mymodel = jslab_Ue_Unio(pk, TAx, TAy, fc, dt_forcing, nl=1, AD_mode=AD_mode, call_args=call_args)
+        #mymodel = jslab_Ue_Unio(pk, TAx, TAy, fc, dt_forcing, nl=1, AD_mode=AD_mode, call_args=call_args)
+        mymodel = classic_slab.jslab_Ue_Unio(pk, forcing1D, call_args, extra_args)
         var_dfx = inv.Variational(mymodel,observations1D)
         
         if FORWARD_PASS:
@@ -419,7 +424,7 @@ if __name__ == "__main__":
                            
         name_save = 'jslab_Ue_Unio_'+namesave_loc
         if PLOT_TRAJ:
-            plot_traj_1D(mymodel, var_dfx, forcing1D, observations1D, name_save, path_save_png, dpi)
+            plot_traj_1D(mymodel, call_args, var_dfx, forcing1D, observations1D, name_save, path_save_png, dpi)
     
     if TEST_SLAB_KT_Ue_Unio:
         print('* test jslab_kt_Ue_Unio')
@@ -764,16 +769,27 @@ if __name__ == "__main__":
         print('* test '+model_name)
         name_save = model_name+'_'+namesave_loc
         # control vector
-        
+
+
+
         # forcing
         if model_name in L_1D_models:
-            myforcing = forcing1D
-            myobservation = observations1D
+            if ON_PAPA:
+                myforcing = forcing.Forcing_from_PAPA(dt_forcing, t0, t1, file_papa)
+                myobservation = observations.Observation_from_PAPA(period_obs, t0, t1, dt_forcing, file_papa)
+            else:
+                myforcing = forcing.Forcing1D(point_loc, t0, t1, dt_forcing, file)
+                myobservation = observations.Observation1D(point_loc, period_obs, t0, t1, dt_OSSE, file)
+            
+            
         elif model_name in L_2D_models:
-            myforcing = forcing2D
-            myobservation = observations2D
+            myforcing = forcing.Forcing2D(dt_forcing, t0, t1, file, LON_bounds, LAT_bounds)
+            myobservation = observations.Observation2D(period_obs, t0, t1, dt_OSSE, file, LON_bounds, LAT_bounds)
         
-        
+        if model_name in L_unsteaks:
+            module_name = 'unsteak'
+        elif model_name in L_slabs:
+            module_name = 'classic_slab'
         
         """
         TO DO:
@@ -788,9 +804,17 @@ if __name__ == "__main__":
         - clean up models modules.
         """
         
+        call_args = t0, t1, dt
+        args_model = {'dTK':dTK, 'Nl':Nl}
+        args_2D = {}
+        
+        #pk = jnp.asarray([-11.31980127, -10.28525189])
+        
+        
+        
         # model initialization
-        classname = 'toto' # here get the class from getattr of the corresponding module
-        mymodel = classname(myforcing, AD_mode, use_difx=False)
+        classname = getattr(sys.modules[module_name], model_name)
+        mymodel = model_instanciation(model_name, myforcing, args_model, args_2D, call_args, extra_args)
         var_dfx = inv.Variational(mymodel, myobservation, filter_at_fc=FILTER_AT_FC)
         
         if FORWARD_PASS:
@@ -804,11 +828,10 @@ if __name__ == "__main__":
         
         if PLOT_TRAJ:
             if model_name in L_1D_models:
-                """
-                """
+                plot_traj_1D(mymodel, call_args, var_dfx, myforcing, myobservation, name_save, path_save_png, dpi)
             elif model_name in L_2D_models:
                 attime = 70 # in days
-                plot_traj_2D(mymodel, var_dfx, forcing2D, observations2D, name_save, point_loc, LON_bounds, LAT_bounds, attime=attime, path_save_png=path_save_png, dpi=dpi)
+                plot_traj_2D(mymodel, var_dfx, myforcing, myobservation, name_save, point_loc, LON_bounds, LAT_bounds, attime=attime, path_save_png=path_save_png, dpi=dpi)
 
         if MEM_PROFILER:
             memory_profiler(mymodel)
@@ -825,10 +848,10 @@ if __name__ == "__main__":
                 idealized_run(step_model, frc_idealized, name_save, path_save_png, dpi)
 
             if MAKE_FILM:
-                make_film(mymodel, forcing2D, LON_bounds, LAT_bounds, namesave_loc_area, path_save_png)
+                make_film(mymodel, myforcing, LON_bounds, LAT_bounds, namesave_loc_area, path_save_png)
                 
             if SAVE_AS_NC:
-                save_output_as_nc(mymodel, forcing2D, LON_bounds, LAT_bounds, name_save, where_to_save='./saved_outputs/')
+                save_output_as_nc(mymodel, myforcing, LON_bounds, LAT_bounds, name_save, where_to_save='./saved_outputs/')
         ###############################################   
             
             
