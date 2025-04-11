@@ -1,6 +1,6 @@
 # NIO_reconstruct
 
-### Environement
+### Environment
 
 
 cdflib : installed via pip
