@@ -49,11 +49,8 @@ start = clock.time()
 
 # model parameters
 Nl                  = 2            # number of layers for multilayer models
-dTK                 = 10*oneday     # how much vectork K changes with time, basis change to 'k_base'
-k_base              = 'gauss'       
-AD_mode             = 'F'           
-
-extra_args = {'AD_mode':AD_mode,    # forward mode for AD (for diffrax' diffeqsolve)
+dTK                 = 10*oneday     # how much vectork K changes with time, basis change to 'k_base'      
+extra_args = {'AD_mode':'F',        # forward mode for AD (for diffrax' diffeqsolve)
             'use_difx':False,       # use diffrax solver to time integrate
             'k_base':'gauss'}       # base of K transform. 'gauss' or 'id'
 
@@ -64,8 +61,8 @@ dt                  = 60.           # timestep of the model (s)
 
 # What to test
 PLOT_TRAJ           = True      # Show a trajectory
-FORWARD_PASS        = True      # How fast the model is running ?
-MINIMIZE            = True      # Does the model converges to a solution ?
+FORWARD_PASS        = False      # How fast the model is running ?
+MINIMIZE            = False      # Does the model converges to a solution ?
 maxiter             = 2        # if MINIMIZE: max number of iteration
 MAKE_FILM           = False      # for 2D models, plot each hour
 SAVE_AS_NC          = False      # for 2D models
@@ -77,27 +74,7 @@ FILTER_AT_FC        = False      # minimize filtered ageo current with obs if m
 IDEALIZED_RUN       = False       # try the model on a step wind stress
 
 # Switches
-L_model_to_test             = L_all # ['junsteak_kt_2D_adv'] # 'jslab','junsteak_kt_2D_adv'
-
-
-
-# slab based models
-TEST_SLAB                   = False
-TEST_SLAB_KT                = False
-TEST_SLAB_KT_FILTERED_FC    = False
-TEST_SLAB_KT_2D             = False
-TEST_SLAB_RXRY              = False # WIP
-TEST_SLAB_Ue_Unio           = False
-TEST_SLAB_KT_Ue_Unio        = False # WIP
-TEST_SLAB_KT_2D_ADV         = False # WIP, crash when using advection
-TEST_SLAB_KT_2D_ADV_UT      = False
-# fourier solving
-TEST_SLAB_FFT               = False # WIP
-# unsteak based
-TEST_UNSTEAK                = False
-TEST_UNSTEAK_KT             = False
-TEST_UNSTEAK_KT_2D          = False
-TEST_UNSTEAK_KT_2D_ADV      = False # WIP, crash when using advection
+L_model_to_test             = ['junsteak_kt_2D_adv'] # L_all
 
 # PLOT
 dpi=200
@@ -169,19 +146,7 @@ if __name__ == "__main__":
     file_papa = []
     for ifile in range(len(name_papa)):
         file_papa.append(path_papa+name_papa[ifile])
-    
-    if ON_PAPA:
-        forcing1D = forcing.Forcing_from_PAPA(dt_forcing, t0, t1, file_papa)
-        observations1D = observations.Observation_from_PAPA(period_obs, t0, t1, dt_forcing, file_papa)
-    else:
-        forcing1D = forcing.Forcing1D(point_loc, t0, t1, dt_forcing, file)
-        observations1D = observations.Observation1D(point_loc, period_obs, t0, t1, dt_OSSE, file)
-    if False:
-        forcing2D = forcing.Forcing2D(dt_forcing, t0, t1, file, LON_bounds, LAT_bounds)
-        observations2D = observations.Observation2D(period_obs, t0, t1, dt_OSSE, file, LON_bounds, LAT_bounds)
-    forcing2D = 'toto'
-    observations2D = 'toto'
-    
+        
     ### WARNINGS
     dsfull = xr.open_mfdataset(file)
     # warning about t1>length of forcing
@@ -197,8 +162,7 @@ if __name__ == "__main__":
         raise Exception(f"your choice of LON in 'point_loc'({point_loc}) and 'R'({R}) is outside of the domain, please retry")
     if (minlat + R > point_loc[1]) or (point_loc[1] > maxlat - R):
         raise Exception(f"your choice of LAT in 'point_loc'({point_loc}) and 'R'({R}) is outside of the domain, please retry")
-    ### END WARNINGSM
-    
+    ### END WARNINGS
     
     if not ON_PAPA:
         indx = tools.nearest(dsfull.lon.values,point_loc[0])
@@ -235,14 +199,7 @@ if __name__ == "__main__":
             module_name = 'classic_slab'
         
         """
-        TO DO:
-        - move call args to __call__ for each models
-                this mean using jax.jit instead of eqx.filter_jit, with eqx.static_field()
-                and also modify the cost/gradcost/minimisation accordingly
-        - gather all forcing in the __init__ and give only the forcing class to the model
-        - ensure that all models are call like model(forcing, AD_mode, use_difx, extra_args)
-            with in extra_args the k_base for eg.
-        
+        TO DO:        
         - clean up tests_functions module.
         - clean up models modules.
         """

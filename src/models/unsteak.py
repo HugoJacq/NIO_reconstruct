@@ -845,16 +845,16 @@ class junsteak_kt_2D_adv(eqx.Module):
         # Definition of each layers
         def Onelayer(args0):
             """  """
-            U, V, K, fc, TAxnow, TAynow, gradUgnow, gradVgnow, d_U, d_V = args0
+            U, V, K, fc, TAxnow, TAynow, d_U, d_V = args0
             
             ik = 0
-            d_U = d_U.at[ik].set(   fc*V[ik] +K[2*ik]*TAxnow - K[2*ik+1]*U[ik] - U[ik]*gradUgnow[0] - V[ik]*gradUgnow[1])
-            d_V = d_U.at[ik].set( - fc*U[ik] +K[2*ik]*TAynow - K[2*ik+1]*V[ik] - V[ik]*gradVgnow[0] - V[ik]*gradVgnow[1])
+            d_U = d_U.at[ik].set(   fc*V[ik] +K[2*ik]*TAxnow - K[2*ik+1]*U[ik])
+            d_V = d_U.at[ik].set( - fc*U[ik] +K[2*ik]*TAynow - K[2*ik+1]*V[ik])
             return d_U, d_V
             
         def Nlayer_midlayers_for_scan(carry, ik):
             """  """
-            U, V, K, fc, TAxnow, TAynow, gradUgnow, gradVgnow, d_U, d_V = carry
+            U, V, K, fc, TAxnow, TAynow, d_U, d_V = carry
             
             d_U = d_U.at[ik].set(  fc*V[ik]                     # Coriolis
                                 - K[2*ik]*(U[ik]-U[ik-1])       # top layer friction
@@ -862,22 +862,21 @@ class junsteak_kt_2D_adv(eqx.Module):
             d_V = d_V.at[ik].set(- fc*U[ik] 
                                 - K[2*ik]*(V[ik]-V[ik-1])
                                 - K[2*ik+1]*(V[ik]-V[ik+1]) )
-            X = U, V, K, fc, TAxnow, TAynow, gradUgnow, gradVgnow, d_U, d_V
+            X = U, V, K, fc, TAxnow, TAynow, d_U, d_V
             return X, None #X
             
         def Nlayer(args0, nl):
             """  """
-            U, V, K, fc, TAxnow, TAynow, gradUgnow, gradVgnow, d_U, d_V = args0
+            U, V, K, fc, TAxnow, TAynow, d_U, d_V = args0
             # surface
             ik = 0
             d_U = d_U.at[ik].set(   fc*V[ik]                            # Coriolis
                                     + K[2*ik]*TAxnow                    # top layer friction
-                                    - K[2*ik+1]*(U[ik]-U[ik+1])         # bottom layer friction
-                                    - U[ik]*gradUgnow[0] - V[ik]*gradUgnow[1])  # advection              
+                                    - K[2*ik+1]*(U[ik]-U[ik+1]) )       # bottom layer friction
+                                              
             d_V = d_V.at[ik].set( - fc*U[ik] 
                                     + K[2*ik]*TAynow
-                                    - K[2*ik+1]*(V[ik]-V[ik+1])
-                                    - V[ik]*gradVgnow[0] - V[ik]*gradVgnow[1])
+                                    - K[2*ik+1]*(V[ik]-V[ik+1]) )
             # bottom
             ik = -1
             d_U = d_U.at[ik].set(   fc*V[ik] 
@@ -887,9 +886,9 @@ class junsteak_kt_2D_adv(eqx.Module):
                                     - K[2*ik]*(V[ik]-V[ik-1])
                                     - K[2*ik+1]*V[ik] )    
             # in between
-            X0 = U, V, K, fc, TAxnow, TAynow, gradUgnow, gradVgnow, d_U, d_V
+            X0 = U, V, K, fc, TAxnow, TAynow, d_U, d_V
             final, _ = lax.scan( lambda carry, it: Nlayer_midlayers_for_scan(carry, it), X0, jnp.arange(1,nl-1) )
-            _, _, _, _, _, _, _, _, d_U, d_V = final
+            _, _, _, _, _, _, d_U, d_V = final
             
             return d_U, d_V
             
@@ -909,10 +908,11 @@ class junsteak_kt_2D_adv(eqx.Module):
         gradUgnow = (1-aa)*gradUg[0][itf] + aa*gradUg[0][itsup], (1-aa)*gradUg[1][itf] + aa*gradUg[1][itsup]
         gradVgnow = (1-aa)*gradVg[0][itf] + aa*gradVg[0][itsup], (1-aa)*gradVg[1][itf] + aa*gradVg[1][itsup]
         
+        
         # initialisation: current RHS of equation
         d_U, d_V = jnp.zeros((self.nl, self.ny, self.nx)), jnp.zeros((self.nl, self.ny, self.nx))
         
-        arg2 = U, V, Ktnow, fc, TAxnow, TAynow, gradUgnow, gradVgnow, d_U, d_V
+        arg2 = U, V, Ktnow, fc, TAxnow, TAynow, d_U, d_V
         
         # loop on layers
         d_U, d_V = lax.cond( self.nl == 1,                  # condition, only 1 layer ?
@@ -921,8 +921,17 @@ class junsteak_kt_2D_adv(eqx.Module):
                             )  
         # debug print
         def cond_print():
-            jax.debug.print("d_U, Coriolis, stress, damping: {}, {}, {}, {}", d_U[0], fc*V[0], Ktnow[0]*TAxnow, - Ktnow[1]*(U[0]-U[1]))
-            jax.debug.print("d_U, Coriolis, stress, damping: {}, {}, {}, {}", d_U[0], fc*V[0], Ktnow[0]*TAxnow, - Ktnow[1]*(U[0]))
-        #jax.lax.cond(it<=10, cond_print, lambda:None)
+            jax.debug.print("d_U, Coriolis, stress, damping, dUdx, dUdy: {}, {}, {}, {}, {}, {}", d_U[0,5,5], 
+                            fc[5]*V[0,5,5], 
+                            Ktnow[0]*TAxnow[5,5], 
+                            - Ktnow[1]*(U[0,5,5]-U[1,5,5]), 
+                            U[0,5,5]*gradUgnow[0][5,5], 
+                            V[0,5,5]*gradUgnow[1][5,5])
+            #jax.debug.print("d_U, Coriolis, stress, damping: {}, {}, {}, {}", d_U[1,5,5], fc[5]*V[0,5,5], Ktnow[0]*TAxnow[5,5], - Ktnow[1]*(U[0,5,5]))
+        jax.lax.cond(it<=2, cond_print, lambda:None)
+        
+        if True:
+            d_U = d_U - ( U*gradUgnow[0] + V*gradUgnow[1] )
+            d_V = d_V - ( U*gradVgnow[0] + V*gradVgnow[1] )
         
         return d_U, d_V
