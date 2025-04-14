@@ -7,7 +7,6 @@ from jaxtyping import PyTree, Float, Int, Array
 import jax.tree_util as jtu
 
 from model import jslab
-from tools import my_fc_filter
 
 def my_partition(model):
     filter_spec = my_filter(model)
@@ -15,8 +14,12 @@ def my_partition(model):
 
 def my_filter(model):
     filter_spec = jtu.tree_map(lambda tree: False, model) # keep nothing
-    filter_spec = eqx.tree_at( lambda tree: tree.K0, filter_spec, replace=True)
+    #filter_spec = eqx.tree_at( lambda tree: tree.K0, filter_spec, replace=True)
     filter_spec = eqx.tree_at( lambda tree: tree.dissipation_model, filter_spec, replace=True)
+    # filter_spec = eqx.tree_at( lambda tree: tree.dissipation_model.layer1.weight, filter_spec, replace=True)
+    # filter_spec = eqx.tree_at( lambda tree: tree.dissipation_model.layer1.bias, filter_spec, replace=True)
+    # filter_spec = eqx.tree_at( lambda tree: tree.dissipation_model.layer2.weight, filter_spec, replace=True)
+    # filter_spec = eqx.tree_at( lambda tree: tree.dissipation_model.layer2.bias, filter_spec, replace=True)
     return filter_spec
 
 # a loss
@@ -54,6 +57,13 @@ def train(
         
         # BACKWARD AD
         loss_value, grads = eqx.filter_value_and_grad(loss)(dynamic_model, static_model, train_data)
+        
+        #jax.debug.print('dK0: {}', grads.K0)
+        jax.debug.print('weight layer1: {}', grads.dissipation_model.layer1.weight)
+        jax.debug.print('bias layer1: {}', grads.dissipation_model.layer1.bias)
+        jax.debug.print('weight layer2: {}', grads.dissipation_model.layer2.weight)
+        jax.debug.print('bias layer2: {}', grads.dissipation_model.layer2.bias)
+        
         # FORWARD AD
         # grads = eqx.filter_jacfwd(loss)(dynamic_model, static_model, train_data)
         # loss_value = loss(dynamic_model, static_model, train_data)
@@ -75,23 +85,8 @@ def train(
             )
     return model
             
-            
-# def dataset_maker(ds, Nhours):
-#     train_data = ds.isel(time=slice(0,-2*Nhours))
-#     test_data = ds.isel(time=slice(-2*Nhours,-Nhours))
-#     verif_data = ds.isel(time=slice(-Nhours,-1))
-    
-#     ds_train, ds_test, ds_verif = {}, {}, {}
-#     for var in ['U','V']:
-#         ds_train[var] = jnp.asarray(train_data[var].values)
-#         ds_test[var] = jnp.asarray(test_data[var].values)
-#         ds_verif[var] = jnp.asarray(verif_data[var].values)
-#     return ds_train, ds_test, ds_verif
 
 def dataset_maker(ds, Nhours, dt_forcing):
-    
-    
-    
     train_data = ds.isel(time=slice(0,- Nhours))
     test_data = ds.isel(time=slice(- Nhours-1,-1))
     nt = len(ds.time)
