@@ -8,13 +8,17 @@ import jax.tree_util as jtu
 
 
 # a loss
-def loss(NNmodel, features_train, obs_train):
-    sol = NNmodel(features_train)    
-    J = jnp.nanmean( (sol[0]-obs_train[0])**2 + (sol[1]-obs_train[1])**2 )
-    return J
+def fn_loss(sol,obs):
+    #print(sol.shape, obs.shape)
+    return jnp.nanmean( (sol[0]-obs[0])**2 + (sol[1]-obs[1])**2 )
 
-def evaluate(NNmodel, features_val, obs_val):
-    avg_loss = jnp.mean(loss(NNmodel, features_val, obs_val))
+
+def loss(NNmodel, batch_train, batch_obs):
+    sol = jax.vmap(NNmodel, in_axes=1, out_axes=1)(batch_train)    
+    return fn_loss(sol, batch_obs)
+
+def evaluate(NNmodel, batch_val, batch_obs):
+    avg_loss = jnp.mean(loss(NNmodel, batch_val, batch_obs))
     return avg_loss
 
 def do_training(
@@ -43,12 +47,22 @@ def do_training(
         NNmodel = eqx.apply_updates(NNmodel, updates)
         return NNmodel, opt_state, loss_value
     
+    Test_loss = []
+    Train_loss = []
+    minLoss = 999
     for step in range(maxstep):
         model, opt_state, train_loss = make_step(model, opt_state)
+        test_loss = evaluate(model, features['val'], obs['val'])
         if (step % print_every) == 0 or (step == maxstep - 1):
-            test_loss = evaluate(model, features['val'], obs['val'])
+            #test_loss = evaluate(model, features['val'], obs['val'])
             print(
                 f"{step=}, train_loss={train_loss.item()}, "
                 f"test_loss={test_loss.item()}"
             )
-    return model
+        Test_loss.append(test_loss)
+        Train_loss.append(train_loss)  
+        if test_loss<minLoss:
+            minLoss = test_loss
+            bestmodel = model
+    
+    return model, bestmodel, Train_loss, Test_loss
