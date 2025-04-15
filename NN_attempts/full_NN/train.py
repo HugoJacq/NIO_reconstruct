@@ -9,12 +9,10 @@ import jax.tree_util as jtu
 
 # a loss
 def fn_loss(sol,obs):
-    #print(sol.shape, obs.shape)
     return jnp.nanmean( (sol[0]-obs[0])**2 + (sol[1]-obs[1])**2 )
 
-
 def loss(NNmodel, batch_train, batch_obs):
-    sol = jax.vmap(NNmodel, in_axes=1, out_axes=1)(batch_train)    
+    sol = jax.vmap(NNmodel, in_axes=1, out_axes=1)(batch_train)    # vmap is used to apply the model on every 'batch'
     return fn_loss(sol, batch_obs)
 
 def evaluate(NNmodel, batch_val, batch_obs):
@@ -30,19 +28,12 @@ def do_training(
         print_every: Int
             ):
     
-    opt_state = optim.init( model )
+    opt_state = optim.init( eqx.filter(model, eqx.is_array) ) # here, the filter is used to keep only arrays
 
     @eqx.filter_jit
     def make_step( NNmodel, opt_state: PyTree):
-        # BACKWARD AD
-        loss_value, grads = eqx.filter_value_and_grad(loss)(NNmodel, features['train'], obs['train'])
         
-        #jax.debug.print('dK0: {}', grads.K0)
-        # jax.debug.print('weight layer1: {}', grads.dissipation_model.layer1.weight)
-        # jax.debug.print('bias layer1: {}', grads.dissipation_model.layer1.bias)
-        # jax.debug.print('weight layer2: {}', grads.dissipation_model.layer2.weight)
-        # jax.debug.print('bias layer2: {}', grads.dissipation_model.layer2.bias)
-        
+        loss_value, grads = eqx.filter_value_and_grad(loss)(NNmodel, features['train'], obs['train']) # BACKWARD AD        
         updates, opt_state = optim.update( grads, opt_state, NNmodel)
         NNmodel = eqx.apply_updates(NNmodel, updates)
         return NNmodel, opt_state, loss_value
@@ -62,6 +53,7 @@ def do_training(
         Test_loss.append(test_loss)
         Train_loss.append(train_loss)  
         if test_loss<minLoss:
+            # keep the best model
             minLoss = test_loss
             bestmodel = model
     
