@@ -34,7 +34,7 @@ point_loc = [-47.4,34.6]
 R = 5. # 5.0 
 
 # my forward model
-dt = 10.
+dt = 60.
 
 # NN hyper parameters
 LEARNING_RATE = 1e-2
@@ -83,7 +83,7 @@ dissipation_model = DissipationNN(subkey)
 # "ReZero"
 # dissipation_model = eqx.tree_at( lambda t:t.layer1.weight, dissipation_model, dissipation_model.layer1.weight/1e5)
 #dissipation_model = eqx.tree_at( lambda t:t.layer1.bias, dissipation_model, dissipation_model.layer1.bias*0.)
-dissipation_model = eqx.tree_at( lambda t:t.layer2.weight, dissipation_model, dissipation_model.layer2.weight*0.)
+dissipation_model = eqx.tree_at( lambda t:t.layer2.weight, dissipation_model, dissipation_model.layer2.weight*0.) # <- idea from Farchi et al. 2021
 dissipation_model = eqx.tree_at( lambda t:t.layer2.bias, dissipation_model, dissipation_model.layer2.bias*0.)
 # runtime
 # t0 = 0.0
