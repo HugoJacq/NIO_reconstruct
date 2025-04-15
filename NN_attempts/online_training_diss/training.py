@@ -45,8 +45,8 @@ def train(
         print_every: Int
             ):
     
-
-    opt_state = optim.init( model )
+    dynamic_model, static_model = my_partition(model)
+    opt_state = optim.init( dynamic_model )
 
     @eqx.filter_jit
     def make_step( model: jslab, opt_state: PyTree):
@@ -56,13 +56,15 @@ def train(
         #jax.debug.print('before grad compute K0: {}', dynamic_model.K0)
         
         # BACKWARD AD
+        print(dynamic_model)
+        
         loss_value, grads = eqx.filter_value_and_grad(loss)(dynamic_model, static_model, train_data)
         
         #jax.debug.print('dK0: {}', grads.K0)
-        jax.debug.print('weight layer1: {}', grads.dissipation_model.layer1.weight)
-        jax.debug.print('bias layer1: {}', grads.dissipation_model.layer1.bias)
-        jax.debug.print('weight layer2: {}', grads.dissipation_model.layer2.weight)
-        jax.debug.print('bias layer2: {}', grads.dissipation_model.layer2.bias)
+        # jax.debug.print('weight layer1: {}', grads.dissipation_model.layer1.weight)
+        # jax.debug.print('bias layer1: {}', grads.dissipation_model.layer1.bias)
+        # jax.debug.print('weight layer2: {}', grads.dissipation_model.layer2.weight)
+        # jax.debug.print('bias layer2: {}', grads.dissipation_model.layer2.bias)
         
         # FORWARD AD
         # grads = eqx.filter_jacfwd(loss)(dynamic_model, static_model, train_data)
@@ -80,8 +82,8 @@ def train(
         if (step % print_every) == 0 or (step == maxstep - 1):
             test_loss = evaluate(model, test_data)
             print(
-                f"{step=}, train_loss={train_loss.item()}, "
-                f"test_loss={test_loss.item()}"
+                f"{step=}, train_loss={train_loss.item()}, " # train loss of current epoch (uses the old model)
+                f"test_loss={test_loss.item()}" # test loss of next epoch (uses the new model)
             )
     return model
             
