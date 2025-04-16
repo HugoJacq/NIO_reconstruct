@@ -245,3 +245,6 @@ NN_attempts/From_LLMs/simple_NN_solve/__pycache__/ode_solver.cpython-311.pyc
 NN_attempts/From_LLMs/simple_NN_solve/__pycache__/training.cpython-311.pyc
 NN_attempts/online_training_diss/__pycache__/model.cpython-311.pyc
 NN_attempts/online_training_diss/__pycache__/training.cpython-311.pyc
+NN_attempts/offline_training_diss/__pycache__/model.cpython-311.pyc
+NN_attempts/offline_training_diss/__pycache__/training.cpython-311.pyc
+NN_attempts/offline_training_diss/best_RHS.pt
