@@ -248,3 +248,4 @@ NN_attempts/online_training_diss/__pycache__/training.cpython-311.pyc
 NN_attempts/offline_training_diss/__pycache__/model.cpython-311.pyc
 NN_attempts/offline_training_diss/__pycache__/training.cpython-311.pyc
 NN_attempts/offline_training_diss/best_RHS.pt
+NN_attempts/offline_training_diss/best_RHS_5000epochs.pt

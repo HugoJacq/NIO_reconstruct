@@ -15,7 +15,7 @@ def my_partition(model):
 
 def my_filter(model):
     filter_spec = jtu.tree_map(lambda tree: False, model) # keep nothing
-    #filter_spec = eqx.tree_at( lambda tree: tree.K, filter_spec, replace=True)
+    filter_spec = eqx.tree_at( lambda tree: tree.K, filter_spec, replace=True)
     filter_spec = eqx.tree_at( lambda tree: tree.dissipation, filter_spec, replace=True)
     return filter_spec
 

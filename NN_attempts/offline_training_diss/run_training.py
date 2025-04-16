@@ -17,12 +17,12 @@ I do 'resolvant correction' from Farchi et al. 2021 https://doi.org/10.1016/j.jo
             "A comparison of combined data assimilation and machine learning methods for offline and online model error correction"
 """
 
-TRAIN = True
+TRAIN = False
 
 # NN hyper parameters
 LEARNING_RATE = 1e-2
 SEED = 5678
-MAX_STEP = 200
+MAX_STEP = 5_000
 PRINT_EVERY = 10
 BATCH_SIZE = 100
 
@@ -66,7 +66,8 @@ train_data ={'dUdt' : dUdt[1:Ntime+1,:,:],
              'features'   : np.stack([n_Ug[:Ntime,:,:],
                                       n_Vg[:Ntime,:,:],
                                       n_TAx[:Ntime,:,:],
-                                      n_TAy[:Ntime,:,:]], axis=1),
+                                      n_TAy[:Ntime,:,:]
+                                      ], axis=1),
             }
 test_data ={'dUdt' : dUdt[Ntime+1:,:,:],
              'dVdt' : dUdt[Ntime+1:,:,:],
@@ -77,7 +78,8 @@ test_data ={'dUdt' : dUdt[Ntime+1:,:,:],
              'features'   : np.stack([n_Ug[Ntime:-1,:,:],
                                       n_Vg[Ntime:-1,:,:],
                                       n_TAx[Ntime:-1,:,:],
-                                      n_TAy[Ntime:-1,:,:]], axis=1),
+                                      n_TAy[Ntime:-1,:,:]
+                                      ], axis=1),
             }
 print("Train data shape :",train_data['U'].shape)
 print("Test data shape :",test_data['U'].shape)
@@ -120,7 +122,7 @@ if TRAIN:
 
 
 
-trained_model = eqx.tree_deserialise_leaves('./best_RHS.pt',        # <- getting the saved PyTree 
+trained_model = eqx.tree_deserialise_leaves('./best_RHS_5000epochs.pt',        # <- getting the saved PyTree 
                                             RHS(fc, K, mydissNN)    # <- here the call to RHS is just to get the structure
                                             )
 
@@ -128,7 +130,8 @@ trained_model = eqx.tree_deserialise_leaves('./best_RHS.pt',        # <- gettin
 RHS_U_inference = trained_model(U[-2], V[-2], TAx[-2], TAy[-2], np.stack([Ug[-2], 
                                                                           Vg[-2],
                                                                           TAx[-2],
-                                                                          TAy[-2]],axis=0))[0]
+                                                                          TAy[-2]
+                                                                          ],axis=0))[0]
 U_inf = U[-2] + dt*RHS_U_inference
 # print(dUdt[-1])
 # print(RHS_U_inference)
@@ -153,12 +156,13 @@ ax[1].pcolormesh(U_inf, vmin=-0.5, vmax=0.5)
 ax[1].set_title('estimated U (Euler) (at last time)')
 
 
-Nsteps = 24
+Nsteps = 20*24
 iinit = 0
 features = np.stack([Ug[iinit:iinit+Nsteps], 
                      Vg[iinit:iinit+Nsteps],
                      TAx[iinit:iinit+Nsteps],
-                     TAy[iinit:iinit+Nsteps]], axis=1)
+                     TAy[iinit:iinit+Nsteps]
+                     ], axis=1)
 forcing = TAx[iinit:iinit+Nsteps], TAy[iinit:iinit+Nsteps], features
 trajU, trajV = Forward_Euler((U[iinit],V[iinit]), forcing=forcing, RHS=trained_model, dt=dt, Nsteps=Nsteps)
 
@@ -171,8 +175,7 @@ ax[1].set_title(f'estimated U (Euler)at t={(Nsteps-1)*dt/3600}h')
 
 
 # check divergence with time
-L_err = []
-# trajU, trajV = Forward_Euler((U[iinit],V[iinit]), forcing=forcing, RHS=trained_model, dt=dt, Nsteps=Nsteps)
+
 errU = np.mean(np.abs( (U[iinit:iinit+Nsteps] - trajU)/U[iinit:iinit+Nsteps]), axis=(1,2)) *100
 errV = np.mean(np.abs( (V[iinit:iinit+Nsteps] - trajV)/V[iinit:iinit+Nsteps]), axis=(1,2)) *100
 
@@ -181,8 +184,8 @@ RHSt = jax.vmap(trained_model)(U[iinit:iinit+Nsteps],
                                TAx[iinit:iinit+Nsteps], 
                                TAy[iinit:iinit+Nsteps], 
                                features)
-errdUdt = np.mean(np.abs( (dUdt[iinit:iinit+Nsteps] - RHSt[0])/dUdt[iinit:iinit+Nsteps]), axis=(1,2)) *100
-errdVdt = np.mean(np.abs( (dVdt[iinit:iinit+Nsteps] - RHSt[1])/dVdt[iinit:iinit+Nsteps]), axis=(1,2)) *100
+errdUdt = np.mean(np.abs( (dUdt[iinit+1:iinit+Nsteps+1] - RHSt[0])/dUdt[iinit+1:iinit+Nsteps+1]), axis=(1,2)) *100
+errdVdt = np.mean(np.abs( (dVdt[iinit+1:iinit+Nsteps+1] - RHSt[1])/dVdt[iinit+1:iinit+Nsteps+1]), axis=(1,2)) *100
 # evolution of error with number of timestep
 fig, ax = plt.subplots(1,1,figsize = (10,5), constrained_layout=True,dpi=100)
 ax.plot(errU, label='errU (%)')
@@ -205,8 +208,15 @@ ax.set_xlabel('hours')
 
 # evolution of <dUdt>
 fig, ax = plt.subplots(1,1,figsize = (10,5), constrained_layout=True,dpi=100)
-ax.plot(U[iinit:iinit+Nsteps].mean(axis=(1,2)), label='true <dUdt>xy')
-ax.plot(trajU.mean(axis=(1,2)), label='estimated <dUdt>xy')
+ax.plot(np.arange(iinit+1,iinit+Nsteps+1), dUdt[iinit+1:iinit+Nsteps+1].mean(axis=(1,2)), label='true <dUdt>xy')
+ax.plot(np.arange(iinit+1,iinit+Nsteps+1), RHSt[0].mean(axis=(1,2)), label='estimated <dUdt>xy')
+ax.set_ylim([-0.00002,0.00002])
+ax.legend()
+ax.set_xlabel('hours')
+# evolution of <U>
+fig, ax = plt.subplots(1,1,figsize = (10,5), constrained_layout=True,dpi=100)
+ax.plot(U[iinit:iinit+Nsteps].mean(axis=(1,2)), label='true <U>xy')
+ax.plot(trajU.mean(axis=(1,2)), label='estimated <U>xy')
 ax.set_ylim([-0.3,0.3])
 ax.legend()
 ax.set_xlabel('hours')
