@@ -13,7 +13,6 @@ sys.path.insert(0, '../../src')
 os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false" # for jax
 import jax
 import jax.numpy as jnp
-import cdflib  # to read cdf files
 
 from models.classic_slab import jslab, jslab_kt, jslab_kt_2D, kt_ini, kt_1D_to_2D, pkt2Kt_matrix
 import forcing
