@@ -14,11 +14,11 @@ import xarray as xr
 sys.path.insert(0, '../src')
 os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false" # for jax
 
-os.environ["XLA_FLAGS"] = (
-    "--xla_gpu_enable_triton_gemm=true "
-    "--xla_gpu_enable_latency_hiding_scheduler=true "
-    "--xla_gpu_enable_highest_priority_async_stream=true "
-)
+# os.environ["XLA_FLAGS"] = (
+#     "--xla_gpu_enable_triton_gemm=true "
+#     "--xla_gpu_enable_latency_hiding_scheduler=true "
+#     "--xla_gpu_enable_highest_priority_async_stream=true "
+# )
 
 import jax
 import jax.numpy as jnp
@@ -210,7 +210,7 @@ if __name__ == "__main__":
         
         # model initialization
         classname = getattr(sys.modules[module_name], model_name)
-        mymodel = model_instanciation(model_name, myforcing, args_model, args_2D, call_args, extra_args)
+        mymodel = model_instanciation(model_name, myforcing, args_model, call_args, extra_args)
         var_dfx = inv.Variational(mymodel, myobservation, filter_at_fc=FILTER_AT_FC)
         
         if FORWARD_PASS:

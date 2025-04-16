@@ -393,7 +393,7 @@ def memory_profiler(mymodel):
     
     
 
-def model_instanciation(model_name, forcing, args_model, args_2D, call_args, extra_args):
+def model_instanciation(model_name, forcing, args_model, call_args, extra_args):
     """
     Wrapper of every model instanciation.
     
