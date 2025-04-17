@@ -11,7 +11,7 @@ matplotlib.use('qtagg')
 import sys
 import os
 import xarray as xr
-sys.path.insert(0, '../src')
+sys.path.insert(0, '../../src')
 os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false" # for jax
 
 # os.environ["XLA_FLAGS"] = (

@@ -249,3 +249,9 @@ NN_attempts/offline_training_diss/__pycache__/model.cpython-311.pyc
 NN_attempts/offline_training_diss/__pycache__/training.cpython-311.pyc
 NN_attempts/offline_training_diss/best_RHS.pt
 NN_attempts/offline_training_diss/best_RHS_5000epochs.pt
+experiments/map_of_K/__pycache__/functions.cpython-311.pyc
+experiments/map_of_K/__pycache__/map_of_pk.cpython-311.pyc
+src/__pycache__/Listes_models.cpython-311.pyc
+tests_models/__pycache__/Listes_models.cpython-311.pyc
+experiments/map_of_K/png_maps/tile_map_side5.0.png
+tests_models/__pycache__/Listes_models.cpython-311.pyc
