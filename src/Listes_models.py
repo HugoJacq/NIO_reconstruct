@@ -4,17 +4,15 @@ This module gathers list of names of modeles
 import sys, inspect
 from pprint import pprint
 
-sys.path.insert(0, '../src/models/')
-import classic_slab
-import unsteak
+import models.classic_slab as classic_slab
+import models.unsteak as unsteak
 
-sys.path.insert(0, '../src/')
 import tools
 
 # List of modules where models are declared.
 #   you also need to import them
 #   for e.g. : import unsteak
-L_modules = ['classic_slab','unsteak']
+L_modules = ['models.classic_slab','models.unsteak']
 """
 L_all
 
@@ -32,7 +30,7 @@ L_unsteak
 
 This list gather all unsteak models
 """
-L_unsteaks = tools.get_models_name_from_module('unsteak')
+L_unsteaks = tools.get_models_name_from_module('models.unsteak')
 
 
 
@@ -41,7 +39,7 @@ L_slab
 
 This list gather all slab models
 """
-L_slabs = tools.get_models_name_from_module('classic_slab')
+L_slabs = tools.get_models_name_from_module('models.classic_slab')
 
 
 
