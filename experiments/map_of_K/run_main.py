@@ -50,8 +50,8 @@ mini_args = {'maxiter':2,           # max number of iteration
 
 
 # Switches
-L_model_to_test             = ['junsteak_kt_2D_adv'] # L_all
-SAVE_PKs                    = True
+L_model_to_test             = ['junsteak_kt_2D'] # L_all
+SAVE_PKs                    = False
 SHOW_INFO                   = False                 # if SAVE_PKs
 path_save_pk = './pk_save/'
 
@@ -171,9 +171,7 @@ if __name__ == "__main__":
                 # forcing
                 myforcing = forcing.Forcing2D(dt_forcing, t0, t1, file, LON_bounds, LAT_bounds)
                 myobservation = observations.Observation2D(period_obs, t0, t1, dt_forcing, file, LON_bounds, LAT_bounds)
-                print(t0,t1)
-                print(myforcing.TAx.shape)
-                raise Exception
+
                 # model initialization
                 mymodel = model_instanciation(model_name, myforcing, args_model, call_args, extra_args)
                 var = inv.Variational(mymodel, myobservation, filter_at_fc=False)
@@ -222,8 +220,8 @@ if __name__ == "__main__":
                 pks[kx,ky] = L_pk[kx*ky]
                 
         
-        x = np.linspace(minLon,maxLon,Nx+1)
-        y = np.linspace(minLat,maxLat,Ny+1)
+        x = np.linspace(minLon,maxLon,Nx)
+        y = np.linspace(minLat,maxLat,Ny)
         
         fig, ax = plt.subplots(1,1,figsize = (10,10),constrained_layout=True,dpi=dpi)
         s = ax.pcolormesh(x,y, pks[:,:,-1,0].T, cmap='viridis') 

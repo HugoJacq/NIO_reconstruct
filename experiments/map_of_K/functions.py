@@ -171,7 +171,7 @@ def compute_and_save_pk(model, var, mini_args, tile_infos, path_save):
     # test if pk is here
 
     # minimize to find new pk
-    mymodel, _ = var.scipy_lbfgs_wrapper(model, maxiter, verbose=True)   
+    mymodel, _ = var.scipy_lbfgs_wrapper(model, maxiter, verbose=False)   
     # mymodel = model
     
     # save pk
