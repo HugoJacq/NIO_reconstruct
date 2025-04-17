@@ -195,7 +195,7 @@ class Variational:
             
 
         vector_k = my_combine_params(mymodel) #mymodel.pk
-        print(' intial pk',vector_k)
+        #print(' intial pk',vector_k)
         
         res = scipy.optimize.minimize(value_and_grad_for_scipy, 
                                             vector_k,
