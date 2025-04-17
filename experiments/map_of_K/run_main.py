@@ -96,7 +96,7 @@ period_obs          = oneday #86400      # s, how many second between observati
 os.system('mkdir -p '+path_save_png)
 
 if __name__ == "__main__": 
-    
+    time0 = clock.time()
     file = []
     for ifile in range(len(name_regrid)):
         file.append(path_regrid+name_regrid[ifile])
@@ -142,7 +142,7 @@ if __name__ == "__main__":
         # looping on each tiles
         k = 0
         for (point_loc, LON_bounds, LAT_bounds) in tqdm.tqdm(iter_bounds_mapper(R, dx=0.1, lon=lon, lat=lat),total=Nx*Ny,disable=SHOW_INFO):
-            t0 = clock.time()
+            
             """
             """
             
@@ -232,7 +232,7 @@ if __name__ == "__main__":
         ax.set_ylabel('Lat')
         ax.set_title(model_name+': K0, last dT')
     
-    
+        print(f'total execution time: {clock.time() - time0}')
     plt.show()
         
         
