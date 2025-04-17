@@ -14,6 +14,7 @@ import xarray as xr
 sys.path.insert(0, '../../src')
 os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false" # for jax
 import time as clock
+import tqdm
 
 # THIS NEEDS TO BE MERGED INTO A CLEAN SOLUTION
 from Listes_models import *
@@ -24,7 +25,7 @@ import inv
 from constants import *
 
 
-from functions import model_instanciation, iter_bounds_mapper, compute_and_save_pk
+from functions import model_instanciation, iter_bounds_mapper, compute_and_save_pk, number_of_tile
 
 
 # ===========================================================================
@@ -48,13 +49,10 @@ mini_args = {'maxiter':2,           # max number of iteration
              }
 
 
-ON_PAPA             = False      # use PAPA station data, only for 1D models
-FILTER_AT_FC        = False      # minimize filtered ageo current with obs if model has this option
-IDEALIZED_RUN       = False       # try the model on a step wind stress
-
 # Switches
 L_model_to_test             = ['junsteak_kt_2D_adv'] # L_all
-
+SAVE_PKs                    = True
+SHOW_INFO                   = False                 # if SAVE_PKs
 path_save_pk = './pk_save/'
 
 # PLOT
@@ -104,9 +102,11 @@ if __name__ == "__main__":
         file.append(path_regrid+name_regrid[ifile])
         
 
-    
-    ### WARNINGS
     dsfull = xr.open_mfdataset(file)
+    lon = dsfull.lon.values
+    lat = dsfull.lat.values
+    print(t0,t1)
+    ### WARNINGS
     # warning about t1>length of forcing
     if t1 > len(dsfull.time)*dt_forcing:
         print(f'You chose to run the model for t1={t1//oneday} days but the forcing is available up to t={len(dsfull.time)*dt_forcing//oneday} days\n'
@@ -118,78 +118,119 @@ if __name__ == "__main__":
     print('Running: tests_models.py')   
     print('**************')
     print('full Croco domain:')
-    print(f'        LON min {np.round(np.min(dsfull.lon.values),2)}, max {np.round(np.max(dsfull.lon.values),2)}')
-    print(f'        LAT min {np.round(np.min(dsfull.lat.values),2)}, max {np.round(np.max(dsfull.lat.values),2)}')
+    print(f'        LON min {np.round(np.min(lon),2)}, max {np.round(np.max(lon),2)}')
+    print(f'        LAT min {np.round(np.min(lat),2)}, max {np.round(np.max(lat),2)}')
     print(f"if multi layer, nl={args_model['Nl']}")
     print('**************\n')
-    
-    
-    model_name = 'jslab_kt_2D'
-    
-    
-    
-    
-    # map of tiles
-    fig, ax = plt.subplots(1,1,figsize = (10,6),constrained_layout=True,dpi=dpi)
-    ax.scatter(np.round(np.min(dsfull.lon.values),2),np.round(np.min(dsfull.lat.values),2))
-    ax.add_patch(matplotlib.patches.Rectangle(
-                                    (np.round(np.min(dsfull.lon.values),2),np.round(np.min(dsfull.lat.values),2)), 
-                                    np.round(np.max(dsfull.lon.values),2) - np.round(np.min(dsfull.lon.values),2), 
-                                    np.round(np.max(dsfull.lat.values),2) - np.round(np.min(dsfull.lat.values),2),
-                                    fill=False,
-                                    edgecolor='k'
-                                    ),
-                 )
-    ax.set_title(f'tile map for side={2*R}°')    
-    ax.set_aspect(1)
-    
-    # looping on each tiles
-    k = 0
-    for (point_loc, LON_bounds, LAT_bounds) in iter_bounds_mapper(R, dx=0.1, lon=dsfull.lon.values, lat=dsfull.lat.values):
-        t0 = clock.time()
-        """
-        """
-        
-        # print some infos
-               
-        print(f'k={k}, center of tile is {np.round(point_loc[0],2)}°E,{np.round(point_loc[1],2)}°N')
-        print(f'       LON_bounds {np.round(LON_bounds[0],2)} -> {np.round(LON_bounds[1],2)}')
-        print(f'       LAT_bounds {np.round(LAT_bounds[0],2)} -> {np.round(LAT_bounds[1],2)}\n')
-        tile_infos = k, point_loc, LON_bounds, LAT_bounds
-        
-        # add rectangle on global figure
-        ax.add_patch(matplotlib.patches.Rectangle(
-                                    (LON_bounds[0],LAT_bounds[0]), 
-                                    LON_bounds[1] - LON_bounds[0], 
-                                    LAT_bounds[1] - LAT_bounds[0],
-                                    fill=False,
-                                    edgecolor='r'
-                                    ))
-        ax.annotate(str(k), (point_loc[0],point_loc[1]), c='r')
-        
-        # loop on models
-        for model_name in L_model_to_test:
-            if model_name not in L_2D_models:
-                raise Exception(f'model {model_name} is not 2D, aborting...')
-            
-            # forcing
-            myforcing = forcing.Forcing2D(dt_forcing, t0, t1, file, LON_bounds, LAT_bounds)
-            myobservation = observations.Observation2D(period_obs, t0, t1, dt_forcing, file, LON_bounds, LAT_bounds)
+    Nx, Ny = number_of_tile(R, lon, lat)
 
-            # model initialization
-            mymodel = model_instanciation(model_name, myforcing, args_model, call_args, extra_args)
-            var = inv.Variational(mymodel, myobservation, filter_at_fc=False)
-           
-            # minimize and save pk
-            compute_and_save_pk(mymodel, var, mini_args, tile_infos, path_save_pk)
-            
-            k=k+1
+    if SAVE_PKs:
+        # map of tiles
+        fig, ax = plt.subplots(1,1,figsize = (10,6),constrained_layout=True,dpi=dpi)
+        ax.scatter(np.round(np.min(lon),2),np.round(np.min(lat),2))
+        ax.add_patch(matplotlib.patches.Rectangle(
+                                        (np.round(np.min(lon),2),np.round(np.min(lat),2)), 
+                                        np.round(np.max(lon),2) - np.round(np.min(lon),2), 
+                                        np.round(np.max(lat),2) - np.round(np.min(lat),2),
+                                        fill=False,
+                                        edgecolor='k'
+                                        ),
+                    )
+        ax.set_title(f'tile map for side={2*R}°')    
+        ax.set_aspect(1)
         
-    fig.savefig(path_save_png+f'tile_map_side{2*R}.png')
+        # looping on each tiles
+        k = 0
+        for (point_loc, LON_bounds, LAT_bounds) in tqdm.tqdm(iter_bounds_mapper(R, dx=0.1, lon=lon, lat=lat),total=Nx*Ny,disable=SHOW_INFO):
+            t0 = clock.time()
+            """
+            """
+            
+            # print some infos
+            if SHOW_INFO:
+                print(f'k={k}, center of tile is {np.round(point_loc[0],2)}°E,{np.round(point_loc[1],2)}°N')
+                print(f'       LON_bounds {np.round(LON_bounds[0],2)} -> {np.round(LON_bounds[1],2)}')
+                print(f'       LAT_bounds {np.round(LAT_bounds[0],2)} -> {np.round(LAT_bounds[1],2)}\n')
+            tile_infos = k, point_loc, LON_bounds, LAT_bounds
+            
+            # add rectangle on global figure
+            ax.add_patch(matplotlib.patches.Rectangle(
+                                        (LON_bounds[0],LAT_bounds[0]), 
+                                        LON_bounds[1] - LON_bounds[0], 
+                                        LAT_bounds[1] - LAT_bounds[0],
+                                        fill=False,
+                                        edgecolor='r'
+                                        ))
+            ax.annotate(str(k), (point_loc[0],point_loc[1]), c='r')
+            
+            # loop on models
+            for model_name in L_model_to_test:
+                if model_name not in L_2D_models:
+                    raise Exception(f'model {model_name} is not 2D, aborting...')
+                
+                # forcing
+                myforcing = forcing.Forcing2D(dt_forcing, t0, t1, file, LON_bounds, LAT_bounds)
+                myobservation = observations.Observation2D(period_obs, t0, t1, dt_forcing, file, LON_bounds, LAT_bounds)
+                print(t0,t1)
+                print(myforcing.TAx.shape)
+                raise Exception
+                # model initialization
+                mymodel = model_instanciation(model_name, myforcing, args_model, call_args, extra_args)
+                var = inv.Variational(mymodel, myobservation, filter_at_fc=False)
+            
+                # minimize and save pk
+                compute_and_save_pk(mymodel, var, mini_args, tile_infos, path_save_pk)
+                
+                k=k+1
+            
+        fig.savefig(path_save_png+f'tile_map_side{2*R}.png')
     
     
     
     # plots
+    print('* Plotting')
+    for model_name in L_model_to_test:
+        path_data = 'pk_save/'+model_name+'/'
+                
+        # getting back the data
+        L_pk = []
+        for k in range(Nx*Ny):
+            L_pk.append(np.load(path_data+f'{k}.npy'))
+        NdT, npk = L_pk[0].shape
+           
+        L_infos_loc = []
+        
+        minLon,maxLon = 0.,-180.
+        minLat,maxLat = 90.,0.
+        for line in open(path_data+'link.txt'):
+            myline = line.split(',')
+            parsed = [float(str) for str in myline]
+            point_loc = (parsed[1],parsed[2])
+            LON_bounds = (parsed[3],parsed[4])
+            LAT_bounds = (parsed[5],parsed[6])
+            if parsed[3]<minLon: minLon=parsed[3]
+            if parsed[4]>maxLon: maxLon=parsed[4]
+            if parsed[5]<minLat: minLat=parsed[5]
+            if parsed[6]>maxLat: maxLat=parsed[6]
+            
+            
+            L_infos_loc.append([point_loc, LON_bounds, LAT_bounds])
+        
+        pks = np.zeros((Nx, Ny, NdT, npk))
+        for kx in range(Nx):
+            for ky in range(Ny):
+                pks[kx,ky] = L_pk[kx*ky]
+                
+        
+        x = np.linspace(minLon,maxLon,Nx+1)
+        y = np.linspace(minLat,maxLat,Ny+1)
+        
+        fig, ax = plt.subplots(1,1,figsize = (10,10),constrained_layout=True,dpi=dpi)
+        s = ax.pcolormesh(x,y, pks[:,:,-1,0].T, cmap='viridis') 
+        plt.colorbar(s,ax=ax)
+        ax.set_xlabel('Lon')
+        ax.set_ylabel('Lat')
+        ax.set_title(model_name+': K0, last dT')
     
     
     plt.show()

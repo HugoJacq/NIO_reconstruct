@@ -6,10 +6,11 @@ Functions that tile the Croco simulation domain into a map.
 import jax.numpy as jnp
 import numpy as np
 import os
+from Listes_models import L_slabs
 
 import models.classic_slab as classic_slab
 import models.unsteak as unsteak
-from basis import kt_ini
+from basis import kt_ini, kt_1D_to_2D
 
 def model_instanciation(model_name, forcing, args_model, call_args, extra_args):
     """
@@ -68,6 +69,15 @@ def model_instanciation(model_name, forcing, args_model, call_args, extra_args):
     
     return model
 
+
+def number_of_tile(R, lon, lat):
+    Side = 2*R 
+    Lx = np.max(lon) - np.min(lon)
+    Ly = np.max(lat) - np.min(lat)
+    Nx = int(Lx//Side)
+    Ny = int(Ly//Side)
+    return Nx, Ny
+    
 def iter_bounds_mapper(R, dx, lon, lat):
     """
     This function is an iterator: each time it is called it will give dimensions of a new box of side 2*R 
@@ -130,7 +140,12 @@ def save_pk_tile(model,
     os.system('mkdir -p '+path_save+model_name)
     
     # write in a file
-    np.save(path_save+model_name+f'/{k}.npy', model.pk)
+    if model_name in L_slabs:
+        npk=2
+    else:
+        npk=2*model.nl
+    mypk = kt_1D_to_2D(model.pk, model.NdT, npk)
+    np.save(path_save+model_name+f'/{k}.npy', mypk)
     
     # write 1 file with link indice k with lat/lon bounds
     file_name_link = 'link'
@@ -156,8 +171,8 @@ def compute_and_save_pk(model, var, mini_args, tile_infos, path_save):
     # test if pk is here
 
     # minimize to find new pk
-    # mymodel, _ = var.scipy_lbfgs_wrapper(model, maxiter, verbose=True)   
-    mymodel = model
+    mymodel, _ = var.scipy_lbfgs_wrapper(model, maxiter, verbose=True)   
+    # mymodel = model
     
     # save pk
     save_pk_tile(mymodel, tile_infos, path_save)
