@@ -43,7 +43,7 @@ mini_args = {'maxiter':100,           # max number of iteration
              }
 
 # Switches
-L_model_to_test             = ['jslab_kt_2D','junsteak_kt_2D'] # L_all jslab_kt_2D junsteak_kt_2D
+L_model_to_test             = ['jslab_kt_2D','junsteak_kt_2D','junsteak_kt_2D_adv'] # jslab_kt_2D junsteak_kt_2D junsteak_kt_2D_adv
 SAVE_PKs                    = False
 SHOW_INFO                   = False                 # if SAVE_PKs
 path_save_pk = './pk_save/'
