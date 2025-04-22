@@ -207,6 +207,10 @@ class Variational:
         
         new_k = jnp.asarray(res['x'])
         mymodel = eqx.tree_at( lambda tree:tree.pk, mymodel, new_k)
+        
+        if res.nit==maxiter:
+            print('     minimisation: maxiter has been reached, converged might not be achieved')
+        
         #mymodel = my_replace(mymodel, new_k)
         if verbose:
             dynamic_model, static_model = my_partition(mymodel)
