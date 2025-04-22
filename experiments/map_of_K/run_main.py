@@ -8,6 +8,8 @@ import time as clock
 import matplotlib.pyplot as plt
 import matplotlib
 matplotlib.use('qtagg')
+import cartopy.crs as ccrs
+import cartopy.feature as cfeature
 import sys
 import os
 import xarray as xr
@@ -50,15 +52,17 @@ mini_args = {'maxiter':2,           # max number of iteration
 
 
 # Switches
-L_model_to_test             = ['junsteak_kt_2D'] # L_all
+L_model_to_test             = ['junsteak_kt_2D'] # L_all jslab_kt_2D junsteak_kt_2D
 SAVE_PKs                    = False
 SHOW_INFO                   = False                 # if SAVE_PKs
 path_save_pk = './pk_save/'
 
 # PLOT
+idT = -1                    # which K value to plot (which dT segment)
+background_var = 'Ug'       # what contour to plot: Ug, gradMg (norme)
+background_time = -1        # date of background data
 dpi=200
 path_save_png = './png_maps/'
-
 # =================================
 # Forcing, OSSE and observations
 # =================================
@@ -124,6 +128,7 @@ if __name__ == "__main__":
     print('**************\n')
     Nx, Ny = number_of_tile(R, lon, lat)
 
+    #=====================================================
     if SAVE_PKs:
         # map of tiles
         fig, ax = plt.subplots(1,1,figsize = (10,6),constrained_layout=True,dpi=dpi)
@@ -185,7 +190,7 @@ if __name__ == "__main__":
     
     
     
-    # plots
+    #=====================================================
     print('* Plotting')
     for model_name in L_model_to_test:
         path_data = 'pk_save/'+model_name+'/'
@@ -194,10 +199,14 @@ if __name__ == "__main__":
         L_pk = []
         for k in range(Nx*Ny):
             L_pk.append(np.load(path_data+f'{k}.npy'))
+
         NdT, npk = L_pk[0].shape
-           
+        pks = np.zeros((Ny, Nx, NdT, npk))
+        for kx in range(Nx):
+            for ky in range(Ny):
+                pks[ky,kx] = L_pk[kx*Ny+ky]
+                
         L_infos_loc = []
-        
         minLon,maxLon = 0.,-180.
         minLat,maxLat = 90.,0.
         for line in open(path_data+'link.txt'):
@@ -210,50 +219,68 @@ if __name__ == "__main__":
             if parsed[4]>maxLon: maxLon=parsed[4]
             if parsed[5]<minLat: minLat=parsed[5]
             if parsed[6]>maxLat: maxLat=parsed[6]
-            
-            
             L_infos_loc.append([point_loc, LON_bounds, LAT_bounds])
-        
-        pks = np.zeros((Nx, Ny, NdT, npk))
-        for kx in range(Nx):
-            for ky in range(Ny):
-                pks[kx,ky] = L_pk[kx*ky]
                 
+        x = np.linspace(minLon,maxLon,Nx+1)
+        y = np.linspace(minLat,maxLat,Ny+1)
         
-        x = np.linspace(minLon,maxLon,Nx)
-        y = np.linspace(minLat,maxLat,Ny)
+             
+        if background_var=='Ug':
+            data_bck = dsfull.Ug.isel(time=background_time).values
+            levels = [-0.8,-0.6,-0.4,-0.2,
+                      0.2,0.4,0.6,0.8]   # m/s
+            bck_cmap = 'seismic'
+        elif background_var=='gradMg':
+            dx,dy = 0.1,0.1
+            Mg = np.sqrt(dsfull.Ug.isel(time=background_time).values**2 + dsfull.Vg.isel(time=background_time).values**2)   
+            dMgdx = np.gradient(Mg, dx, axis=-1)
+            dMgdy = np.gradient(Mg, dy, axis=-2)
+            gradMg = np.sqrt(dMgdx**2+dMgdy**2)
+            data_bck = gradMg
+            levels = [1., 1.5, 2.] # in m/s per degree
+            bck_cmap = 'plasma'
+            
+            
+        proj = ccrs.PlateCarree()
+        data_crs = ccrs.PlateCarree()
         
-        fig, ax = plt.subplots(1,1,figsize = (10,10),constrained_layout=True,dpi=dpi)
-        s = ax.pcolormesh(x,y, pks[:,:,-1,0].T, cmap='viridis') 
-        plt.colorbar(s,ax=ax)
-        ax.set_xlabel('Lon')
-        ax.set_ylabel('Lat')
-        ax.set_title(model_name+': K0, last dT')
+        pkmax = pks[:,:,idT,:].max()
+        pkmin = pks[:,:,idT,:].min()
+        
+        for ipk in range(npk):
+            fig = plt.figure(figsize=(10, 5),constrained_layout=True,dpi=dpi)
+            ax = plt.subplot(111, projection=proj)
+            s = ax.pcolormesh(x,y, pks[:,:,idT,ipk], cmap='viridis',vmin=pkmin,vmax=pkmax) #, transform=data_crs) 
+            ax.contour(lon,lat,data_bck, transform=data_crs, levels=levels, cmap=bck_cmap)
+            plt.colorbar(s,ax=ax)
+            # for ky in range(Ny):
+            #     for kx in range(Nx):
+            #         index = kx*Ny+ky
+            #         ax.annotate(f'{np.round(L_infos_loc[index][0][0],2)}'+'\n'+f'{np.round(L_infos_loc[index][0][1],2)}',
+            #                     (x[kx],y[ky]))
+            ax.coastlines()
+            ax.add_feature(cfeature.LAND, zorder=1, edgecolor='k')      # hide values on land
+            ax.set_extent([minLon, maxLon, minLat, maxLat], crs=proj)
+            gl = ax.gridlines(draw_labels=True, crs=proj)
+            gl.top_labels = False
+            gl.right_labels = False
+            
+            ax.set_xlabel('Lon')
+            ax.set_ylabel('Lat')
+            
+            mytime = dsfull.time[background_time].values.astype('datetime64[s]').astype(object)
+            if idT==-1:
+                idt = NdT-1
+            ax.set_title(model_name+f': K{ipk}/{npk-1}, dT{idt}/{NdT-1}, '+mytime.strftime('%H:%M:%S %d-%m-%Y '))
+        
+
+            fig.savefig(path_save_png + model_name + f'_K{ipk}_dT{idt}_with_{background_var}.png')
+        
+        
     
         print(f'total execution time: {clock.time() - time0}')
     plt.show()
-        
-        
-        
-        
-    """
-    I need to make a map of LAT_bounds and LON_bounds, then apply the minimization on each to find the vector K.
-    1 month can be targeted, and we can show the (time) mean of a component of K.
-    
-    dTK = 10days -> 3 values for 1 month
-    
-    jslab_kt_2D -> 2 components
-    junsteak_kt_2D -> 4 components
-    
-    SAVE THE K VALUES, as the minimize step of all tiles will be quite long
-    
-    To compare with: 
-    maps at the same resolution (2*R) of physical quantities:
-    - dUdx
-    - MLD
-    - Tau
-    
-    """
+
    
 
 
