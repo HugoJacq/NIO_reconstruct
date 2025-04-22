@@ -1,18 +1,49 @@
 import xarray as xr
+import numpy as np
 import matplotlib.pyplot as plt
+import cartopy.crs as ccrs
+import cartopy.feature as cfeature
+import cmocean
 
-namefile = 'croco_1h_inst_surf_2005-07-01-2005-07-31.nc'
-file_path_HR = '/ODYSEA2/Lionel_coupled_run/' + namefile
-file_path_LR = '../data_regrid/' + namefile
+# INPUTS
+namefile = 'croco_1h_inst_surf_2005-07-01-2005-07-31'
+file_path_HR = '/ODYSEA2/Lionel_coupled_run/' + namefile + '.nc'
+file_path_LR = '../data_regrid/' + namefile + '_0.1deg_conservative.nc'
+vmin=-1
+vmax=1
+cmap=cmocean.cm.deep_r
+idt = -1
+proj = ccrs.PlateCarree()
+data_crs = ccrs.PlateCarree()
 
-
+# opening files
 dsHR = xr.open_dataset(file_path_HR)
 dsLR = xr.open_dataset(file_path_LR)
+dsLR['Ut'] = dsLR['Ug']+dsLR['U']
 
-print(dsHR)
 
-print(dsLR)
+lonmin,lonmax = np.min(dsLR.lon), np.max(dsLR.lon)
+latmin,latmax = np.min(dsLR.lat), np.max(dsLR.lat)
 
-fig, ax = plt.subplots(1,2,figsize = (10,10),constrained_layout=True,dpi=200)
+
+fig = plt.figure(figsize=(10, 3),constrained_layout=True, dpi=200)
+ax1 = plt.subplot(121, projection=proj)
+ax1.pcolormesh(dsHR.nav_lon_rho, dsHR.nav_lat_rho, dsHR['u'][idt], cmap=cmap, vmin=vmin, vmax=vmax)
+ax2 = plt.subplot(122, projection=proj)
+s = ax2.pcolormesh(dsLR.lon, dsLR.lat, dsLR['Ut'][idt], cmap=cmap, vmin=vmin, vmax=vmax)
+plt.colorbar(s,ax=ax2, aspect=50)
+
+
+
+for axe in [ax1,ax2]:
+    axe.coastlines()
+    axe.add_feature(cfeature.LAND, zorder=1, edgecolor='k')      # hide values on land
+    axe.set_extent([lonmin, lonmax, latmin, latmax], crs=proj)
+    gl = axe.gridlines(draw_labels=True, crs=proj, alpha=0.5)
+    gl.top_labels = False
+    gl.right_labels = False
+gl.left_labels = False
+
+fig.savefig('nice_plot_Ut.png')
 
 plt.show()
