@@ -11,6 +11,7 @@ os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false" # for jax
 import numpy as np
 import xarray as xr
 import matplotlib.pyplot as plt
+import equinox as eqx
 
 from map_of_K.functions import compute_and_save_pk
 from tests_models.tests_functions import model_instanciation
@@ -42,7 +43,7 @@ mini_args = {'maxiter':100,           # max number of iteration
              }
 
 # Switches
-L_model_to_test             = ['jslab_kt_2D'] # L_all jslab_kt_2D junsteak_kt_2D
+L_model_to_test             = ['jslab_kt_2D','junsteak_kt_2D'] # L_all jslab_kt_2D junsteak_kt_2D
 SAVE_PKs                    = False
 SHOW_INFO                   = False                 # if SAVE_PKs
 path_save_pk = './pk_save/'
@@ -128,17 +129,12 @@ if __name__ == "__main__":
     # apply rotatry spectra on each cell, then average all of them.
     # plot spectra and score, Rmse
     
-    """
-    To do: define proper RMSE, rotary spectra
-    """
-    for model_name in L_model_to_test:
-        
-        """
-        Here I need to open the saved pks ! else its the default pk from model_instanciation that is used ...
-        
-        """
+    for model_name in L_model_to_test:  
         
         mymodel = model_instanciation(model_name, myforcing, args_model, call_args, extra_args)
+        # replacing control parameters
+        pk = np.load(path_save_pk + model_name + '/0.npy') 
+        mymodel = eqx.tree_at(lambda t:t.pk, mymodel, pk.flatten())
         
         sol = mymodel()
         if model_name in L_nlayers_models:
@@ -147,21 +143,26 @@ if __name__ == "__main__":
         truth = myobservation.U, myobservation.V
         nt, ny, nx = sol[0].shape        
         
-        ff, MPr2, MPr1, MPe2, MPe1 = rotary_spectra_2D(1., sol[0], sol[1], truth[0], truth[1])
+        RMSE = np.mean( np.sqrt( (sol[0]-truth[0])**2 + (sol[1]-truth[1])**2))
+        
+        ff, MPr2, MPr1, MPe2, MPe1 = rotary_spectra_2D(onehour, sol[0], sol[1], truth[0], truth[1])
+        mean_fc = 2*2*np.pi/86164*np.sin(point_loc[1]*np.pi/180)
         fig, axs = plt.subplots(2,1,figsize=(7,6), gridspec_kw={'height_ratios': [4, 1.5]})
-        axs[0].loglog(ff,MPr2, c='k', label='reference')
-        axs[0].loglog(ff,MPe2, c='b', label='error')
+        axs[0].loglog(ff/mean_fc,MPr2, c='k', label='reference')
+        axs[0].loglog(ff/mean_fc,MPe2, c='b', label='error (model - truth)')
         #axs[0].axis([2e-3,2e-1, 1e-4,2e0])
         axs[0].grid('on', which='both')
-        plt.xlabel('hours-1')
+        plt.xlabel(r'f/$f_c$')
         axs[0].legend()
-        axs[0].title.set_text('Clockwise PSD 15m', )
+        axs[0].set_ylabel('Clockwise PSD')
+        axs[0].title.set_text(model_name +f', RMSE={np.round(RMSE,5)}')
 
-        axs[1].semilogx(ff,(1-MPe2/MPr2)*100, c='b', label='Reconstruction Score')
-        axs[1].axis([2e-3,2e-1,0,100])
+        axs[1].semilogx(ff/mean_fc,(1-MPe2/MPr2)*100, c='b', label='Reconstruction Score')
+        #axs[1].axis([2e-3,2e-1,0,100])
+        axs[1].set_ylim([0,100])
         axs[1].grid('on', which='both')
-        axs[1].title.set_text('Scores (%)')
-        #fig.savefig('diag.png')
+        axs[1].set_ylabel('Scores (%)')
+        fig.savefig(path_save_png + model_name + '_diag.png')
         
         xtime = np.arange(t0,t1,dt_forcing)/oneday
         fig, ax = plt.subplots(1,1 , figsize=(10,6), constrained_layout=True)

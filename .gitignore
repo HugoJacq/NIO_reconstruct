@@ -425,3 +425,5 @@ experiments/scores/pk_save/jslab_kt_2D/0.npy
 experiments/scores/pk_save/jslab_kt_2D/link.txt
 experiments/scores/pk_save/junsteak_kt_2D/0.npy
 experiments/scores/pk_save/junsteak_kt_2D/link.txt
+experiments/scores/png_scores/jslab_kt_2D_diag.png
+experiments/scores/png_scores/junsteak_kt_2D_diag.png
