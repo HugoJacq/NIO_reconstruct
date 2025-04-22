@@ -928,7 +928,7 @@ class junsteak_kt_2D_adv(eqx.Module):
                             U[0,5,5]*gradUgnow[0][5,5], 
                             V[0,5,5]*gradUgnow[1][5,5])
             #jax.debug.print("d_U, Coriolis, stress, damping: {}, {}, {}, {}", d_U[1,5,5], fc[5]*V[0,5,5], Ktnow[0]*TAxnow[5,5], - Ktnow[1]*(U[0,5,5]))
-        jax.lax.cond(it<=2, cond_print, lambda:None)
+        # jax.lax.cond(it<=2, cond_print, lambda:None)
         
         if True:
             d_U = d_U - ( U*gradUgnow[0] + V*gradUgnow[1] )

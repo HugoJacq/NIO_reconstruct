@@ -5,6 +5,7 @@ import xarray as xr
 import numpy as np
 
 from tools import nearest, my_fc_filter, open_PAPA_station_file
+from constants import distance_1deg_equator
 
 class Observation1D:
     """
@@ -81,6 +82,8 @@ class Observation2D:
         self.Ug,self.Vg = self.data.Ug.values,self.data.Vg.values
         self.dt_forcing = dt_forcing
         self.obs_period = periode_obs
+        self.dx_deg,self.dy_deg = 0.1, 0.1
+        self.dx,self.dy = self.dx_deg*distance_1deg_equator, self.dy_deg*distance_1deg_equator
         
         self.time_obs = np.arange(0, len(self.data.time)*dt_forcing,periode_obs)
 

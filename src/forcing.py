@@ -9,12 +9,12 @@ import matplotlib.pyplot as plt
 # import cdflib
  
 from tools import nearest, open_PAPA_station_file
-from constants import rho
+from constants import rho, distance_1deg_equator
 
 
 class Forcing1D:
     """
-    Forcing fields for 'Unstek1D' 1D models
+    Forcing fields for 1D models
     
     point_loc   : [LON,LAT] location of the experiment
     dt_forcing  : time step of forcing
@@ -40,8 +40,7 @@ class Forcing1D:
         
 class Forcing2D:
     """
-    Forcing fields for :
-        - 'jUnstek1D_Kt_spatial' 2D models
+    Forcing fields for 2D models
         
     dt_forcing  : time step of forcing
     path_file   : path to regrided dataset with forcing fields (stress) 
@@ -56,7 +55,8 @@ class Forcing2D:
         itmin = nearest(time_a, t0)
         itmax = nearest(time_a, t1)
         ds = ds.isel(time=slice(itmin,itmax))     
-        self.dx,self.dy = 0.1, 0.1
+        self.dx_deg,self.dy_deg = 0.1, 0.1
+        self.dx,self.dy = self.dx_deg*distance_1deg_equator, self.dy_deg*distance_1deg_equator
         self.data = ds.sel(lon=slice(LON_bounds[0],LON_bounds[1]),lat=slice(LAT_bounds[0],LAT_bounds[1]))
         self.U,self.V,self.MLD = self.data.U.values,self.data.V.values,self.data.MLD
         self.Ug, self.Vg = self.data.Ug.values, self.data.Vg.values
@@ -65,8 +65,6 @@ class Forcing2D:
         self.nt = len(self.data.time)
         self.time = np.arange(0,self.nt*dt_forcing,dt_forcing)
         self.dt_forcing = dt_forcing
-        self.dx = 0.1
-        self.dy = 0.1
         
 class Forcing_from_PAPA:
     """

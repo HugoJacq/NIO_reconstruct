@@ -1010,8 +1010,6 @@ class jslab_kt_Ue_Unio(eqx.Module):
         d_y = d_U,d_V
         return d_y
 
-
-# TO BE TESTED
 class jslab_kt_2D_adv(eqx.Module):
     # control vector
     pk : jnp.ndarray
@@ -1078,6 +1076,8 @@ class jslab_kt_2D_adv(eqx.Module):
         Kt = jnp.dot(M,K)
         
         # compute gradient of geostrophy
+        print(self.dx, self.dy)
+        
         gradUgt, gradVgt = compute_hgrad(self.Ug, self.dx, self.dy), compute_hgrad(self.Vg, self.dx, self.dy)
         
         args = self.fc, Kt, self.TAx, self.TAy, gradUgt, gradVgt, nsubsteps
@@ -1171,14 +1171,14 @@ class jslab_kt_2D_adv(eqx.Module):
         
         
         # physic
-        d_U =  fc*V + Ktnow[0]*TAxt - Ktnow[1]*U - (U*gradUgt[0] + V*gradUgt[1]) # Ktnow[0]*
-        d_V = -fc*U + Ktnow[0]*TAyt - Ktnow[1]*V - (U*gradVgt[0] + V*gradVgt[1]) # Ktnow[0]*
+        d_U =  fc*V + Ktnow[0]*TAxt - Ktnow[1]*U - (U*gradUgt[0] + V*gradUgt[1])
+        d_V = -fc*U + Ktnow[0]*TAyt - Ktnow[1]*V - (U*gradVgt[0] + V*gradVgt[1])
         d_y = d_U,d_V
         
         # def cond_print(it):
         #     jax.debug.print("d_U, Coriolis, stress, damping, adv: {}, {}, {}, {}, {}", d_U[0,0], fc[0]*V[0,0], Ktnow[0]*TAxt[0,0], - Ktnow[1]*U[0,0], - Ktnow[0]*(U[0,0]*gradUgt[0][0,0] + V[0,0]*gradUgt[1][0,0]))
-        # jax.lax.cond(it<=70, cond_print, lambda x:None, it)
-        # print(U.shape, TAx.shape)
+        # jax.lax.cond(it<=5, cond_print, lambda x:None, it)
+        #print(U.shape, TAx.shape)
         
         return d_y 
 

@@ -11,7 +11,7 @@ matplotlib.use('qtagg')
 import sys
 import os
 import xarray as xr
-sys.path.insert(0, '../../src')
+sys.path.insert(0, '../src')
 os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false" # for jax
 
 # os.environ["XLA_FLAGS"] = (
@@ -28,8 +28,7 @@ import equinox as eqx
 #jax.config.update("jax_transfer_guard", "log_explicit") 
 
 # my inmports
-from models.classic_slab import jslab, jslab_Ue_Unio, jslab_kt, jslab_kt_2D, jslab_kt_2D_adv_Ut, jslab_rxry, jslab_kt_Ue_Unio, jslab_kt_2D_adv
-from models.unsteak import junsteak, junsteak_kt, junsteak_kt_2D, junsteak_kt_2D_adv
+from models import classic_slab, unsteak
 from basis import kt_ini
 
 import forcing
@@ -62,10 +61,10 @@ dt                  = 60.           # timestep of the model (s)
 # What to test
 PLOT_TRAJ           = True      # Show a trajectory
 FORWARD_PASS        = False      # How fast the model is running ?
-MINIMIZE            = False      # Does the model converges to a solution ?
-maxiter             = 2        # if MINIMIZE: max number of iteration
+MINIMIZE            = True      # Does the model converges to a solution ?
+maxiter             = 50        # if MINIMIZE: max number of iteration
 MAKE_FILM           = False      # for 2D models, plot each hour
-SAVE_AS_NC          = False      # for 2D models
+SAVE_AS_NC          = True      # for 2D models
 MEM_PROFILER        = False       # memory profiler
 
 
@@ -202,14 +201,14 @@ if __name__ == "__main__":
         TO DO:        
         - clean up tests_functions module.
         - clean up models modules.
-        """
-        
+        """      
+     
         call_args = t0, t1, dt
         args_model = {'dTK':dTK, 'Nl':Nl}
         args_2D = {}
         
         # model initialization
-        classname = getattr(sys.modules[module_name], model_name)
+        #classname = getattr(sys.modules[module_name], model_name)
         mymodel = model_instanciation(model_name, myforcing, args_model, call_args, extra_args)
         var_dfx = inv.Variational(mymodel, myobservation, filter_at_fc=FILTER_AT_FC)
         
