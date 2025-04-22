@@ -120,7 +120,6 @@ if __name__ == "__main__":
         print(f'You chose to run the model for t1={t1//oneday} days but the forcing is available up to t={len(dsfull.time)*dt_forcing//oneday} days\n'
                         +f'I will use t1={len(dsfull.time)*dt_forcing//oneday} days')
         t1 = len(dsfull.time)*dt_forcing
-    
     ### END WARNINGS
              
     print('Running: run_main.py')   

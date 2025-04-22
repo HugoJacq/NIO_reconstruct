@@ -257,38 +257,45 @@ def rotary_spectra(dt,Ua,Va,U,V):
 			- counter clockwise and clockwise spectra of estimate
 	"""
 	nt = U.shape[0]
-	nf = 200
-	print(nt,nf)
-	count = 0
+	nf = 400
+	#print(nt,nf)
 	ensit = np.arange(0,nt-nf,int(nf/2))
 	for it in ensit:
-		ff,Pr1 = psd1d(U[it:it+nf]+1j*V[it:it+nf],dx=dt, detrend=True, tap=0.2)
-		ff,Pr2 = psd1d(U[it:it+nf]-1j*V[it:it+nf],dx=dt, detrend=True, tap=0.2)
-	if count==0:
-		MPr1 = +Pr1
-		MPr2 = +Pr2
-	else:
-		MPr1 += Pr1
-		MPr2 += Pr2 
+		ff, Pr1 = psd1d(U[it:it+nf]+1j*V[it:it+nf],dx=dt, detrend=True, tap=0.2)
+		ff, Pr2 = psd1d(U[it:it+nf]-1j*V[it:it+nf],dx=dt, detrend=True, tap=0.2)
+		ff, Pe1 = psd1d((Ua[it:it+nf]-U[it:it+nf]) +1j* (Va[it:it+nf]-V[it:it+nf]) ,dx=dt, detrend=True, tap=0.2)
+		ff, Pe2 = psd1d((Ua[it:it+nf]-U[it:it+nf]) -1j* (Va[it:it+nf]-V[it:it+nf]) ,dx=dt, detrend=True, tap=0.2)
+	
+	return ff, Pr2, Pr1, Pe2, Pe1
 
-
-	ff, Pe1 = psd1d((Ua[it:it+nf]-U[it:it+nf]) +1j* (Va[it:it+nf]-V[it:it+nf]) ,dx=dt, detrend=True, tap=0.2)
-	ff, Pe2 = psd1d((Ua[it:it+nf]-U[it:it+nf]) -1j* (Va[it:it+nf]-V[it:it+nf]) ,dx=dt, detrend=True, tap=0.2)
-	if count==0:
-		MPe1 = +Pe1
-		MPe2 = +Pe2
-	else:
-		MPe1 += Pe1
-		MPe2 += Pe2 
-
-
-	count += 1
+def rotary_spectra_2D(dt, Ua, Va, U, V):
+	"""
+	'rotary_spectra' applied on x and y dimensions of arrays
+	"""
+	_, ny, nx = Ua.shape
+	skip=10
+	count=0
+	for i in range(nx)[::skip]:
+		for j in range(ny)[::skip]:
+			ff, Pr2, Pr1, Pe2, Pe1 = rotary_spectra(dt,Ua[:,j,i],Va[:,j,i],U[:,j,i],V[:,j,i])
+			if count==0:
+				MPr1 = +Pr1
+				MPr2 = +Pr2
+				MPe1 = +Pe1
+				MPe2 = +Pe2
+			else:
+				MPr1 += Pr1
+				MPr2 += Pr2 
+				MPe1 += Pe1
+				MPe2 += Pe2 
+			count += 1
 	MPr1 /= count
 	MPr2 /= count
 	MPe1 /= count
 	MPe2 /= count
+    
 	return ff, MPr2, MPr1, MPe2, MPe1
- 
+
 def print_memory_array(ds,namevar):
     """
     print in terminal the amount of memory used by a dask array
