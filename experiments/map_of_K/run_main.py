@@ -18,6 +18,10 @@ os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false" # for jax
 import time as clock
 import tqdm
 
+# import jax 
+#jax.config.update('jax_platform_name', 'cpu')
+
+
 # THIS NEEDS TO BE MERGED INTO A CLEAN SOLUTION
 from Listes_models import *
 
@@ -35,7 +39,7 @@ from functions import model_instanciation, iter_bounds_mapper, compute_and_save_
 # ===========================================================================
 
 # model parameters    
-t0                  = 60*oneday    # start day 
+t0                  = 60*oneday     # start day 
 t1                  = 100*oneday    # end day
 dt                  = 60.           # timestep of the model (s) 
 call_args = t0, t1, dt
@@ -47,13 +51,13 @@ extra_args = {'AD_mode':'F',        # forward mode for AD (for diffrax' diffeqso
             'k_base':'gauss'}       # base of K transform. 'gauss' or 'id'
 
 # What to test
-mini_args = {'maxiter':2,           # max number of iteration
+mini_args = {'maxiter':100,           # max number of iteration
              }
 
 
 # Switches
-L_model_to_test             = ['junsteak_kt_2D'] # L_all jslab_kt_2D junsteak_kt_2D
-SAVE_PKs                    = False
+L_model_to_test             = ['jslab_kt_2D','junsteak_kt_2D'] # L_all jslab_kt_2D junsteak_kt_2D
+SAVE_PKs                    = True
 SHOW_INFO                   = False                 # if SAVE_PKs
 path_save_pk = './pk_save/'
 
@@ -119,7 +123,7 @@ if __name__ == "__main__":
     
     ### END WARNINGS
              
-    print('Running: tests_models.py')   
+    print('Running: run_main.py')   
     print('**************')
     print('full Croco domain:')
     print(f'        LON min {np.round(np.min(lon),2)}, max {np.round(np.max(lon),2)}')
