@@ -437,3 +437,9 @@ experiments/K_over_1year_dTK_10days/pk_save/jslab_kt_2D/2.npy
 NN_attempts/full_NN/Loss.png
 NN_attempts/full_NN/U_on_test_data_lasttime.png
 NN_attempts/full_NN/U_on_train_data_lasttime.png
+NN_attempts/offline_training_diss/infered_DUDt_5days.png
+NN_attempts/offline_training_diss/infered_DUDt_20days.png
+NN_attempts/offline_training_diss/inference_last_time_DUDt.png
+NN_attempts/offline_training_diss/Loss.png
+NN_attempts/offline_training_diss/U_integ_5days.png
+NN_attempts/offline_training_diss/U_IntegratedEuler_of_inference_last_timepng.png
