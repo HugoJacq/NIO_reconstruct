@@ -443,3 +443,8 @@ NN_attempts/offline_training_diss/inference_last_time_DUDt.png
 NN_attempts/offline_training_diss/Loss.png
 NN_attempts/offline_training_diss/U_integ_5days.png
 NN_attempts/offline_training_diss/U_IntegratedEuler_of_inference_last_timepng.png
+NN_attempts/online_training_diss/last_time_tile.png
+NN_attempts/online_training_diss/Loss.png
+NN_attempts/online_training_diss/meanXY_Utraj_test_data.png
+NN_attempts/online_training_diss/meanXY_Utraj_train_data.png
+NN_attempts/online_training_diss/mybest_model.pt

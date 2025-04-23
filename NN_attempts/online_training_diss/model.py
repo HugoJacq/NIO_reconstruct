@@ -23,19 +23,19 @@ class DissipationNN(eqx.Module):
 
     # DO I NEED FLOAT64 for the NN ???
 
-    def __init__(self, key):
+    def __init__(self, key, Nfeatures):
         key1, key2, key3 = jax.random.split(key, 3)
         # key1, key2 = jax.random.split(key, 2)
 
-        self.layer1 = eqx.nn.Conv2d(2, 16, padding='SAME', kernel_size=3, key=key1)
+        self.layer1 = eqx.nn.Conv2d(Nfeatures, 16, padding='SAME', kernel_size=3, key=key1)
         self.layer2 = eqx.nn.Conv2d(16, 2, padding='SAME', kernel_size=3, key=key2)
         # self.layer2 = eqx.nn.Conv2d(16, 32, padding='SAME', kernel_size=3, key=key2)
         # self.layer3 = eqx.nn.Conv2d(32, 2, padding='SAME', kernel_size=3, key=key3)
 
-        self.layer2 = eqx.tree_at( lambda t:t.weight, self.layer2, self.layer2.weight*0.) # <- idea from Farchi et al. 2021
-        self.layer2 = eqx.tree_at( lambda t:t.bias, self.layer2, self.layer2.bias*0.)
+        # self.layer2 = eqx.tree_at( lambda t:t.weight, self.layer2, self.layer2.weight*0.) # <- idea from Farchi et al. 2021
+        # self.layer2 = eqx.tree_at( lambda t:t.bias, self.layer2, self.layer2.bias*0.)
 
-    def __call__(self, x: Float[Array, "2 256 256"]) -> Float[Array, "2 256 256"]:
+    def __call__(self, x: Float[Array, "Nfeatures 256 256"]) -> Float[Array, "2 256 256"]:
         # for layer in self.layers:
         #     x = layer(x)
         x = jax.nn.relu( self.layer1(x) )

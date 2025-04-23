@@ -45,7 +45,7 @@ def train(
         print_every: Int
             ):
     
-    dynamic_model, static_model = my_partition(model)
+    dynamic_model, _ = my_partition(model)
     opt_state = optim.init( dynamic_model )
 
     @eqx.filter_jit
@@ -56,8 +56,6 @@ def train(
         #jax.debug.print('before grad compute K0: {}', dynamic_model.K0)
         
         # BACKWARD AD
-        print(dynamic_model)
-        
         loss_value, grads = eqx.filter_value_and_grad(loss)(dynamic_model, static_model, train_data)
         
         #jax.debug.print('dK0: {}', grads.K0)
@@ -77,15 +75,27 @@ def train(
         model = eqx.apply_updates(model, updates)
         return model, opt_state, loss_value
     
+    Test_loss = []
+    Train_loss = []
+    minLoss = 999999
+    bestmodel = model
     for step in range(maxstep):
         model, opt_state, train_loss = make_step(model, opt_state)
+        
         if (step % print_every) == 0 or (step == maxstep - 1):
             test_loss = evaluate(model, test_data)
             print(
                 f"{step=}, train_loss={train_loss.item()}, " # train loss of current epoch (uses the old model)
                 f"test_loss={test_loss.item()}" # test loss of next epoch (uses the new model)
             )
-    return model
+        Test_loss.append(test_loss)
+        Train_loss.append(train_loss)  
+        if test_loss<minLoss:
+            # keep the best model
+            minLoss = test_loss
+            bestmodel = model
+    
+    return model, bestmodel, Train_loss, Test_loss
             
 
 def dataset_maker(ds, Nhours, dt_forcing):
@@ -102,10 +112,6 @@ def dataset_maker(ds, Nhours, dt_forcing):
     for var in ['U','V']:
         ds_train[var] = jnp.asarray(train_data[var].values)
         ds_test[var] = jnp.asarray(test_data[var].values)
-    # ds_train['t0'] = jnp.asarray(t0)
-    # ds_train['t1'] = jnp.asarray(tmid)
-    # ds_test['t0'] = jnp.asarray(tmid)
-    # ds_test['t1'] = jnp.asarray(t1)
     ds_train['t0'] =  t0
     ds_train['t1'] = tmid
     ds_test['t0'] = tmid
