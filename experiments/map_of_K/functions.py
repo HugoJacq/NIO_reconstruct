@@ -119,7 +119,8 @@ def iter_bounds_mapper(R, dx, lon, lat):
 
 def save_pk_tile(model, 
             tile_infos,
-            path_save):
+            path_save,
+            save_link_file = True):
     """
     This function saves the control parameters model.pk of tile 'k' at 'point_loc' position 
         in the folder 'path_save'+model_name. 
@@ -148,19 +149,20 @@ def save_pk_tile(model,
     np.save(path_save+model_name+f'/{k}.npy', mypk)
     
     # write 1 file with link indice k with lat/lon bounds
-    file_name_link = 'link'
-    if k==0:
-        os.system('mv -f '+path_save+model_name+'/'+file_name_link+'.txt '+path_save+model_name+'/'+file_name_link+'_previous.txt') # save previous if exist
-        mode = 'w'
-    else:
-        mode = 'a'
-    with open(path_save+model_name+'/'+file_name_link+".txt", mode) as f:
-        # structure is:
-        # indice of tile, lon center, lat center, min lon, max lon, min lat, max lat
-        f.write(f'{k},{point_loc[0]},{point_loc[1]},{LON_bounds[0]},{LON_bounds[1]},{LAT_bounds[0]},{LAT_bounds[1]}\n')
+    if save_link_file:
+        file_name_link = 'link'
+        if k==0:
+            os.system('mv -f '+path_save+model_name+'/'+file_name_link+'.txt '+path_save+model_name+'/'+file_name_link+'_previous.txt') # save previous if exist
+            mode = 'w'
+        else:
+            mode = 'a'
+        with open(path_save+model_name+'/'+file_name_link+".txt", mode) as f:
+            # structure is:
+            # indice of tile, lon center, lat center, min lon, max lon, min lat, max lat
+            f.write(f'{k},{point_loc[0]},{point_loc[1]},{LON_bounds[0]},{LON_bounds[1]},{LAT_bounds[0]},{LAT_bounds[1]}\n')
         
         
-def compute_and_save_pk(model, var, mini_args, tile_infos, path_save):
+def compute_and_save_pk(model, var, mini_args, tile_infos, path_save, save_link_file=True):
     """
     Nice wrapper of minimization process and saving_pk_tile
     """
@@ -175,5 +177,5 @@ def compute_and_save_pk(model, var, mini_args, tile_infos, path_save):
     # mymodel = model
     
     # save pk
-    save_pk_tile(mymodel, tile_infos, path_save)
+    save_pk_tile(mymodel, tile_infos, path_save, save_link_file)
             
