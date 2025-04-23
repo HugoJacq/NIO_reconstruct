@@ -40,7 +40,7 @@ import os
 os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "true" # for jax
 
 from model import blackbox
-from train import do_training
+from train import do_training, evaluate, loss
 
 # hyper parameters
 Nsize = 128             # size of the nx,ny
@@ -49,6 +49,7 @@ LEARNING_RATE = 1e-2    # for the optimizer
 SEED = 5678             # for reproducibility
 MAX_STEP = 200          # for the train loop
 PRINT_EVERY = 10        # for the train loop
+TRAIN = False
 
 # input data
 filename = '../../data_regrid/croco_1h_inst_surf_2005-05-01-2005-05-31_0.1deg_conservative.nc'
@@ -89,24 +90,33 @@ key, subkey = jax.random.split(key, 2)
 model = blackbox(key, Ninput_features=features['train'].shape[0])
 
 # run the training loop
-optim = optax.adam(LEARNING_RATE)
-last_model, best_model, Ltrain_loss, Ltest_loss = do_training(model, optim, features, obs, MAX_STEP, PRINT_EVERY )
-# savin weight and bias as binary file
-eqx.tree_serialise_leaves('./myNN.pt',best_model)
+if TRAIN:
+    optim = optax.adam(LEARNING_RATE)
+    last_model, best_model, Ltrain_loss, Ltest_loss = do_training(model, optim, features, obs, MAX_STEP, PRINT_EVERY )
+    # savin weight and bias as binary file
+    eqx.tree_serialise_leaves('./myNN.pt',best_model)
+    
+    fig, ax = plt.subplots(1,1,figsize = (10,5), constrained_layout=True,dpi=100)
+    epochs = np.arange(len(Ltrain_loss))
+    ax.plot(epochs, Ltrain_loss, label='train')
+    ax.plot(epochs, Ltest_loss, label='test')
+    ax.set_xlabel('epochs')
+    ax.set_ylabel('Loss')
+    ax.legend()
+    fig.savefig('Loss.png')
+
+
 trained_model = eqx.tree_deserialise_leaves('./myNN.pt', blackbox(key, Ninput_features=features['train'].shape[0]))
 
 # inference
 C_pred = jax.vmap(trained_model, in_axes=1, out_axes=1)(features['train'])
 C_val = jax.vmap(trained_model, in_axes=1, out_axes=1)(features['val'])
-
+test_loss = evaluate(model, features['val'], obs['val'])
+train_loss = loss(model, features['train'], obs['train'])
+print(f'test_loss={test_loss}')
+print(f'train_loss={train_loss}')
 # plots
-fig, ax = plt.subplots(1,1,figsize = (10,5), constrained_layout=True,dpi=100)
-epochs = np.arange(len(Ltrain_loss))
-ax.plot(epochs, Ltrain_loss, label='train')
-ax.plot(epochs, Ltest_loss, label='test')
-ax.set_xlabel('epochs')
-ax.set_ylabel('Loss')
-ax.legend()
+
 
 fig, ax = plt.subplots(1,2,figsize = (10,5),constrained_layout=True,dpi=100)
 ax[0].pcolormesh(C_pred[0,-1],vmin=-0.6,vmax=0.6)

@@ -431,3 +431,9 @@ experiments/scores/pk_save/junsteak_kt_2D_adv/0.npy
 experiments/scores/pk_save/junsteak_kt_2D_adv/link.txt
 experiments/scores/png_scores/junsteak_kt_2D_adv_diag.png
 regrid_croco/nice_plot_Ut.png
+experiments/K_over_1year_dTK_10days/pk_save/jslab_kt_2D/0.npy
+experiments/K_over_1year_dTK_10days/pk_save/jslab_kt_2D/1.npy
+experiments/K_over_1year_dTK_10days/pk_save/jslab_kt_2D/2.npy
+NN_attempts/full_NN/Loss.png
+NN_attempts/full_NN/U_on_test_data_lasttime.png
+NN_attempts/full_NN/U_on_train_data_lasttime.png
