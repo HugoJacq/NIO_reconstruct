@@ -25,13 +25,7 @@ class DissipationNN(eqx.Module):
 
     def __init__(self, key, Nfeatures):
         key1, key2, key3 = jax.random.split(key, 3)
-        # key1, key2 = jax.random.split(key, 2)
-
-        # self.layer1 = eqx.nn.Conv2d(2, 16, padding='SAME', kernel_size=3, key=key1)
-        # self.layer2 = eqx.nn.Conv2d(16, 2, padding='SAME', kernel_size=3, key=key2)
-        # eqx.tree_at( lambda t:t.layer2.weight, self, self.layer2.weight*0.)
-        # eqx.tree_at( lambda t:t.layer2.bias, self, self.layer2.bias*0.)
-        
+                
         self.layers = [eqx.nn.Conv2d(Nfeatures, 16, padding='SAME', kernel_size=3, key=key1),
                         eqx.nn.Conv2d(16, 32, padding='SAME', kernel_size=3, key=key2),
                         eqx.nn.Conv2d(32, 2, padding='SAME', kernel_size=3, key=key3) ]
@@ -42,11 +36,7 @@ class DissipationNN(eqx.Module):
 
     def __call__(self, x: Float[Array, "Nfeatures Ny Nx"]) -> Float[Array, "Currents Ny Nx"]:
         for layer in self.layers:
-            x = jax.nn.relu(layer(x))
-        # x = jax.nn.relu( self.layer1(x) )
-        # x = jax.nn.relu( self.layer2(x) )
-        #x = jax.nn.relu( self.layer3(x) )
-        
+            x = jax.nn.relu(layer(x))        
         return x
     
 class RHS(eqx.Module):

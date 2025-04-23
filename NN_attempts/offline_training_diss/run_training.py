@@ -9,7 +9,7 @@ import os
 os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false" # for jax
 jax.config.update("jax_enable_x64", True)
 from model import RHS, DissipationNN, Forward_Euler
-from training import dataloader, train
+from training import dataloader, train, evaluate
 
 
 """
@@ -22,7 +22,7 @@ TRAIN = False
 # NN hyper parameters
 LEARNING_RATE = 1e-2
 SEED = 5678
-MAX_STEP = 5_000
+MAX_STEP = 1_000
 PRINT_EVERY = 10
 BATCH_SIZE = 100
 
@@ -31,10 +31,10 @@ Nsize = 128         # size of the domain, in nx ny
 dt_forcing = 3600   # time step of forcing
 dt = 3600.          # time step for Euler integration
 
-filename = ['../../data_regrid/croco_1h_inst_surf_2005-05-01-2005-05-31_0.1deg_conservative.nc',
-            '../../data_regrid/croco_1h_inst_surf_2005-01-01-2005-01-31_0.1deg_conservative.nc',
+filename = ['../../data_regrid/croco_1h_inst_surf_2005-01-01-2005-01-31_0.1deg_conservative.nc',
             '../../data_regrid/croco_1h_inst_surf_2005-02-01-2005-02-28_0.1deg_conservative.nc',
-            '../../data_regrid/croco_1h_inst_surf_2005-03-01-2005-03-31_0.1deg_conservative.nc']
+            '../../data_regrid/croco_1h_inst_surf_2005-03-01-2005-03-31_0.1deg_conservative.nc',
+            "../../data_regrid/croco_1h_inst_surf_2005-04-01-2005-04-30_0.1deg_conservative.nc"]
 ds = xr.open_mfdataset(filename)
 
 ds = ds.isel(lon=slice(-Nsize-1,-1),lat=slice(-Nsize-1,-1))
@@ -54,7 +54,8 @@ n_Ug = (Ug-Ug.mean())/Ug.std()
 n_Vg = (Vg-Vg.mean())/Vg.std()
 n_TAx = (TAx-TAx.mean())/TAx.std()
 n_TAy = (TAy-TAy.mean())/TAy.std()
-
+n_U = (U-U.mean())/U.std()
+n_V = (V-V.mean())/V.std()
 
 
 train_data ={'dUdt' : dUdt[1:Ntime+1,:,:],
@@ -65,8 +66,10 @@ train_data ={'dUdt' : dUdt[1:Ntime+1,:,:],
              'TAy'  : TAy[:Ntime,:,:],
              'features'   : np.stack([n_Ug[:Ntime,:,:],
                                       n_Vg[:Ntime,:,:],
-                                      n_TAx[:Ntime,:,:],
-                                      n_TAy[:Ntime,:,:]
+                                      n_U[:Ntime,:,:],
+                                      n_V[:Ntime,:,:],
+                                    #   n_TAx[:Ntime,:,:],
+                                    #   n_TAy[:Ntime,:,:]
                                       ], axis=1),
             }
 test_data ={'dUdt' : dUdt[Ntime+1:,:,:],
@@ -77,8 +80,10 @@ test_data ={'dUdt' : dUdt[Ntime+1:,:,:],
              'TAy'  : TAy[Ntime:-1,:,:],
              'features'   : np.stack([n_Ug[Ntime:-1,:,:],
                                       n_Vg[Ntime:-1,:,:],
-                                      n_TAx[Ntime:-1,:,:],
-                                      n_TAy[Ntime:-1,:,:]
+                                      n_U[Ntime:-1,:,:],
+                                      n_V[Ntime:-1,:,:],
+                                    #   n_TAx[Ntime:-1,:,:],
+                                    #   n_TAy[Ntime:-1,:,:]
                                       ], axis=1),
             }
 print("Train data shape :",train_data['U'].shape)
@@ -125,13 +130,18 @@ if TRAIN:
 trained_model = eqx.tree_deserialise_leaves('./best_RHS_5000epochs.pt',        # <- getting the saved PyTree 
                                             RHS(fc, K, mydissNN)    # <- here the call to RHS is just to get the structure
                                             )
+train_loss = 0
+N_batch = Ntime//BATCH_SIZE
+for k in range(N_batch):
+    batch_train = {key:array[k:k+BATCH_SIZE] for (key,array) in train_data.items() }
+    train_loss += evaluate(trained_model, batch_train)
+train_loss = train_loss / N_batch
+test_loss = evaluate(trained_model, test_data)
+print('best model loss:')
+print(f'train loss = {train_loss}')
+print(f'test loss = {test_loss}')
 
-
-RHS_U_inference = trained_model(U[-2], V[-2], TAx[-2], TAy[-2], np.stack([Ug[-2], 
-                                                                          Vg[-2],
-                                                                          TAx[-2],
-                                                                          TAy[-2]
-                                                                          ],axis=0))[0]
+RHS_U_inference = trained_model(U[-2], V[-2], TAx[-2], TAy[-2], test_data['features'][-2])[0]
 U_inf = U[-2] + dt*RHS_U_inference
 # print(dUdt[-1])
 # print(RHS_U_inference)
@@ -156,13 +166,12 @@ ax[1].pcolormesh(U_inf, vmin=-0.5, vmax=0.5)
 ax[1].set_title('estimated U (Euler) (at last time)')
 
 
-Nsteps = 20*24
+Nsteps = 4*24
 iinit = 0
-features = np.stack([Ug[iinit:iinit+Nsteps], 
-                     Vg[iinit:iinit+Nsteps],
-                     TAx[iinit:iinit+Nsteps],
-                     TAy[iinit:iinit+Nsteps]
-                     ], axis=1)
+features = np.stack([n_Ug, n_Vg, n_U, n_V,
+                    #  n_TAx,
+                    #  n_TAy
+                     ], axis=1)[iinit:iinit+Nsteps]
 forcing = TAx[iinit:iinit+Nsteps], TAy[iinit:iinit+Nsteps], features
 trajU, trajV = Forward_Euler((U[iinit],V[iinit]), forcing=forcing, RHS=trained_model, dt=dt, Nsteps=Nsteps)
 
