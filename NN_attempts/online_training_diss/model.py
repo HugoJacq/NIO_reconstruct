@@ -32,6 +32,9 @@ class DissipationNN(eqx.Module):
         # self.layer2 = eqx.nn.Conv2d(16, 32, padding='SAME', kernel_size=3, key=key2)
         # self.layer3 = eqx.nn.Conv2d(32, 2, padding='SAME', kernel_size=3, key=key3)
 
+        self.layer2 = eqx.tree_at( lambda t:t.weight, self.layer2, self.layer2.weight*0.) # <- idea from Farchi et al. 2021
+        self.layer2 = eqx.tree_at( lambda t:t.bias, self.layer2, self.layer2.bias*0.)
+
     def __call__(self, x: Float[Array, "2 256 256"]) -> Float[Array, "2 256 256"]:
         # for layer in self.layers:
         #     x = layer(x)
@@ -48,8 +51,7 @@ class jslab(eqx.Module):
     TAx : jnp.ndarray   #= eqx.static_field()
     TAy : jnp.ndarray   #= eqx.static_field()
     fc : jnp.ndarray    #= eqx.static_field()
-    Ug : jnp.ndarray            
-    Vg : jnp.ndarray
+    features : jnp.ndarray            
     
     # t0 : jnp.ndarray          
     # t1 : jnp.ndarray          
@@ -61,13 +63,12 @@ class jslab(eqx.Module):
     dt : jnp.ndarray                = eqx.static_field()
     use_difx : bool                 = eqx.static_field()
     
-    def __init__(self, K0, TAx, TAy, Ug, Vg, fc, dt_forcing, dissipationNN, dt): #, call_args
+    def __init__(self, K0, TAx, TAy, features, fc, dt_forcing, dissipationNN, dt): #, call_args
         self.K0 = K0
         self.TAx = TAx
         self.TAy = TAy
         self.fc = fc
-        self.Ug = Ug
-        self.Vg = Vg
+        self.features = features
         self.dt_forcing = dt_forcing            
         # t0,t1,dt = call_args
         # self.t0 = t0
@@ -89,8 +90,9 @@ class jslab(eqx.Module):
         
         # control
         K = jnp.exp( jnp.asarray(self.K0) )
+
   
-        args = self.fc, K, self.TAx, self.TAy, self.Ug, self.Vg, nsubsteps, self.dissipation_model
+        args = self.fc, K, self.TAx, self.TAy, self.features, nsubsteps, self.dissipation_model
 
         Nforcing = int((t1-t0)//self.dt_forcing)
         maxstep = int((t1-t0)//self.dt) +1 
@@ -163,7 +165,7 @@ class jslab(eqx.Module):
     # vector field is common whether we use diffrax or not
     def vector_field(self, t, C, args):
         U,V = C
-        fc, K, TAxt, TAyt, Ugt, Vgt, nsubsteps, dissipation_model = args
+        fc, K, TAxt, TAyt, features, nsubsteps, dissipation_model = args
         
         # on the fly interpolation
         it = jnp.array(t//self.dt, int)
@@ -172,11 +174,9 @@ class jslab(eqx.Module):
         itsup = jnp.where(itf+1>=len(TAxt), -1, itf+1) 
         TAxnow = (1-aa)*TAxt[itf] + aa*TAxt[itsup]
         TAynow = (1-aa)*TAyt[itf] + aa*TAyt[itsup]
-        Ugnow = (1-aa)*Ugt[itf] + aa*Ugt[itsup]
-        Vgnow = (1-aa)*Vgt[itf] + aa*Vgt[itsup]
+        input = (1-aa)*features[itf] + aa*features[itsup]
+
         # evaluate the NN at specific forcing
-        
-        input = jnp.stack([Ugnow,Vgnow])
         # mean = input.mean()
         # std = input.std()
         # input = (input-mean)/std

@@ -83,8 +83,8 @@ dissipation_model = DissipationNN(subkey)
 # "ReZero"
 # dissipation_model = eqx.tree_at( lambda t:t.layer1.weight, dissipation_model, dissipation_model.layer1.weight/1e5)
 #dissipation_model = eqx.tree_at( lambda t:t.layer1.bias, dissipation_model, dissipation_model.layer1.bias*0.)
-dissipation_model = eqx.tree_at( lambda t:t.layer2.weight, dissipation_model, dissipation_model.layer2.weight*0.) # <- idea from Farchi et al. 2021
-dissipation_model = eqx.tree_at( lambda t:t.layer2.bias, dissipation_model, dissipation_model.layer2.bias*0.)
+# dissipation_model = eqx.tree_at( lambda t:t.layer2.weight, dissipation_model, dissipation_model.layer2.weight*0.) # <- idea from Farchi et al. 2021
+# dissipation_model = eqx.tree_at( lambda t:t.layer2.bias, dissipation_model, dissipation_model.layer2.bias*0.)
 # runtime
 # t0 = 0.0
 # t1 = len(ds.time)*dt_forcing
@@ -93,7 +93,8 @@ dissipation_model = eqx.tree_at( lambda t:t.layer2.bias, dissipation_model, diss
 
 
 # model definition
-mymodel = jslab( K0, TAx, TAy, Ug, Vg, fc, dt_forcing, dissipation_model, dt)
+features = jnp.stack([Ug, Vg], axis=1)
+mymodel = jslab( K0, TAx, TAy, features, fc, dt_forcing, dissipation_model, dt)
 # optimiser
 optim = optax.adam(LEARNING_RATE)
 # training
