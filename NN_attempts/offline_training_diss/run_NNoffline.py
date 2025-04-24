@@ -1,0 +1,106 @@
+
+"""
+Goal: 
+    Estimate ageostrophic current, from a simple slab model. Given wind stress, geostrophy (sst ?)
+
+
+Context:
+
+    the slab equation in complex notation is:
+
+        dC/dt = -i.fc.C + K0.Tau - dissipation              (1)
+
+    with C = U+i.V
+         Tau = Taux + i.Tauy
+         K0 = real
+         fc = Coriolis frequency
+         
+    the dissipation term is usually parametrized as a Rayleigh damping term rC with r a constant.
+    
+Our approach:
+
+    we think that using a Rayleigh damping term is very restrictive. Seeking for more a more expressive term, 
+    we try to model it using a neural network.
+    
+    either the full dissipation as a NN(Ug, U, Tau), or just the r as a constant, or the r(Ug, U, Tau) as a function of features 
+
+This script:
+
+    We aim to have a dissipation term that allow for a prediction of the RHS of (1), then integrate this one or multiple time to get 
+        a surface current trajectory.
+        
+        Loss = || target - dissipation ||
+        
+            with target = dCdt + RHS_dynamic
+"""
+# regular modules import
+import xarray as xr
+import numpy as np
+import jax
+import equinox as eqx
+import optax
+import matplotlib.pyplot as plt
+# my modules imports
+from training import data_maker, batch_loader, train
+from models import RHS_dynamic, DissipationCNN
+
+# NN hyper parameters
+TRAIN           = True      # run the training and save best model
+LEARNING_RATE   = 1e-2      # initial learning rate for optimizer
+MAX_STEP        = 500     # number of epochs
+PRINT_EVERY     = 10        # print infos every 'PRINT_EVERY' epochs
+BATCH_SIZE      = 200       # size of a batch (time)
+SEED            = 5678      # for reproductibility
+features_names  = ['Ug','Vg']   # what features to use in the NN
+
+# Defining data
+Ntests      = 10*24     # number of hours for test (over the data)
+Nsize       = 128       # size of the domain, in nx ny
+dt_forcing  = 3600      # time step of forcing
+dt          = 3600.     # time step for Euler integration
+K0          = -10.      # initial K0
+
+
+filename = ['../../data_regrid/croco_1h_inst_surf_2005-01-01-2005-01-31_0.1deg_conservative.nc',
+            # '../../data_regrid/croco_1h_inst_surf_2005-02-01-2005-02-28_0.1deg_conservative.nc',
+            # '../../data_regrid/croco_1h_inst_surf_2005-03-01-2005-03-31_0.1deg_conservative.nc',
+            # "../../data_regrid/croco_1h_inst_surf_2005-04-01-2005-04-30_0.1deg_conservative.nc"
+            ]
+# prepare data
+ds = xr.open_mfdataset(filename)
+ds = ds.isel(lon=slice(-Nsize-1,-1),lat=slice(-Nsize-1,-1)) # <- this could be centered on a physical location
+ds = ds.rename({'oceTAUX':'TAx', 'oceTAUY':'TAy'})
+fc = np.asarray(2*2*np.pi/86164*np.sin(ds.lat.values*np.pi/180))
+
+# intialise
+my_dynamic_RHS = RHS_dynamic(fc, K0)
+key = jax.random.PRNGKey(SEED)
+key, subkey = jax.random.split(key, 2)
+my_diss = DissipationCNN(subkey, Nfeatures=len(features_names))
+
+# make test and train datasets
+train_set, test_set = data_maker(ds, Ntests, features_names, my_dynamic_RHS)
+iter_train_data = batch_loader(train_set,batch_size=BATCH_SIZE)
+
+# run the training
+if TRAIN:
+    model, best_model, Train_loss, Test_loss = train(
+                                                diss_model          = my_diss,
+                                                optim               = optax.adam(LEARNING_RATE),
+                                                iter_train_data     = iter_train_data,
+                                                test_data           = test_set,
+                                                maxstep             = MAX_STEP,
+                                                print_every         = PRINT_EVERY,
+                                                )
+    eqx.tree_serialise_leaves('./best_diss.pt',best_model)   # <- saves the pytree
+
+    fig, ax = plt.subplots(1,1,figsize = (10,5), constrained_layout=True,dpi=100)
+    epochs = np.arange(len(Train_loss))
+    ax.plot(epochs, Train_loss, label='train')
+    ax.plot(epochs, Test_loss, label='test')
+    ax.set_xlabel('epochs')
+    ax.set_ylabel('Loss')
+    ax.legend()
+    print('done!')
+    
+plt.show()
