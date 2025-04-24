@@ -40,16 +40,24 @@ import jax
 import equinox as eqx
 import optax
 import matplotlib.pyplot as plt
+import os 
+import sys
+sys.path.insert(0, '../../src')
+jax.config.update('jax_platform_name', 'cpu')
+os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false" # for jax
+jax.config.update("jax_enable_x64", True)
+
 # my modules imports
-from training import data_maker, batch_loader, train
-from models import RHS_dynamic, DissipationCNN
+from training import data_maker, batch_loader, train, normalize_features_batch
+from NNmodels import RHS_dynamic, DissipationCNN
+from constants import oneday
 
 # NN hyper parameters
-TRAIN           = True      # run the training and save best model
+TRAIN           = False      # run the training and save best model
 LEARNING_RATE   = 1e-2      # initial learning rate for optimizer
 MAX_STEP        = 500     # number of epochs
 PRINT_EVERY     = 10        # print infos every 'PRINT_EVERY' epochs
-BATCH_SIZE      = 200       # size of a batch (time)
+BATCH_SIZE      = 100       # size of a batch (time)
 SEED            = 5678      # for reproductibility
 features_names  = ['Ug','Vg']   # what features to use in the NN
 
@@ -58,7 +66,7 @@ Ntests      = 10*24     # number of hours for test (over the data)
 Nsize       = 128       # size of the domain, in nx ny
 dt_forcing  = 3600      # time step of forcing
 dt          = 3600.     # time step for Euler integration
-K0          = -10.      # initial K0
+K0          = np.exp(-10.)      # initial K0
 
 
 filename = ['../../data_regrid/croco_1h_inst_surf_2005-01-01-2005-01-31_0.1deg_conservative.nc',
@@ -72,7 +80,7 @@ ds = ds.isel(lon=slice(-Nsize-1,-1),lat=slice(-Nsize-1,-1)) # <- this could be c
 ds = ds.rename({'oceTAUX':'TAx', 'oceTAUY':'TAy'})
 fc = np.asarray(2*2*np.pi/86164*np.sin(ds.lat.values*np.pi/180))
 
-# intialise
+# intialize
 my_dynamic_RHS = RHS_dynamic(fc, K0)
 key = jax.random.PRNGKey(SEED)
 key, subkey = jax.random.split(key, 2)
@@ -101,6 +109,27 @@ if TRAIN:
     ax.set_xlabel('epochs')
     ax.set_ylabel('Loss')
     ax.legend()
+    fig.savefig('Loss.png')
     print('done!')
+
+trained_diss = eqx.tree_deserialise_leaves('./best_diss.pt',        # <- getting the saved PyTree 
+                                            my_diss    # <- here the call is just to get the structure
+                                            )
+
+
+my_test_data = normalize_features_batch(test_set)
+mydiss_undim = jax.vmap(trained_diss)(my_test_data['features'])
+mydiss_dim = mydiss_undim*trained_diss.RENORM[1] + trained_diss.RENORM[0]
+xtime = np.arange(len(ds.time)-Ntests, len(ds.time)-1 )*dt_forcing/oneday
+
+print(xtime.shape, mydiss_dim.shape, my_test_data['target'].shape)
+
+fig, ax = plt.subplots(1,1,figsize = (10,5), constrained_layout=True,dpi=100)
+ax.plot(xtime, mydiss_dim[:,0].mean(axis=(1,2)), label='diss estimate')
+ax.plot(xtime, my_test_data['target'][:,0].mean(axis=(1,2)), label='target')
+ax.set_xlabel('time (days)')
+ax.set_ylabel('dissipation')
+ax.set_title('test_data')
+ax.legend()
     
 plt.show()

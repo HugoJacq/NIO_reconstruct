@@ -32,17 +32,17 @@ def data_maker(ds              : xr.core.dataset.Dataset,
     
     train_set, test_set = {}, {}
     for set, data in zip([train_set, test_set],[ds_train,ds_test]):
-        dUdt = data.U.differentiate('time')
-        dVdt = data.V.differentiate('time')
+        dUdt = data.U.astype('float64').differentiate('time')
+        dVdt = data.V.astype('float64').differentiate('time')
         
-        d_U,d_V = my_dynamic_RHS(data.U.values, 
-                                 data.V.values, 
-                                 data.TAx.values, 
-                                 data.TAy.values)
+        d_U,d_V = my_dynamic_RHS(data.U.values.astype('float64'), 
+                                 data.V.values.astype('float64'), 
+                                 data.TAx.values.astype('float64'), 
+                                 data.TAy.values.astype('float64'))
 
         set['target'] = np.stack([dUdt - d_U, dVdt - d_V], axis=1)
         
-        set['features'] = np.stack([data[key].values for key in features_names], axis=1) 
+        set['features'] = np.stack([data[key].values.astype('float64') for key in features_names], axis=1) 
         # features are first in equinox NN layers, after batch dim
         #   so features.shape = batch_dim, n_features, ydim, xdim
     
@@ -97,7 +97,6 @@ def vmap_loss(dynamic_model, static_model, data_batch):
     return jnp.nanmean(vmapped_loss)
 
 
-
 def train(
         diss_model          : eqx.Module,
         optim               : optax.GradientTransformation,
@@ -127,13 +126,15 @@ def train(
     Test_loss = []
     Train_loss = []
     minLoss = 999
+    put_on_device(test_data) # the test dataset is small, we put it once on the GPU
+    
     for step, batch_data in zip(range(maxstep), iter_train_data):
 
         # normalize inputs at batch size
         batch_data = normalize_features_batch(batch_data)
+        put_on_device(batch_data)
         
         # get mean, std from target for renormalization of NN output
-        # mean, std = jnp.asarray(batch_data['target'].mean()), jnp.asarray(batch_data['target'].std())
         mean, std = batch_data['target'].mean(), batch_data['target'].std()
         diss_model = eqx.tree_at( lambda t:t.RENORM, diss_model, (mean, std))
         
@@ -163,6 +164,9 @@ def normalize_features_batch(batch_data):
         std = batch_data['features'][:,k,:,:].std()
         batch_data['features'][:,k,:,:] = (batch_data['features'][:,k,:,:]-mean)/std
     return batch_data
+
+def put_on_device(batch_data):
+    return jax.device_put({key:jnp.asarray(array) for key,array in batch_data.items()})
 
 def my_partition(model):
     filter_spec = my_filter(model)

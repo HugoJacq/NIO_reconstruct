@@ -468,3 +468,4 @@ NN_attempts/online_training_diss/old/__pycache__/model.cpython-311.pyc
 NN_attempts/online_training_diss/old/__pycache__/training.cpython-311.pyc
 NN_attempts/offline_training_diss/__pycache__/models.cpython-311.pyc
 NN_attempts/offline_training_diss/best_diss.pt
+NN_attempts/offline_training_diss/__pycache__/NNmodels.cpython-311.pyc
