@@ -2,7 +2,7 @@ import jax.numpy as jnp
 import jax
 from jax import lax
 import equinox as eqx
-from jaxtyping import Array, Float
+from jaxtyping import Array, Float, PyTree
 from functools import partial
 import diffrax
 
@@ -35,7 +35,7 @@ class DissipationNN(eqx.Module):
         # self.layer2 = eqx.tree_at( lambda t:t.weight, self.layer2, self.layer2.weight*0.) # <- idea from Farchi et al. 2021
         # self.layer2 = eqx.tree_at( lambda t:t.bias, self.layer2, self.layer2.bias*0.)
 
-    def __call__(self, x: Float[Array, "Nfeatures 256 256"]) -> Float[Array, "2 256 256"]:
+    def __call__(self, x: Float[Array, "Nfeatures ny nx"]) -> Float[Array, "2 ny nx"]:
         # for layer in self.layers:
         #     x = layer(x)
         x = jax.nn.relu( self.layer1(x) )
@@ -57,7 +57,7 @@ class jslab(eqx.Module):
     # t1 : jnp.ndarray          
     
     
-    dissipation_model : DissipationNN
+    dissipation_model : PyTree
     
     dt_forcing : jnp.ndarray        = eqx.static_field()
     dt : jnp.ndarray                = eqx.static_field()
@@ -176,6 +176,7 @@ class jslab(eqx.Module):
         TAynow = (1-aa)*TAyt[itf] + aa*TAyt[itsup]
         input = (1-aa)*features[itf] + aa*features[itsup]
 
+        # input = jnp.concatenate([input, jnp.stack([U,V],axis=0)],axis=0) #<- use last time current as well as 'features'
         # evaluate the NN at specific forcing
         # mean = input.mean()
         # std = input.std()
