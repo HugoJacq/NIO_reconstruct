@@ -30,13 +30,13 @@ class DissipationCNN(eqx.Module):
                         eqx.nn.Conv2d(8, 16, padding='SAME', kernel_size=3, key=key2),
                         jax.nn.relu,
                         eqx.nn.Conv2d(16, 2, padding='SAME', kernel_size=3, key=key3),
-                        # eqx.nn.MaxPool2d(kernel_size=2),
-                        # jnp.ravel,
-                        # eqx.nn.Linear(2*127*127, 512, key=key4),
+                        eqx.nn.MaxPool2d(kernel_size=2),
+                        jnp.ravel,
+                        eqx.nn.Linear(2*127*127, 512, key=key4),
+                        jax.nn.sigmoid,
+                        eqx.nn.Linear(512, 2*128*128, key=key5),
                         # jax.nn.sigmoid,
-                        # eqx.nn.Linear(512, 2*128*128, key=key5),
-                        # jax.nn.sigmoid,
-                        # lambda x:jnp.reshape(x, (2,128,128)),
+                        lambda x:jnp.reshape(x, (2,128,128)),
                         ]
         
         self.RENORMmean, self.RENORMstd = np.zeros(2, dtype='float32'), np.zeros(2, dtype='float32')   
@@ -183,3 +183,30 @@ class Rayleigh_damping(eqx.Module):
         self.R = R
     def __call__(self, x):
         return jnp.stack([- self.R*x[0], -self.R*x[1]])
+    
+
+def Forward_Euler(X0, RHS_dyn, diss_model, forcing, dt, dt_forcing, Nsteps):
+    TAx, TAy, features = forcing
+    nsubsteps = dt_forcing // dt
+    
+    # initialisation 
+    ny,nx = TAx[0].shape
+    U,V = np.zeros((Nsteps, ny, nx)), np.zeros((Nsteps, ny, nx))
+    U[0], V[0] = X0[0], X0[1]
+    
+    for it in range(1, Nsteps):
+        
+        # on-the-fly interpolation
+        itf = int(it//nsubsteps)
+        aa = np.mod(it,nsubsteps)/nsubsteps
+        itsup = np.where(itf+1>=len(TAx), -1, itf+1) 
+        TAxnow = (1-aa)*TAx[itf] + aa*TAx[itsup]
+        TAynow = (1-aa)*TAy[itf] + aa*TAy[itsup]
+        features_now = (1-aa)*features[itf] + aa*features[itsup]
+        
+        dyn = RHS_dyn(U[it-1], V[it-1], TAxnow, TAynow)
+        diss = diss_model(features_now)
+        d_U = dyn[0] + diss[0]
+        d_V = dyn[1] + diss[1]
+        U[it],V[it] = U[it-1]+dt*d_U, V[it-1]+dt*d_V
+    return U,V

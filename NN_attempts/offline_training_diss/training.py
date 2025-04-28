@@ -132,7 +132,6 @@ def train(
 
     @eqx.filter_jit
     def make_step( model, train_batch, opt_state):
-        
         loss_value, grads = jax.value_and_grad(vmap_loss)(model, static_model, train_batch)
         # loss_value = vmap_loss(model, static_model, train_batch)
         # grads = jax.jacfwd(vmap_loss)(model, static_model, train_batch)
@@ -161,12 +160,12 @@ def train(
     
     #for step in range(maxstep):
     for step, batch_data in zip(range(maxstep), iter_train_data):    
-    
+        #time1 = clock.time()
         # normalize inputs at batch size
         batch_data = normalize_batch(batch_data)
-
+        #time2 = clock.time()
         dynamic_model, opt_state, train_loss = make_step(dynamic_model, batch_data, opt_state)
-        
+        #time3 = clock.time()
         if (step % print_every) == 0 or (step == maxstep - 1):
             n_test_data = normalize_batch(test_data) # normalize test features
             test_loss = evaluate(dynamic_model, static_model, n_test_data)
@@ -174,8 +173,8 @@ def train(
                 f"{step=}, train_loss={train_loss.item()}, "    # train loss of current epoch (uses the old model)
                 f"test_loss={test_loss.item()}"                 # test loss of next epoch (uses the new model)
             )
-            Test_loss.append(test_loss)
-        Train_loss.append(train_loss)  
+            Test_loss.append(test_loss.item())
+        Train_loss.append(train_loss.item())  
         if save_best_model:
             if test_loss<minLoss:
                 # keep the best model
@@ -184,6 +183,14 @@ def train(
         if step==maxstep-1:
             lastmodel = eqx.combine(dynamic_model, static_model)
             bestmodel = eqx.combine(bestdyn, static_model)
+        #time4 = clock.time()
+        
+        
+        # print(f'total of loop {step}: {time4-time1}')
+        # print(f'    norm: {time2-time1}')
+        # print(f'    step: {time3-time2}')
+        # print(f'    rest: {time4-time3}')
+        
     return lastmodel, bestmodel, Train_loss, Test_loss
 
 @partial(jax.jit, static_argnames=['deep_copy'])
