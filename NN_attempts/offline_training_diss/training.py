@@ -14,19 +14,23 @@ from NNmodels import Rayleigh_damping
 def data_maker(ds              : xr.core.dataset.Dataset,
                 Ntests          : int, 
                 features_names  : list,
-                my_dynamic_RHS  : eqx.Module):
+                my_dynamic_RHS  : eqx.Module,
+                dx              : float,
+                dy              : float):
     """
     INPUTS:
         filenames   : list of strings, names of files to use as inputs
         Ntests      : integer, how many instants for test data
         features_names  : list of some variables availables in the files to use as features input for the NN
         Nsize       : int, number of xy points to use
+        dx          : grid size X, in m
+        dy          : grid size Y, in m
     
     OUTPUS:
         (train_set, test_set) : a tuple with data for training and validation, target and features
     """    
     nt = len(ds.time)
-        
+
     Ntrain = nt-Ntests
     
     if Ntests>nt:
@@ -47,13 +51,52 @@ def data_maker(ds              : xr.core.dataset.Dataset,
 
         set['target'] = np.stack([dUdt - d_U, dVdt - d_V], axis=1)
         
+        
+        # av_vars = list(data.data_vars)
+        # L_f = []
+        # for k,feature in enumerate(features_names):
+        #     if feature in av_vars:
+        #         L_f.append( data[feature].values.astype(mydtype) )
+        #     elif feature[:4]=='grad' and feature[5:] in av_vars:
+        #         if feature[4]=='x':
+        #             DX, axis = dx, -1
+        #         elif feature[4]=='y':
+        #             DX, axis = dy, -2           
+        #         L_f.append( np.gradient(data[feature[5:]], DX, axis=axis).astype(mydtype) )
+        #     else:
+        #         raise Exception(f'You want to use the variables {feature} as a feature for your NN but it is not recognized')
+
+        # set['features'] = np.stack([data[key].values.astype(mydtype) for key in features_names], axis=1)  # .astype('float64')
+        
         # features are first in equinox NN layers, after batch dim
         #   so features.shape = batch_dim, n_features, ydim, xdim
-        set['features'] = np.stack([data[key].values.astype(mydtype) for key in features_names], axis=1)  # .astype('float64')
-        
-    
+        set['features'] = features_maker(data, features_names,dx,dy,out_axis=1,out_dtype=mydtype)
+                                
     return train_set, test_set
-         
+
+def features_maker(data: xr.core.dataset.Dataset,
+                   features_names:list, 
+                   dx:float,
+                   dy:float,
+                   out_axis:int,
+                   out_dtype:str):
+    """"""
+    av_vars = list(data.data_vars)
+    L_f = []
+    for k,feature in enumerate(features_names):
+        if feature in av_vars:
+            L_f.append( data[feature].values.astype(out_dtype) )
+        elif feature[:4]=='grad' and feature[5:] in av_vars:
+            if feature[4]=='x':
+                DX, axis = dx, -1
+            elif feature[4]=='y':
+                DX, axis = dy, -2           
+            L_f.append( np.gradient(data[feature[5:]], DX, axis=axis).astype(out_dtype) )
+        else:
+            raise Exception(f'You want to use the variables {feature} as a feature for your NN but it is not recognized')
+    return np.stack(L_f, axis=out_axis)
+   
+   
 def batch_loader(data_set   : dict, 
                  batch_size : int):
     """

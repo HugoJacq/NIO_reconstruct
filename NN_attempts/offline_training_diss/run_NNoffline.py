@@ -48,18 +48,19 @@ os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false" # for jax
 # jax.config.update("jax_enable_x64", True)
 
 # my modules imports
-from training import data_maker, batch_loader, train, normalize_batch
+from training import data_maker, batch_loader, train, normalize_batch, features_maker
 from NNmodels import *
-from constants import oneday
+from constants import oneday, distance_1deg_equator
 
 # NN hyper parameters
-TRAIN           = True      # run the training and save best model
+TRAIN           = False      # run the training and save best model
+SAVE            = False     # save model and figures
 LEARNING_RATE   = 1e-3      # initial learning rate for optimizer
 MAX_STEP        = 200     # number of epochs
 PRINT_EVERY     = 10        # print infos every 'PRINT_EVERY' epochs
 BATCH_SIZE      = -1       # size of a batch (time), set to -1 for no batching
 SEED            = 5678      # for reproductibility
-features_names  = ['U','V']   # what features to use in the NN
+features_names  = ['U','V','gradxU']   # what features to use in the NN
 
 PLOTTING        = True
 TIME_INTEG      = True
@@ -69,6 +70,8 @@ Ntests      = 10*24     # number of hours for test (over the data)
 Nsize       = 128       # size of the domain, in nx ny
 dt_forcing  = 3600      # time step of forcing
 dt          = 3600.     # time step for Euler integration
+dx          = 0.1       # X data resolution in ° 
+dy          = 0.1       # Y data resolution in ° 
 K0          = np.exp(-8.)      # initial K0
 
 
@@ -88,28 +91,27 @@ my_dynamic_RHS = RHS_dynamic(fc, K0)
 key = jax.random.PRNGKey(SEED)
 key, subkey = jax.random.split(key, 2)
 
-my_diss = DissipationRayleigh()
-# my_diss = DissipationRayleigh_NNlinear(subkey, Nfeatures=len(features_names), width=1)
-# my_diss = DissipationRayleigh_NNlinear(subkey, Nfeatures=len(features_names), width=1024)
-# my_diss = DissipationRayleigh_MLP(subkey, Nfeatures=len(features_names), width=1024)
-# my_diss = DissipationMLP(subkey, Nfeatures=len(features_names)) 
-# my_diss = DissipationCNN(subkey, Nfeatures=len(features_names))
 
-L_my_diss = [
-            DissipationRayleigh(),
-            DissipationRayleigh_NNlinear(subkey, Nfeatures=len(features_names), width=1),
-            DissipationRayleigh_NNlinear(subkey, Nfeatures=len(features_names), width=1024),
-            DissipationRayleigh_MLP(subkey, Nfeatures=len(features_names), width=1024),
-            DissipationMLP(subkey, Nfeatures=len(features_names)),
-            DissipationCNN(subkey, Nfeatures=len(features_names)),
-]
+L_my_diss = {
+            # "DissipationRayleigh":DissipationRayleigh(),
+            # "DissipationRayleigh_NNlinear_1":DissipationRayleigh_NNlinear(subkey, Nfeatures=len(features_names), width=1),
+            # "DissipationRayleigh_NNlinear_1024":DissipationRayleigh_NNlinear(subkey, Nfeatures=len(features_names), width=1024),
+            # "DissipationRayleigh_MLP":DissipationRayleigh_MLP(subkey, Nfeatures=len(features_names), width=1024),
+            # "DissipationMLP":DissipationMLP(subkey, Nfeatures=len(features_names)),
+            "DissipationCNN":DissipationCNN(subkey, Nfeatures=len(features_names)),
+            }
 
 # make test and train datasets
-train_set, test_set = data_maker(ds, Ntests, features_names, my_dynamic_RHS)
-iter_train_data = batch_loader(train_set,batch_size=BATCH_SIZE)
+train_set, test_set = data_maker(ds, 
+                                 Ntests, 
+                                 features_names, 
+                                 my_dynamic_RHS, 
+                                 dx=dx*distance_1deg_equator, dy=dy*distance_1deg_equator)
+iter_train_data = batch_loader(train_set,
+                               batch_size=BATCH_SIZE)
 
-for my_diss in L_my_diss:
-    namediss = type(my_diss).__name__
+for namediss,my_diss in L_my_diss.items():
+    # namediss = type(my_diss).__name__
     path_save = namediss+'/'
     os.system(f'mkdir -p {path_save}')
     
@@ -129,7 +131,8 @@ for my_diss in L_my_diss:
                                                     maxstep             = MAX_STEP,
                                                     print_every         = PRINT_EVERY,
                                                     )
-        eqx.tree_serialise_leaves(path_save+'best_diss.pt',best_model)   # <- saves the pytree
+        if SAVE:
+            eqx.tree_serialise_leaves(path_save+'best_diss.pt',best_model)   # <- saves the pytree
 
         fig, ax = plt.subplots(1,1,figsize = (10,5), constrained_layout=True,dpi=100)
         epochs = np.arange(len(Train_loss))
@@ -139,7 +142,8 @@ for my_diss in L_my_diss:
         ax.set_xlabel('epochs')
         ax.set_ylabel('Loss')
         ax.legend()
-        fig.savefig(path_save+'Loss.png')
+        if SAVE:
+            fig.savefig(path_save+'Loss.png')
         print('done!')
 
     trained_diss = eqx.tree_deserialise_leaves(path_save+'best_diss.pt',        # <- getting the saved PyTree 
@@ -166,7 +170,8 @@ for my_diss in L_my_diss:
         ax.set_ylabel('dissipation')
         ax.set_title('test_data')
         ax.legend()
-        fig.savefig(path_save+'test_data_dim.png')
+        if SAVE:
+            fig.savefig(path_save+'test_data_dim.png')
             
         # TRAIN DATA
         my_train_data = normalize_batch(train_set, deep_copy=True)
@@ -183,7 +188,8 @@ for my_diss in L_my_diss:
         ax.set_ylabel('dissipation')
         ax.set_title('train_data')
         ax.legend()    
-        fig.savefig(path_save+'train_data_dim.png')
+        if SAVE:
+            fig.savefig(path_save+'train_data_dim.png')
 
         # non dim data
         fig, ax = plt.subplots(1,1,figsize = (10,5), constrained_layout=True,dpi=100)
@@ -192,7 +198,8 @@ for my_diss in L_my_diss:
         ax.plot(xtime, mydiss_undim[:,1].mean(axis=(1,2)), label='estimated V', c='orange')
         ax.plot(xtime, my_train_data['target'][:,1].mean(axis=(1,2)), label='V target', c='orange', alpha=0.5)
         ax.set_title('non dim, train_data')
-        fig.savefig(path_save+'train_data_undim.png')
+        if SAVE:
+            fig.savefig(path_save+'train_data_undim.png')
 
         # terms of U budget
         Coriolis = fc.mean()*ds.V.isel(time=slice(0,len(ds.time)-Ntests)).mean(axis=(1,2)).values
@@ -214,7 +221,8 @@ for my_diss in L_my_diss:
         ax.set_ylabel('m/s2')
         ax.set_title('U budget, train period')
         ax.legend()
-        fig.savefig(path_save+'U_budget.png')
+        if SAVE:
+            fig.savefig(path_save+'U_budget.png')
 
     if TIME_INTEG:
         print('* Time integration')
@@ -222,7 +230,8 @@ for my_diss in L_my_diss:
         Nsteps = Nhours*60
         dt = 60.
         
-        features = np.stack([ds.U.values, ds.V.values], axis=1)
+        # features = np.stack([ds.U.values, ds.V.values], axis=1)
+        features = features_maker(ds, features_names, dx, dy, out_axis=1, out_dtype='float')
         forcing = ds.TAx.values, ds.TAy.values, features
         U,V = Forward_Euler(X0=(0.,0.), RHS_dyn=my_dynamic_RHS, diss_model=trained_diss, forcing=forcing, dt=dt, dt_forcing=dt_forcing, Nsteps=Nsteps)
         xtime = np.arange(0, Nsteps*dt, dt)/onehour
@@ -233,6 +242,7 @@ for my_diss in L_my_diss:
         ax.set_xlabel('hour')
         ax.set_title('integrated (Euler) vs truth')
         ax.set_ylabel('U')
-        fig.savefig(path_save+'U_budget.png')
+        if SAVE:
+            fig.savefig(path_save+'U_traj_Euler.png')
         
 plt.show()
