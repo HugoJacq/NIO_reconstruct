@@ -54,8 +54,8 @@ from constants import oneday
 
 # NN hyper parameters
 TRAIN           = True      # run the training and save best model
-LEARNING_RATE   = 1e-1      # initial learning rate for optimizer
-MAX_STEP        = 1_000     # number of epochs
+LEARNING_RATE   = 1e-2      # initial learning rate for optimizer
+MAX_STEP        = 100     # number of epochs
 PRINT_EVERY     = 10        # print infos every 'PRINT_EVERY' epochs
 BATCH_SIZE      = -1       # size of a batch (time), set to -1 for no batching
 SEED            = 5678      # for reproductibility
@@ -66,7 +66,7 @@ Ntests      = 10*24     # number of hours for test (over the data)
 Nsize       = 128       # size of the domain, in nx ny
 dt_forcing  = 3600      # time step of forcing
 dt          = 3600.     # time step for Euler integration
-K0          = np.exp(-9.)      # initial K0
+K0          = np.exp(-8.)      # initial K0
 
 
 filename = ['../../data_regrid/croco_1h_inst_surf_2005-01-01-2005-01-31_0.1deg_conservative.nc',
@@ -84,9 +84,14 @@ fc = np.asarray(2*2*np.pi/86164*np.sin(ds.lat.values*np.pi/180))
 my_dynamic_RHS = RHS_dynamic(fc, K0)
 key = jax.random.PRNGKey(SEED)
 key, subkey = jax.random.split(key, 2)
-#my_diss = DissipationMLP(subkey, Nfeatures=len(features_names))  # 
+
+# my_diss = DissipationRayleigh()
+# my_diss = DissipationRayleigh_NNlinear(subkey, Nfeatures=len(features_names), width=1)
+# my_diss = DissipationRayleigh_NNlinear(subkey, Nfeatures=len(features_names), width=1024)
+# my_diss = DissipationRayleigh_MLP(subkey, Nfeatures=len(features_names), width=1024)
+# my_diss = DissipationMLP(subkey, Nfeatures=len(features_names)) 
 my_diss = DissipationCNN(subkey, Nfeatures=len(features_names))
-my_diss = DissipationRayleigh()
+
 
 # make test and train datasets
 train_set, test_set = data_maker(ds, Ntests, features_names, my_dynamic_RHS)
@@ -97,7 +102,7 @@ if TRAIN:
     print('* training ...')
     model, best_model, Train_loss, Test_loss = train(
                                                 diss_model          = my_diss,
-                                                optim               = optax.adamw(LEARNING_RATE), # optax.adam(LEARNING_RATE), #optax.lbfgs(LEARNING_RATE),
+                                                optim               = optax.adam(LEARNING_RATE), # optax.adam(LEARNING_RATE), #optax.lbfgs(LEARNING_RATE),
                                                 iter_train_data     = iter_train_data,
                                                 train_data          = train_set,
                                                 test_data           = test_set,
@@ -108,8 +113,9 @@ if TRAIN:
 
     fig, ax = plt.subplots(1,1,figsize = (10,5), constrained_layout=True,dpi=100)
     epochs = np.arange(len(Train_loss))
+    epochs_test = np.arange(len(Test_loss))*PRINT_EVERY
     ax.plot(epochs, Train_loss, label='train')
-    ax.plot(epochs, Test_loss, label='test')
+    ax.plot(epochs_test, Test_loss, label='test')
     ax.set_xlabel('epochs')
     ax.set_ylabel('Loss')
     ax.legend()
@@ -122,16 +128,11 @@ trained_diss = eqx.tree_deserialise_leaves('./best_diss.pt',        # <- gettin
 print('target mean, std U:', trained_diss.RENORMmean[0], trained_diss.RENORMstd[0])
 print('target mean, std V:', trained_diss.RENORMmean[1], trained_diss.RENORMstd[1])
 
-print('final R value is',trained_diss.layers[0].R)
+# print('final R value is',trained_diss.layers[0].R)
 
 print('* Plotting')
-
-
-
-
-
 # TEST DATA
-my_test_data = normalize_batch(test_set)
+my_test_data = normalize_batch(test_set, deep_copy=True)
 mydiss_undim = jax.vmap(trained_diss)(my_test_data['features'])
 mydiss_dim = mydiss_undim*trained_diss.RENORMstd[:,np.newaxis, np.newaxis] + trained_diss.RENORMmean[:,np.newaxis, np.newaxis]
 xtime = np.arange(len(ds.time)-Ntests, len(ds.time)-1 )*dt_forcing/oneday
@@ -147,7 +148,7 @@ ax.set_title('test_data')
 ax.legend()
     
 # TRAIN DATA
-my_train_data = normalize_batch(train_set)
+my_train_data = normalize_batch(train_set, deep_copy=True)
 mydiss_undim = jax.vmap(trained_diss)(my_train_data['features'])
 mydiss_dim = mydiss_undim*trained_diss.RENORMstd[:,np.newaxis, np.newaxis] + trained_diss.RENORMmean[:,np.newaxis, np.newaxis]
 xtime = np.arange(0, len(ds.time)-Ntests )*dt_forcing/oneday
@@ -162,13 +163,36 @@ ax.set_ylabel('dissipation')
 ax.set_title('train_data')
 ax.legend()    
 
-
+# non dim data
 fig, ax = plt.subplots(1,1,figsize = (10,5), constrained_layout=True,dpi=100)
 ax.plot(xtime, mydiss_undim[:,0].mean(axis=(1,2)), label='estimated U', c='b')
 ax.plot(xtime, my_train_data['target'][:,0].mean(axis=(1,2)), label='U target', c='b', alpha=0.5)
 ax.plot(xtime, mydiss_undim[:,1].mean(axis=(1,2)), label='estimated V', c='orange')
 ax.plot(xtime, my_train_data['target'][:,1].mean(axis=(1,2)), label='V target', c='orange', alpha=0.5)
-
 ax.set_title('non dim, train_data')
+
+# terms of U budget
+Coriolis = fc.mean()*ds.V.isel(time=slice(0,len(ds.time)-Ntests)).mean(axis=(1,2)).values
+Stress = K0*ds.TAx.isel(time=slice(0,len(ds.time)-Ntests)).mean(axis=(1,2)).values
+true_diss = train_set['target'][:,0].mean(axis=(1,2))
+est_diss = mydiss_dim[:,0].mean(axis=(1,2))
+true_dudt = np.gradient(ds.U.isel(time=slice(0,len(ds.time)-Ntests)), 3600., axis=0).mean(axis=(1,2))
+est_dudt = Coriolis + Stress + est_diss
+xtime = np.arange(0,len(Coriolis))*dt_forcing/oneday
+
+fig, ax = plt.subplots(1,1,figsize = (10,5), constrained_layout=True,dpi=100)
+ax.plot(xtime, Coriolis, label='Coriolis', c='orange')
+ax.plot(xtime, Stress, label='K0*tau',c='g')
+ax.plot(xtime, true_diss, label='true diss', c='b')
+ax.plot(xtime, est_diss, label='estimated diss', c='cyan')
+ax.plot(xtime, true_dudt, label='true dUdt',c='k')
+ax.plot(xtime, est_dudt, label='estimated dUdt',c='k',ls='--')
+ax.set_xlabel('days')
+ax.set_ylabel('m/s2')
+ax.set_title('U budget, train period')
+ax.legend()
+fig.savefig('U_budget.png')
+
+
 
 plt.show()

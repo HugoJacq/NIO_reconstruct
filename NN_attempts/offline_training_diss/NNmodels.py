@@ -67,7 +67,7 @@ class DissipationMLP(eqx.Module):
                         eqx.nn.Linear(1024, 1024, key=key2),
                         jax.nn.tanh,
                         eqx.nn.Linear(1024, 2*128*128, key=key2),
-                        jax.nn.sigmoid,
+                        jax.nn.tanh,
                         ]   
         self.RENORMmean, self.RENORMstd = np.zeros(2, dtype='float32'), np.zeros(2, dtype='float32')   
 
@@ -103,11 +103,64 @@ class DissipationRayleigh(eqx.Module):
     
 class DissipationRayleigh_MLP(eqx.Module):
     """
+    D = -rU with r real, NN with non linear activation functions
+    
+    first and second features needs to be U and V (normalized)
     """
+    layers: list
+    # renormalization values (mean,std)
+    RENORMmean  : np.array 
+    RENORMstd    : np.array
+    
+    def __init__(self, key, Nfeatures, width):
+        key1, key2, key3 = jax.random.split(key, 3)
+        
+        self.layers = [
+                        jnp.ravel,
+                       eqx.nn.Linear(Nfeatures*128*128, width, key=key1), 
+                       jax.nn.relu,
+                       eqx.nn.Linear(width, width, key=key2), 
+                       jax.nn.relu,
+                       eqx.nn.Linear(width,2*128*128, key=key3),
+                       lambda x: jnp.reshape(x, (2,128,128)),
+                       ]
+        
+        self.RENORMmean, self.RENORMstd = np.zeros(2, dtype='float32'), np.zeros(2, dtype='float32')           
+
+    def __call__(self, x: Float[Array, "Nfeatures Ny Nx"]) -> Float[Array, "Currents Ny Nx"]:
+        uv = x[:2]
+        for layer in self.layers:
+            x = layer(x)      
+        return x*uv
  
 class DissipationRayleigh_NNlinear(eqx.Module):
     """
-    """   
+    D = -rU with r real, linear NN
+    
+    first and second features needs to be U and V (normalized)
+    """
+    layers: list
+    # renormalization values (mean,std)
+    RENORMmean  : np.array 
+    RENORMstd    : np.array
+    
+    def __init__(self, key, Nfeatures, width):
+        key1, key2, key3 = jax.random.split(key, 3)
+        
+        self.layers = [
+                        jnp.ravel,
+                       eqx.nn.Linear(Nfeatures*128*128, width, key=key1), 
+                       eqx.nn.Linear(width,2*128*128, key=key2),
+                       lambda x: jnp.reshape(x, (2,128,128)),
+                       ]
+        
+        self.RENORMmean, self.RENORMstd = np.zeros(2, dtype='float32'), np.zeros(2, dtype='float32')           
+
+    def __call__(self, x: Float[Array, "Nfeatures Ny Nx"]) -> Float[Array, "Currents Ny Nx"]:
+        uv = x[:2]
+        for layer in self.layers:
+            x = layer(x)      
+        return x*uv
     
     
 class RHS_dynamic():
