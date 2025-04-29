@@ -44,7 +44,11 @@ def batch_loader(data_set   : dict,
             if end > dataset_size:
                 end = dataset_size
  
- 
+
+# ================================================================================= 
+# LOSS DEFINITION
+
+# -> MODEL WITH NN ONLY
 def loss(dynamic_model, static_model, n_features, n_target):
     """
     INPUTS:
@@ -72,29 +76,49 @@ def vmap_loss(dynamic_model, static_model, data_batch):
                                   data_batch['target'])
     return jnp.nanmean(vmapped_loss)
 
-# @partial(eqx.filter_jit, static_argnames=['static_model','data_batch'])
+
 @eqx.filter_jit
-def evaluate(dynamic_model, static_model, data_batch):
+def evaluate_NN(dynamic_model, static_model, data_batch):
     return vmap_loss(dynamic_model, static_model, data_batch)
 
+# -> HYBRID MODELS
 def loss_hybrid(dynamic_model, static_model, n_features, n_target, n_forcing):
     """
+    this loss is computed on dimensional values
     """
     RHS_model = eqx.combine(dynamic_model, static_model)
-    prediction = RHS_model(n_features, n_forcing)
+    # prediction = RHS_model(n_features, n_forcing)
+    alpha = 0.5
+    prediction_diss_undim = RHS_model.dissipationNN(n_features)
+    # prediction_diss_dim = prediction_diss_undim*RHS_model.RENORMstd[:,np.newaxis, np.newaxis] + RHS_model.RENORMmean[:,np.newaxis, np.newaxis]
+    prediction_stress = RHS_model.stress(n_forcing[0],n_forcing[1])
+    # prediction = alpha*prediction_stress + (1-alpha)*prediction_diss_undim
+    
+    prediction = prediction_stress + prediction_diss_undim
+    
+    jax.debug.print('normalized: stress {}, diss {}, target {}', prediction_stress[0].mean(), prediction_diss_undim[0].mean(), n_target[0].mean())
+    
     return jnp.sqrt( (prediction[0] - n_target[0])**2 + (prediction[1] - n_target[1])**2 )
 
 def vmap_loss_hybrid(dynamic_model, static_model, data_batch):
     """
     """ 
     vmapped_loss = jax.vmap(
-                            loss_hybrid, in_axes=(None, None, 0, 0)
+                            loss_hybrid, in_axes=(None, None, 0, 0, 0)
                                 )(dynamic_model, static_model, 
                                     data_batch['features'], 
                                     data_batch['target'],
                                     data_batch['forcing'])
     return jnp.nanmean(vmapped_loss)   
-    
+
+@eqx.filter_jit
+def evaluate_hybrid(dynamic_model, static_model, data_batch):
+    return vmap_loss_hybrid(dynamic_model, static_model, data_batch)
+# ================================================================================= 
+
+
+
+
 
 def train(
         the_model          : eqx.Module,
@@ -126,43 +150,86 @@ def train(
         new_dyn = eqx.apply_updates(model, updates)
         return new_dyn, opt_state, loss_value, grads
     
-    
+    # =================
+    # INITIALIZITION
+    # =================
     dynamic_model, static_model = my_partition(the_model, mode=mode)
-
+    # print(dynamic_model)
+    # print(static_model)
+    # raise Exception
     opt_state = optim.init(dynamic_model)
-    
-    
     Test_loss = []
     Train_loss = []
     minLoss = 999
     put_on_device(test_data) # the test dataset is small, we put it once on the GPU
-
-    # get mean, std from target for renormalization of NN output
-    mean, std = jnp.mean(train_data['target'],axis=(0,2,3)), jnp.std(train_data['target'],axis=(0,2,3))
-    static_model = eqx.tree_at( lambda t:t.RENORMmean, static_model, mean)
-    static_model = eqx.tree_at( lambda t:t.RENORMstd, static_model, std)
-    
-
-    for step, batch_data in zip(range(maxstep), iter_train_data):    
-        # normalize inputs at batch size
-        batch_data = normalize_batch(batch_data)
         
+    # =================
+    # TRAIN LOOP
+    # =================
+    for step, batch_data in zip(range(maxstep), iter_train_data):    
+       
+        ###################
+        # DE-NORMALIZATION
+        ###################
+        # get mean, std from target for renormalization of NN output
+        if mode=='NN_only':
+            # here target is dUdt + RHS_dyn so we use that1
+            mean, std = jnp.mean(batch_data['target'],axis=(0,2,3)), jnp.std(batch_data['target'],axis=(0,2,3))
+        
+        elif mode=='hybrid':
+            # here target is dUdt, we need to compute RHS_dyn with the last value of K0
+            """"""
+            full_model = eqx.combine(dynamic_model, static_model)
+            # print(batch_data['forcing'].shape)
+            
+            # RHS_dyn = jax.vmap(full_model.RHS_dyn)(batch_data['forcing'][:,0],
+            #                                     batch_data['forcing'][:,1],
+            #                                     batch_data['forcing'][:,2],
+            #                                     batch_data['forcing'][:,3])
+            # print(RHS_dyn.shape)
+            # print(RHS_dyn.mean(axis=(0,2,3)))
+            # print(batch_data['target'].mean(axis=(0,2,3)))
+
+            # mean, std = jnp.mean(batch_data['target']-RHS_dyn,axis=(0,2,3)), jnp.std(batch_data['target']-RHS_dyn,axis=(0,2,3))
+            mean, std = jnp.mean(batch_data['target'],axis=(0,2,3)), jnp.std(batch_data['target'],axis=(0,2,3))
+            #batch_data['target'] = batch_data['target'] - RHS_dyn
+            
+        static_model = eqx.tree_at( lambda t:t.RENORMmean, static_model, mean)
+        static_model = eqx.tree_at( lambda t:t.RENORMstd, static_model, std)
+       
+        #########################
+        # NORMALIZATION AT BATCH
+        #########################
+        batch_data = normalize_batch(batch_data) # <- modify in place 'batch_data'
+        
+        ###################
+        # MAKE STEP
+        ###################
         if mode=='NN_only':
             dynamic_model, opt_state, train_loss, _ = make_step(dynamic_model, batch_data, opt_state)
+            evaluate = evaluate_NN
         
         elif mode=='hybrid':
             dynamic_model, opt_state, train_loss, grads = make_step_hybrid(dynamic_model, batch_data, opt_state)
-            if grads.RHS_dyn.K < 1e-5:
-                static_model = eqx.tree_at( lambda t:t.grads.RHS_dyn.K, static_model, dynamic_model.RHS_dyn.K) # <- set K0 as converged
-                dynamic_model = eqx.tree_at( lambda t:t.grads.RHS_dyn.K, dynamic_model, None) # <- remove K0 from trainable parameters
+            if grads.stress.K is not None:
+                if grads.stress.K < 1e-7:
+                    print('     K0 has converged, it is now kept constant')
+                    print(f'         K0 = {dynamic_model.stress.K}, dK = {grads.stress.K}')
+                    static_model = eqx.tree_at( lambda t:t.stress.K, static_model, dynamic_model.stress.K, is_leaf=lambda x: x is None) # <- set K0 as converged
+                    dynamic_model = eqx.tree_at( lambda t:t.stress.K, dynamic_model, None) # <- remove K0 from trainable parameters
+            
+            # print(f'         K0 = {dynamic_model.RHS_dyn.K}, dK = {grads.RHS_dyn.K}, R = {dynamic_model.dissipationNN.layers[0].R}, dR = {grads.dissipationNN.layers[0].R}')
+            print(f'         K0 = {dynamic_model.stress.K}, dK = {grads.stress.K}')
+            evaluate = evaluate_hybrid
             
         elif mode=='hybrid_sequential':
             print('sequential model to be done')
         else:
             raise Exception(f'You chose the training mode {mode} but it is not recognized')
 
-
-
+        ###################
+        # LOSS PLOT DATA
+        ###################
         if (step % print_every) == 0 or (step == maxstep - 1):
             n_test_data = normalize_batch(test_data) # normalize test features
             test_loss = evaluate(dynamic_model, static_model, n_test_data)
@@ -172,6 +239,10 @@ def train(
             )
             Test_loss.append(test_loss.item())
         Train_loss.append(train_loss.item())  
+        
+        ###################
+        # SAVING BEST MODEL
+        ###################
         if save_best_model:
             if test_loss<minLoss:
                 # keep the best model
@@ -182,7 +253,7 @@ def train(
             
         if step==maxstep-1:
             lastmodel = eqx.combine(dynamic_model, static_model)
-            bestmodel = eqx.combine(bestdyn, static_model)
+            bestmodel = eqx.combine(bestdyn, static_model)        
 
     return lastmodel, bestmodel, Train_loss, Test_loss
 
@@ -200,7 +271,7 @@ def my_partition(model, mode='NN_only'):
     elif mode=='hybrid':
         NN_filter = my_filter_NN(model.dissipationNN, filter_spec.dissipationNN)
         filter_spec = eqx.tree_at(lambda t: t.dissipationNN, filter_spec, NN_filter)
-        filter_spec = eqx.tree_at(lambda t: t.RHS_dyn.K, filter_spec, replace=True)
+        filter_spec = eqx.tree_at(lambda t: t.stress.K, filter_spec, replace=True)
     return eqx.partition(model, filter_spec) 
      
      

@@ -172,34 +172,53 @@ class RHS_dynamic(eqx.Module):
         self.K = jnp.asarray(K)
   
     def __call__(self, U, V, TAx, TAy):
-        d_U =  self.fc*V + self.K*TAx
-        d_V = -self.fc*U + self.K*TAy
+        d_U =  self.fc*V + jnp.exp(self.K)*TAx
+        d_V = -self.fc*U + jnp.exp(self.K)*TAy
+        return jnp.stack([d_U, d_V], axis=0)
+    
+class Coriolis(eqx.Module):
+    fc : jnp.ndarray
+        
+    def __init__(self, fc):
+        self.fc = jnp.asarray(fc)
+    def __call__(self, U, V):
+        d_U =  self.fc*V
+        d_V = -self.fc*U
         return jnp.stack([d_U, d_V], axis=0)
     
     
+class Stress(eqx.Module):
+    K : jnp.ndarray
+        
+    def __init__(self, K):
+        self.K = jnp.asarray(K)
+  
+    def __call__(self, TAx, TAy):
+        d_U = jnp.exp(self.K)*TAx
+        d_V = jnp.exp(self.K)*TAy
+        return jnp.stack([d_U, d_V], axis=0)
 
-class RHS(eqx.Module):
+class RHS_turb(eqx.Module):
     
-    RHS_dyn : eqx.Module
+    stress : eqx.Module
     dissipationNN : eqx.Module
     # renormalization values
     RENORMmean  : jnp.ndarray 
     RENORMstd   : jnp.ndarray
     
-    def __init__(self, RHS_dyn, dissipationNN):
-        self.RHS_dyn = RHS_dyn
+    def __init__(self, stress, dissipationNN):
+        self.stress = stress
         self.dissipationNN = dissipationNN
         self.RENORMmean, self.RENORMstd = jnp.zeros(2), jnp.zeros(2)       
         
     def __call__(self, features: Float[Array, "Nfeatures Ny Nx"],
-                        forcing: Float[Array, '4 Ny Nx'],                   
+                        forcing: Float[Array, '2 Ny Nx'],                   
                     ) -> Float[Array, "Currents Ny Nx"]:
         
-        U,V,TAx,TAy = forcing[:,0], forcing[:,1], forcing[:,2], forcing[:,3]
-        
-        dynamic_part = self.RHS_dyn(U,V,TAx,TAy)
+        TAx,TAy = forcing[0], forcing[1]
+        stress = self.stress(TAx, TAy)
         dissipation_part = self.dissipationNN(features)
-        return dynamic_part + dissipation_part
+        return stress + dissipation_part
         
         
         

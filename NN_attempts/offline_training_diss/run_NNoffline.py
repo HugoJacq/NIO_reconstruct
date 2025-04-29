@@ -62,18 +62,18 @@ from constants import oneday, distance_1deg_equator
 
 # NN hyper parameters
 TRAIN           = True      # run the training and save best model
-SAVE            = False     # save model and figures
+SAVE            = True     # save model and figures
 LEARNING_RATE   = 1e-3      # initial learning rate for optimizer
 MAX_STEP        = 200     # number of epochs
 PRINT_EVERY     = 10        # print infos every 'PRINT_EVERY' epochs
-BATCH_SIZE      = -1       # size of a batch (time), set to -1 for no batching
+BATCH_SIZE      = 1      # size of a batch (time), set to -1 for no batching
 SEED            = 5678      # for reproductibility
-features_names  = ['U','V','gradxU']   # what features to use in the NN
-mymode          = 'NN_only' # NN_only, hybrid
+features_names  = ['U','V']   # what features to use in the NN
+mymode          = 'hybrid' # NN_only, hybrid
 
 
 PLOTTING        = True
-TIME_INTEG      = True
+TIME_INTEG      = False
 
 # Defining data
 Ntests      = 10*24         # number of hours for test (over the data)
@@ -82,7 +82,7 @@ dt_forcing  = 3600          # time step of forcing
 dt          = 3600.         # time step for Euler integration
 dx          = 0.1           # X data resolution in ° 
 dy          = 0.1           # Y data resolution in ° 
-K0          = np.exp(-8.)   # initial K0
+K0          = -11.           # initial K0
 
 
 filename = ['../../data_regrid/croco_1h_inst_surf_2005-01-01-2005-01-31_0.1deg_conservative.nc',
@@ -98,6 +98,8 @@ fc = np.asarray(2*2*np.pi/86164*np.sin(ds.lat.values*np.pi/180))
 
 # intialize
 my_dynamic_RHS = RHS_dynamic(fc, K0)
+my_coriolis_term = Coriolis(fc)
+my_stress_term = Stress(K0)
 key = jax.random.PRNGKey(SEED)
 key, subkey = jax.random.split(key, 2)
 
@@ -110,11 +112,12 @@ L_my_diss = {
             # "DissipationMLP":DissipationMLP(subkey, Nfeatures=len(features_names)),
             "DissipationCNN":DissipationCNN(subkey, Nfeatures=len(features_names)),
             }
-L_my_RHS = {
-            "RHS_dissRayleigh": RHS(my_dynamic_RHS, DissipationRayleigh()),
+L_my_RHS_hybrid = {
+            "RHS_dissRayleigh": RHS_turb(my_stress_term, DissipationRayleigh()),
+            # "RHS_dissCNN": RHS(my_dynamic_RHS, DissipationCNN(subkey, Nfeatures=len(features_names)))
             }
 
-
+L_no_param_RHS = {"RHS_dissRayleigh":my_coriolis_term}
 #====================================================================================================
 # END PARAMETERS
 #====================================================================================================
@@ -123,26 +126,32 @@ L_my_RHS = {
 if mymode=='NN_only':
     L_models = L_my_diss
 elif mymode=='hybrid':
-    L_models = L_my_RHS
+    L_models = L_my_RHS_hybrid
 else:
     raise Exception(f'You want to use the mode {mymode} but it is not recognized')
 
 
-# make test and train datasets
-train_set, test_set = data_maker(ds, 
-                                 Ntests, 
-                                 features_names, 
-                                 my_dynamic_RHS, 
-                                 dx=dx*distance_1deg_equator, 
-                                 dy=dy*distance_1deg_equator)
-iter_train_data = batch_loader(train_set,
-                               batch_size=BATCH_SIZE)
+
 
 # create folder for each set of features
 name_base_folder = 'features'+''.join('_'+variable for variable in features_names)+'/'
 os.system(f'mkdir -p {name_base_folder}')
 
 for namemodel, my_model in L_models.items():
+    
+    # make test and train datasets
+    train_set, test_set = data_maker(ds, 
+                                    Ntests, 
+                                    features_names, 
+                                    L_no_param_RHS[namemodel], 
+                                    dx=dx*distance_1deg_equator, 
+                                    dy=dy*distance_1deg_equator,
+                                    dt_forcing=dt_forcing,
+                                    mode=mymode)
+    iter_train_data = batch_loader(train_set,
+                                batch_size=BATCH_SIZE)
+    
+    
     # namediss = type(my_diss).__name__
     path_save = name_base_folder+namemodel+'/'
     os.system(f'mkdir -p {path_save}')
@@ -182,8 +191,8 @@ for namemodel, my_model in L_models.items():
     trained_model = eqx.tree_deserialise_leaves(path_save+'best_model.pt',   # <- getting the saved PyTree 
                                                 my_model                    # <- here the call is just to get the structure
                                                 )
-    # print('target mean, std U:', trained_model.RENORMmean[0], trained_model.RENORMstd[0])
-    # print('target mean, std V:', trained_model.RENORMmean[1], trained_model.RENORMstd[1])
+    print('target mean, std U:', trained_model.RENORMmean[0], trained_model.RENORMstd[0])
+    print('target mean, std V:', trained_model.RENORMmean[1], trained_model.RENORMstd[1])
 
     # print('final R value is',trained_model.layers[0].R)
     if PLOTTING:
@@ -239,10 +248,10 @@ for namemodel, my_model in L_models.items():
 
             # terms of U budget
             Coriolis = fc.mean()*ds.V.isel(time=slice(0,len(ds.time)-Ntests)).mean(axis=(1,2)).values
-            Stress = K0*ds.TAx.isel(time=slice(0,len(ds.time)-Ntests)).mean(axis=(1,2)).values
+            Stress = np.exp(K0)*ds.TAx.isel(time=slice(0,len(ds.time)-Ntests)).mean(axis=(1,2)).values
             true_diss = train_set['target'][:,0].mean(axis=(1,2))
             est_diss = mydiss_dim[:,0].mean(axis=(1,2))
-            true_dudt = np.gradient(ds.U.isel(time=slice(0,len(ds.time)-Ntests)), 3600., axis=0).mean(axis=(1,2))
+            true_dudt = np.gradient(ds.U.isel(time=slice(0,len(ds.time)-Ntests)), dt_forcing, axis=0).mean(axis=(1,2))
             est_dudt = Coriolis + Stress + est_diss
             xtime = np.arange(0,len(Coriolis))*dt_forcing/oneday
 
@@ -260,25 +269,117 @@ for namemodel, my_model in L_models.items():
             if SAVE:
                 fig.savefig(path_save+'U_budget.png')
 
-        if TIME_INTEG:
-            print('* Time integration')
-            Nhours = 24
-            Nsteps = Nhours*60
-            dt = 60.
+            if TIME_INTEG:
+                print('* Time integration')
+                Nhours = 24
+                Nsteps = Nhours*60
+                dt = 60.
+                
+                # features = np.stack([ds.U.values, ds.V.values], axis=1)
+                features = features_maker(ds, features_names, dx, dy, out_axis=1, out_dtype='float')
+                forcing = ds.TAx.values, ds.TAy.values, features
+                U,V = Forward_Euler(X0=(0.,0.), RHS_dyn=my_dynamic_RHS, diss_model=trained_model, forcing=forcing, dt=dt, dt_forcing=dt_forcing, Nsteps=Nsteps)
+                xtime = np.arange(0, Nsteps*dt, dt)/onehour
+                
+                fig, ax = plt.subplots(1,1,figsize = (10,5), constrained_layout=True,dpi=100)
+                ax.plot(xtime, U.mean(axis=(1,2)), label='estimated')
+                ax.plot(np.arange(0,Nhours), ds.U.isel(time=slice(0,Nhours)).mean(axis=(1,2)).values, label='true')
+                ax.set_xlabel('hour')
+                ax.set_title('integrated (Euler) vs truth')
+                ax.set_ylabel('U')
+                if SAVE:
+                    fig.savefig(path_save+'U_traj_Euler.png')
+                    
+        elif mymode=='hybrid':
             
-            # features = np.stack([ds.U.values, ds.V.values], axis=1)
-            features = features_maker(ds, features_names, dx, dy, out_axis=1, out_dtype='float')
-            forcing = ds.TAx.values, ds.TAy.values, features
-            U,V = Forward_Euler(X0=(0.,0.), RHS_dyn=my_dynamic_RHS, diss_model=trained_model, forcing=forcing, dt=dt, dt_forcing=dt_forcing, Nsteps=Nsteps)
-            xtime = np.arange(0, Nsteps*dt, dt)/onehour
+            print(f'K0 value is {trained_model.RHS_dyn.K}')
+            
+             # TEST DATA
+            my_test_data = normalize_batch(test_set, deep_copy=True)
+            # myRHS_undim_test = jax.vmap(trained_model)(my_test_data['features'], my_test_data['forcing'])
+            
+            U,V,TAx,TAy = my_test_data['forcing'][:,0], my_test_data['forcing'][:,1], my_test_data['forcing'][:,2], my_test_data['forcing'][:,3] 
+            myRHS_dyn_test = jax.vmap(trained_model.RHS_dyn)(U,V,TAx,TAy)
+            myRHS_diss_undim_test = jax.vmap(trained_model.dissipationNN)(my_test_data['features'])
+            myRHS_diss_dim_test = myRHS_diss_undim_test*trained_model.RENORMstd[:,np.newaxis, np.newaxis] + trained_model.RENORMmean[:,np.newaxis, np.newaxis]
+            myRHS_dim_test = myRHS_dyn_test + myRHS_diss_dim_test
+            xtime = np.arange(len(ds.time)-Ntests, len(ds.time)-1 )*dt_forcing/oneday
             
             fig, ax = plt.subplots(1,1,figsize = (10,5), constrained_layout=True,dpi=100)
-            ax.plot(xtime, U.mean(axis=(1,2)), label='estimated')
-            ax.plot(np.arange(0,Nhours), ds.U.isel(time=slice(0,Nhours)).mean(axis=(1,2)).values, label='true')
-            ax.set_xlabel('hour')
-            ax.set_title('integrated (Euler) vs truth')
-            ax.set_ylabel('U')
+            ax.plot(xtime, myRHS_dim_test[:,0].mean(axis=(1,2)), label='RHS U estimate', c='b')
+            ax.plot(xtime, test_set['target'][:,0].mean(axis=(1,2)), label='dUdt target', c='b', alpha=0.5)
+            ax.plot(xtime, myRHS_dim_test[:,1].mean(axis=(1,2)), label='RHS V estimate', c='orange')
+            ax.plot(xtime, test_set['target'][:,1].mean(axis=(1,2)), label='dVdt target', c='orange', alpha=0.5)
+            ax.set_xlabel('time (days)')
+            ax.set_ylabel('RHS')
+            ax.set_title('test_data')
+            ax.set_ylim([-1e-5,1e-5])
+            ax.legend()
             if SAVE:
-                fig.savefig(path_save+'U_traj_Euler.png')
+                fig.savefig(path_save+'test_data_dim.png')
+               
+           # TRAIN DATA
+            my_train_data = normalize_batch(train_set, deep_copy=True)
+            
+            U,V,TAx,TAy = my_train_data['forcing'][:,0], my_train_data['forcing'][:,1], my_train_data['forcing'][:,2], my_train_data['forcing'][:,3] 
+            myRHS_dyn_train = jax.vmap(trained_model.RHS_dyn)(U,V,TAx,TAy)
+            myRHS_diss_undim_train = jax.vmap(trained_model.dissipationNN)(my_train_data['features'])
+            myRHS_diss_dim_train = myRHS_diss_undim_train*trained_model.RENORMstd[:,np.newaxis, np.newaxis] + trained_model.RENORMmean[:,np.newaxis, np.newaxis]
+            myRHS_dim_train = myRHS_dyn_train + myRHS_diss_dim_train
+            
+            # myRHS_undim_train = jax.vmap(trained_model)(my_train_data['features'], my_train_data['forcing'])
+            # myRHS_dim_train = myRHS_undim_train*trained_model.RENORMstd[:,np.newaxis, np.newaxis] + trained_model.RENORMmean[:,np.newaxis, np.newaxis]
+            xtime = np.arange(0, len(ds.time)-Ntests )*dt_forcing/oneday
+
+            fig, ax = plt.subplots(1,1,figsize = (10,5), constrained_layout=True,dpi=100)
+            ax.plot(xtime, myRHS_dim_train[:,0].mean(axis=(1,2)), label='RHS U estimate', c='b')
+            ax.plot(xtime, train_set['target'][:,0].mean(axis=(1,2)), label='dUdt target', c='b', alpha=0.5)
+            ax.plot(xtime, myRHS_dim_train[:,1].mean(axis=(1,2)), label='RHS V estimate', c='orange')
+            ax.plot(xtime, train_set['target'][:,1].mean(axis=(1,2)), label='dVdt target', c='orange', alpha=0.5)
+            ax.set_xlabel('time (days)')
+            ax.set_ylabel('RHS')
+            ax.set_title('train_data')
+            ax.set_ylim([-1e-5,1e-5])
+            ax.legend()    
+            if SAVE:
+                fig.savefig(path_save+'train_data_dim.png') 
+                
+                
+            # non dim data
+            # fig, ax = plt.subplots(1,1,figsize = (10,5), constrained_layout=True,dpi=100)
+            # ax.plot(xtime, myRHS_undim_train[:,0].mean(axis=(1,2)), label='estimated RHS U', c='b')
+            # ax.plot(xtime, my_train_data['target'][:,0].mean(axis=(1,2)), label='dUdt target', c='b', alpha=0.5)
+            # ax.plot(xtime, myRHS_undim_train[:,1].mean(axis=(1,2)), label='estimated RHS V', c='orange')
+            # ax.plot(xtime, my_train_data['target'][:,1].mean(axis=(1,2)), label='dVdt target', c='orange', alpha=0.5)
+            # ax.set_title('non dim, train_data')
+            # if SAVE:
+            #     fig.savefig(path_save+'train_data_undim.png')
+                
+            # terms of U budget
+            Coriolis = fc.mean()*ds.V.isel(time=slice(0,len(ds.time)-Ntests)).mean(axis=(1,2)).values
+            est_K0 = np.exp(trained_model.RHS_dyn.K)
+            Stress = est_K0*ds.TAx.isel(time=slice(0,len(ds.time)-Ntests)).mean(axis=(1,2)).values
+            est_diss_undim = jax.vmap(trained_model.dissipationNN)(my_train_data['features']) 
+            est_diss_dim = (est_diss_undim*trained_model.RENORMstd[:,np.newaxis, np.newaxis] + trained_model.RENORMmean[:,np.newaxis, np.newaxis]
+                            )[:,0].mean(axis=(1,2))
+            true_dudt = np.gradient(ds.U.isel(time=slice(0,len(ds.time)-Ntests)), dt_forcing, axis=0).mean(axis=(1,2))
+            est_dudt = Coriolis + Stress + est_diss_dim
+            xtime = np.arange(0,len(Coriolis))*dt_forcing/oneday
+
+            fig, ax = plt.subplots(1,1,figsize = (10,5), constrained_layout=True,dpi=100)
+            ax.plot(xtime, Coriolis, label='Coriolis', c='orange')
+            ax.plot(xtime, Stress, label='K0*tau',c='g')
+            ax.plot(xtime, est_diss_dim, label='estimated diss', c='cyan')
+            ax.plot(xtime, true_dudt, label='true dUdt',c='k')
+            ax.plot(xtime, est_dudt, label='estimated dUdt',c='k',ls='--')
+            ax.set_xlabel('days')
+            ax.set_ylabel('m/s2')
+            ax.set_title('U budget, train period')
+            ax.legend()
+            if SAVE:
+                fig.savefig(path_save+'U_budget.png')
+
+            
+            
         
 plt.show()

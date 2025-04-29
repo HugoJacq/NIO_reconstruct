@@ -13,9 +13,10 @@ from functools import partial
 def data_maker(ds              : xr.core.dataset.Dataset,
                 Ntests          : int, 
                 features_names  : list,
-                my_dynamic_RHS  : eqx.Module,
+                no_parameter_RHS  : eqx.Module,
                 dx              : float,
                 dy              : float,
+                dt_forcing      : float,
                 mode            : str = 'NN_only'):
     """
     INPUTS:
@@ -41,12 +42,13 @@ def data_maker(ds              : xr.core.dataset.Dataset,
     mydtype = 'float'
     train_set, test_set = {}, {}
     for set, data in zip([train_set, test_set],[ds_train,ds_test]):
-        dUdt = np.gradient(data.U, 3600.,axis=0).astype(mydtype)
-        dVdt = np.gradient(data.V, 3600.,axis=0).astype(mydtype)
+        dUdt = np.gradient(data.U, dt_forcing,axis=0).astype(mydtype)
+        dVdt = np.gradient(data.V, dt_forcing,axis=0).astype(mydtype)
         
         
         if mode=='NN_only':
-            d_U,d_V = my_dynamic_RHS(data.U.values.astype(mydtype), 
+            # here 'no_parameter_RHS' is the Coriolis term and the Stress term
+            d_U,d_V = no_parameter_RHS(data.U.values.astype(mydtype), 
                                      data.V.values.astype(mydtype),  
                                      data.TAx.values.astype(mydtype),  
                                      data.TAy.values.astype(mydtype)) 
@@ -54,12 +56,15 @@ def data_maker(ds              : xr.core.dataset.Dataset,
             set['target'] = np.stack([dUdt - d_U, dVdt - d_V], axis=1)
         
         elif mode=='hybrid':
-            set['target'] = np.stack([dUdt, dVdt], axis=1)
-            set['forcing'] = features_maker(data, ['U','V','TAx','TAy'], out_axis=1,out_dtype=mydtype) # forcing is for the RHS_dynamic part
+            # here 'no_parameter_RHS' is the Coriolis term
+            d_U, d_V = no_parameter_RHS(data.TAx.values.astype(mydtype),  
+                                        data.TAy.values.astype(mydtype))
+            set['target'] = np.stack([dUdt-d_U, dVdt-d_V], axis=1)
+            set['forcing'] = features_maker(data, ['TAx','TAy'], out_axis=1, out_dtype=mydtype) # forcing is for the RHS_dynamic part
         
         # features are first in equinox NN layers, after batch dim
         #   so features.shape = batch_dim, n_features, ydim, xdim
-        set['features'] = features_maker(data, features_names,dx,dy,out_axis=1,out_dtype=mydtype)
+        set['features'] = features_maker(data, features_names, dx, dy, out_axis=1, out_dtype=mydtype)
         
                                 
     return train_set, test_set
@@ -101,7 +106,7 @@ def normalize_batch(batch_data, deep_copy=False):
     else:
         new_data = batch_data
         
-    L_to_be_normalized = ['features','target']    
+    L_to_be_normalized = ['features','target','forcing']    
     for name in L_to_be_normalized:
         Num = batch_data[name].shape[1]
         for k in range(Num):
