@@ -29,6 +29,9 @@ This script:
     We aim to have a dissipation term that allow for a prediction of the RHS of (1), then integrate this one or multiple time to get 
         a surface current trajectory.
         
+    This script is offline training as we compare the target and the ouput of the NN at every timestep.
+    The input data is a collection of images, and we compute a loss for each of them. 
+        
         Loss = || target - dissipation ||
         
             with target = dCdt + RHS_dynamic
