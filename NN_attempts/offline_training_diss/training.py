@@ -27,7 +27,7 @@ def data_maker(ds              : xr.core.dataset.Dataset,
         dy          : grid size Y, in m
     
     OUTPUS:
-        (train_set, test_set) : a tuple with data for training and validation, target and features
+        (train_set, test_set) : a tuple with data for training and validation containing target and features
     """    
     nt = len(ds.time)
 
@@ -51,36 +51,24 @@ def data_maker(ds              : xr.core.dataset.Dataset,
 
         set['target'] = np.stack([dUdt - d_U, dVdt - d_V], axis=1)
         
-        
-        # av_vars = list(data.data_vars)
-        # L_f = []
-        # for k,feature in enumerate(features_names):
-        #     if feature in av_vars:
-        #         L_f.append( data[feature].values.astype(mydtype) )
-        #     elif feature[:4]=='grad' and feature[5:] in av_vars:
-        #         if feature[4]=='x':
-        #             DX, axis = dx, -1
-        #         elif feature[4]=='y':
-        #             DX, axis = dy, -2           
-        #         L_f.append( np.gradient(data[feature[5:]], DX, axis=axis).astype(mydtype) )
-        #     else:
-        #         raise Exception(f'You want to use the variables {feature} as a feature for your NN but it is not recognized')
-
-        # set['features'] = np.stack([data[key].values.astype(mydtype) for key in features_names], axis=1)  # .astype('float64')
-        
         # features are first in equinox NN layers, after batch dim
         #   so features.shape = batch_dim, n_features, ydim, xdim
         set['features'] = features_maker(data, features_names,dx,dy,out_axis=1,out_dtype=mydtype)
                                 
     return train_set, test_set
 
-def features_maker(data: xr.core.dataset.Dataset,
+def features_maker(data         : xr.core.dataset.Dataset,
                    features_names:list, 
-                   dx:float,
-                   dy:float,
-                   out_axis:int,
-                   out_dtype:str):
-    """"""
+                   dx           :float = 1.,
+                   dy           :float = 1.,
+                   out_axis     :int = 0,
+                   out_dtype    :str = 'float'):
+    """
+    A simple function that checks for names of variables in 'features_names' and then stack them
+        for use of input for a neural network.
+        
+        The name can be a gradient if starting with 'grad' then a direction (e.g. 'graxU')
+    """
     av_vars = list(data.data_vars)
     L_f = []
     for k,feature in enumerate(features_names):
@@ -185,16 +173,14 @@ def train(
     
     dynamic_model, static_model = my_partition(diss_model)
 
-    opt_state = optim.init(dynamic_model) # eqx.filter(diss_model, eqx.is_array)
+    opt_state = optim.init(dynamic_model)
     
     
     Test_loss = []
     Train_loss = []
     minLoss = 999
     put_on_device(test_data) # the test dataset is small, we put it once on the GPU
-        
-    # print(train_data['target'].shape)
-    
+
     # get mean, std from target for renormalization of NN output
     mean, std = jnp.mean(train_data['target'],axis=(0,2,3)), jnp.std(train_data['target'],axis=(0,2,3))
     static_model = eqx.tree_at( lambda t:t.RENORMmean, static_model, mean)
@@ -203,12 +189,11 @@ def train(
     
     #for step in range(maxstep):
     for step, batch_data in zip(range(maxstep), iter_train_data):    
-        #time1 = clock.time()
         # normalize inputs at batch size
         batch_data = normalize_batch(batch_data)
-        #time2 = clock.time()
+        
         dynamic_model, opt_state, train_loss = make_step(dynamic_model, batch_data, opt_state)
-        #time3 = clock.time()
+
         if (step % print_every) == 0 or (step == maxstep - 1):
             n_test_data = normalize_batch(test_data) # normalize test features
             test_loss = evaluate(dynamic_model, static_model, n_test_data)
@@ -222,18 +207,11 @@ def train(
             if test_loss<minLoss:
                 # keep the best model
                 minLoss = test_loss
-                bestdyn = dynamic_model # eqx.combine(dynamic_model, static_model)
+                bestdyn = dynamic_model 
         if step==maxstep-1:
             lastmodel = eqx.combine(dynamic_model, static_model)
             bestmodel = eqx.combine(bestdyn, static_model)
-        #time4 = clock.time()
-        
-        
-        # print(f'total of loop {step}: {time4-time1}')
-        # print(f'    norm: {time2-time1}')
-        # print(f'    step: {time3-time2}')
-        # print(f'    rest: {time4-time3}')
-        
+
     return lastmodel, bestmodel, Train_loss, Test_loss
 
 @partial(jax.jit, static_argnames=['deep_copy'])
