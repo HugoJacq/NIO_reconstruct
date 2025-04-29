@@ -51,7 +51,8 @@ os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false" # for jax
 # jax.config.update("jax_enable_x64", True)
 
 # my modules imports
-from training import data_maker, batch_loader, train, normalize_batch, features_maker
+from preprocessing import data_maker, features_maker
+from training import batch_loader, train, normalize_batch
 from NNmodels import *
 from constants import oneday, distance_1deg_equator
 
@@ -68,7 +69,7 @@ PRINT_EVERY     = 10        # print infos every 'PRINT_EVERY' epochs
 BATCH_SIZE      = -1       # size of a batch (time), set to -1 for no batching
 SEED            = 5678      # for reproductibility
 features_names  = ['U','V','gradxU']   # what features to use in the NN
-mymode          = 'NN_only'
+mymode          = 'NN_only' # NN_only, hybrid
 
 
 PLOTTING        = True
@@ -102,12 +103,12 @@ key, subkey = jax.random.split(key, 2)
 
 
 L_my_diss = {
-            "DissipationRayleigh":DissipationRayleigh(),
+            # "DissipationRayleigh":DissipationRayleigh(),
             # "DissipationRayleigh_NNlinear_1":DissipationRayleigh_NNlinear(subkey, Nfeatures=len(features_names), width=1),
             # "DissipationRayleigh_NNlinear_1024":DissipationRayleigh_NNlinear(subkey, Nfeatures=len(features_names), width=1024),
             # "DissipationRayleigh_MLP":DissipationRayleigh_MLP(subkey, Nfeatures=len(features_names), width=1024),
             # "DissipationMLP":DissipationMLP(subkey, Nfeatures=len(features_names)),
-            # "DissipationCNN":DissipationCNN(subkey, Nfeatures=len(features_names)),
+            "DissipationCNN":DissipationCNN(subkey, Nfeatures=len(features_names)),
             }
 L_my_RHS = {
             "RHS_dissRayleigh": RHS(my_dynamic_RHS, DissipationRayleigh()),
@@ -137,10 +138,13 @@ train_set, test_set = data_maker(ds,
 iter_train_data = batch_loader(train_set,
                                batch_size=BATCH_SIZE)
 
+# create folder for each set of features
+name_base_folder = 'features'+''.join('_'+variable for variable in features_names)+'/'
+os.system(f'mkdir -p {name_base_folder}')
 
 for namemodel, my_model in L_models.items():
     # namediss = type(my_diss).__name__
-    path_save = namemodel+'/'
+    path_save = name_base_folder+namemodel+'/'
     os.system(f'mkdir -p {path_save}')
     
     print('')
