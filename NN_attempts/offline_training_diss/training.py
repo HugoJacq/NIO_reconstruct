@@ -16,7 +16,8 @@ def data_maker(ds              : xr.core.dataset.Dataset,
                 features_names  : list,
                 my_dynamic_RHS  : eqx.Module,
                 dx              : float,
-                dy              : float):
+                dy              : float,
+                mode            : str = 'NN_only'):
     """
     INPUTS:
         filenames   : list of strings, names of files to use as inputs
@@ -44,16 +45,23 @@ def data_maker(ds              : xr.core.dataset.Dataset,
         dUdt = np.gradient(data.U, 3600.,axis=0).astype(mydtype)
         dVdt = np.gradient(data.V, 3600.,axis=0).astype(mydtype)
         
-        d_U,d_V = my_dynamic_RHS(data.U.values.astype(mydtype), 
-                                 data.V.values.astype(mydtype),  
-                                 data.TAx.values.astype(mydtype),  
-                                 data.TAy.values.astype(mydtype)) 
+        
+        if mode=='NN_only':
+            d_U,d_V = my_dynamic_RHS(data.U.values.astype(mydtype), 
+                                     data.V.values.astype(mydtype),  
+                                     data.TAx.values.astype(mydtype),  
+                                     data.TAy.values.astype(mydtype)) 
 
-        set['target'] = np.stack([dUdt - d_U, dVdt - d_V], axis=1)
+            set['target'] = np.stack([dUdt - d_U, dVdt - d_V], axis=1)
+        
+        elif mode=='hybrid':
+            set['target'] = np.stack([dUdt, dVdt], axis=1)
+            set['forcing'] = features_maker(data, ['U','V','TAx','TAy'], out_axis=1,out_dtype=mydtype) # forcing is for the RHS_dynamic part
         
         # features are first in equinox NN layers, after batch dim
         #   so features.shape = batch_dim, n_features, ydim, xdim
         set['features'] = features_maker(data, features_names,dx,dy,out_axis=1,out_dtype=mydtype)
+        
                                 
     return train_set, test_set
 
@@ -71,7 +79,7 @@ def features_maker(data         : xr.core.dataset.Dataset,
     """
     av_vars = list(data.data_vars)
     L_f = []
-    for k,feature in enumerate(features_names):
+    for _,feature in enumerate(features_names):
         if feature in av_vars:
             L_f.append( data[feature].values.astype(out_dtype) )
         elif feature[:4]=='grad' and feature[5:] in av_vars:
@@ -81,7 +89,7 @@ def features_maker(data         : xr.core.dataset.Dataset,
                 DX, axis = dy, -2           
             L_f.append( np.gradient(data[feature[5:]], DX, axis=axis).astype(out_dtype) )
         else:
-            raise Exception(f'You want to use the variables {feature} as a feature for your NN but it is not recognized')
+            raise Exception(f'You want to use the variables {feature} as a feature but it is not recognized')
     return np.stack(L_f, axis=out_axis)
    
    
@@ -118,7 +126,7 @@ def batch_loader(data_set   : dict,
                 end = dataset_size
  
  
-def loss(dynamic_model, static_model, n_features, target):
+def loss(dynamic_model, static_model, n_features, n_target):
     """
     INPUTS:
         diss_model  : NN, eats normalized inputs, outputs non dimensionnal dissipation
@@ -130,17 +138,19 @@ def loss(dynamic_model, static_model, n_features, target):
     """
     diss_model = eqx.combine(dynamic_model, static_model)
     prediction = diss_model(n_features)
-    #dim_prediction = prediction*diss_model.RENORMstd[:,np.newaxis, np.newaxis] + diss_model.RENORMmean[:,np.newaxis, np.newaxis]
-    # return jnp.sqrt( (dim_prediction[0] - target[0])**2 + (dim_prediction[1] - target[1])**2 )
-    return jnp.sqrt( (prediction[0] - target[0])**2 + (prediction[1] - target[1])**2 )
+    return jnp.sqrt( (prediction[0] - n_target[0])**2 + (prediction[1] - n_target[1])**2 )
 
 
 def vmap_loss(dynamic_model, static_model, data_batch):
     """
     vmap of loss on the first dimension which should be the batch dimension
     """
-    vmapped_loss = jax.vmap(loss, in_axes=(None, None, 0, 0))(dynamic_model, static_model, data_batch['features'], data_batch['target'])
-    # print(vmapped_loss.shape)
+    vmapped_loss = jax.vmap(
+                            loss, in_axes=(None, None, 0, 0)
+                                )(dynamic_model, 
+                                  static_model, 
+                                  data_batch['features'], 
+                                  data_batch['target'])
     return jnp.nanmean(vmapped_loss)
 
 # @partial(eqx.filter_jit, static_argnames=['static_model','data_batch'])
@@ -148,30 +158,57 @@ def vmap_loss(dynamic_model, static_model, data_batch):
 def evaluate(dynamic_model, static_model, data_batch):
     return vmap_loss(dynamic_model, static_model, data_batch)
 
+def loss_hybrid(dynamic_model, static_model, n_features, n_target, n_forcing):
+    """
+    """
+    RHS_model = eqx.combine(dynamic_model, static_model)
+    prediction = RHS_model(n_features, n_forcing)
+    return jnp.sqrt( (prediction[0] - n_target[0])**2 + (prediction[1] - n_target[1])**2 )
+
+def vmap_loss_hybrid(dynamic_model, static_model, data_batch):
+    """
+    """ 
+    vmapped_loss = jax.vmap(
+                            loss_hybrid, in_axes=(None, None, 0, 0)
+                                )(dynamic_model, static_model, 
+                                    data_batch['features'], 
+                                    data_batch['target'],
+                                    data_batch['forcing'])
+    return jnp.nanmean(vmapped_loss)   
+    
+
 def train(
-        diss_model          : eqx.Module,
+        the_model          : eqx.Module,
         optim               : optax.GradientTransformation,
         iter_train_data     : dict,
         train_data          : dict,
         test_data           : dict,
         maxstep             : int,
         print_every         : int,
+        mode                : str = 'NN_only',
         save_best_model     : bool = True,
             ):
     
-    
-
     @eqx.filter_jit
-    def make_step( model, train_batch, opt_state):
+    def make_step( model, train_batch, opt_state): #  <- train theta only
         loss_value, grads = jax.value_and_grad(vmap_loss)(model, static_model, train_batch)
         # loss_value = vmap_loss(model, static_model, train_batch)
         # grads = jax.jacfwd(vmap_loss)(model, static_model, train_batch)
         updates, opt_state = optim.update(grads, opt_state, model) #         
         new_dyn = eqx.apply_updates(model, updates)
-        return new_dyn, opt_state, loss_value
+        return new_dyn, opt_state, loss_value, grads
+    
+    @eqx.filter_jit
+    def make_step_hybrid(model, train_batch, opt_state): #  <- train both K0 and theta
+        loss_value, grads = jax.value_and_grad(vmap_loss_hybrid)(model, static_model, train_batch)
+        # loss_value = vmap_loss(model, static_model, train_batch)
+        # grads = jax.jacfwd(vmap_loss)(model, static_model, train_batch)
+        updates, opt_state = optim.update(grads, opt_state, model) #         
+        new_dyn = eqx.apply_updates(model, updates)
+        return new_dyn, opt_state, loss_value, grads
     
     
-    dynamic_model, static_model = my_partition(diss_model)
+    dynamic_model, static_model = my_partition(the_model)
 
     opt_state = optim.init(dynamic_model)
     
@@ -192,7 +229,22 @@ def train(
         # normalize inputs at batch size
         batch_data = normalize_batch(batch_data)
         
-        dynamic_model, opt_state, train_loss = make_step(dynamic_model, batch_data, opt_state)
+        if mode=='NN_only':
+            dynamic_model, opt_state, train_loss, _ = make_step(dynamic_model, batch_data, opt_state)
+        elif mode=='hybrid':
+            dynamic_model, opt_state, train_loss, grads = make_step_hybrid(dynamic_model, batch_data, opt_state)
+            
+            if grads.RHS_dyn.K < 1e-5:
+                static_model = eqx.tree_at( lambda t:t.grads.RHS_dyn.K, static_model, dynamic_model.RHS_dyn.K) # <- set K0 as converged
+                dynamic_model = eqx.tree_at( lambda t:t.grads.RHS_dyn.K, dynamic_model, None) # <- remove K0 from trainable parameters
+            
+            
+        elif mode=='hybrid_sequential':
+            print('sequential model to be done')
+        else:
+            raise Exception(f'You chose the training mode {mode} but it is not recognized')
+
+
 
         if (step % print_every) == 0 or (step == maxstep - 1):
             n_test_data = normalize_batch(test_data) # normalize test features
@@ -208,6 +260,9 @@ def train(
                 # keep the best model
                 minLoss = test_loss
                 bestdyn = dynamic_model 
+        else:
+            bestdyn = dynamic_model
+            
         if step==maxstep-1:
             lastmodel = eqx.combine(dynamic_model, static_model)
             bestmodel = eqx.combine(bestdyn, static_model)
@@ -220,18 +275,27 @@ def normalize_batch(batch_data, deep_copy=False):
         new_data = deepcopy(batch_data)
     else:
         new_data = batch_data
-    # features
-    Nfeatures = batch_data['features'].shape[1]
-    for k in range(Nfeatures):
-        mean = jnp.mean(batch_data['features'][:,k,:,:])
-        std = jnp.std(batch_data['features'][:,k,:,:])
-        new_data['features'] = new_data['features'].at[:,k,:,:].set( (batch_data['features'][:,k,:,:]-mean)/std )
-    # target
-    Ntarget = batch_data['target'].shape[1]
-    for k in range(Ntarget):
-        mean = jnp.mean(batch_data['target'][:,k,:,:])
-        std = jnp.std(batch_data['target'][:,k,:,:])
-        new_data['target'] = new_data['target'].at[:,k,:,:].set( (batch_data['target'][:,k,:,:]-mean)/std )    
+        
+    L_to_be_normalized = ['features','target']    
+    for name in L_to_be_normalized:
+        Num = batch_data[name].shape[1]
+        for k in range(Num):
+            mean = jnp.mean(batch_data[name][:,k,:,:])
+            std = jnp.std(batch_data[name][:,k,:,:])
+            new_data[name] = new_data[name].at[:,k,:,:].set( (batch_data[name][:,k,:,:]-mean)/std )
+    
+    # # features
+    # Nfeatures = batch_data['features'].shape[1]
+    # for k in range(Nfeatures):
+    #     mean = jnp.mean(batch_data['features'][:,k,:,:])
+    #     std = jnp.std(batch_data['features'][:,k,:,:])
+    #     new_data['features'] = new_data['features'].at[:,k,:,:].set( (batch_data['features'][:,k,:,:]-mean)/std )
+    # # target
+    # Ntarget = batch_data['target'].shape[1]
+    # for k in range(Ntarget):
+    #     mean = jnp.mean(batch_data['target'][:,k,:,:])
+    #     std = jnp.std(batch_data['target'][:,k,:,:])
+    #     new_data['target'] = new_data['target'].at[:,k,:,:].set( (batch_data['target'][:,k,:,:]-mean)/std )    
     return new_data
 
 def put_on_device(batch_data):

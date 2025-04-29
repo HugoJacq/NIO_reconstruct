@@ -163,18 +163,48 @@ class DissipationRayleigh_NNlinear(eqx.Module):
         return x*uv
     
     
-class RHS_dynamic():
+class RHS_dynamic(eqx.Module):   
     fc : np.ndarray
-    K : np.ndarray
+    K : jnp.ndarray
         
     def __init__(self, fc, K):
-        self.K = np.asarray(K)
         self.fc = np.asarray(fc)
+        self.K = jnp.asarray(K)
   
     def __call__(self, U, V, TAx, TAy):
         d_U =  self.fc*V + self.K*TAx
         d_V = -self.fc*U + self.K*TAy
-        return d_U, d_V
+        return jnp.stack([d_U, d_V], axis=0)
+    
+    
+
+class RHS():
+    
+    RHS_dyn : eqx.Module
+    dissipationNN : eqx.Module
+    # renormalization values
+    RENORMmean  : jnp.ndarray 
+    RENORMstd   : jnp.ndarray
+    
+    def __init__(self, RHS_dyn, dissipationNN):
+        self.RHS_dyn = RHS_dyn
+        self.dissipationNN = dissipationNN
+        self.RENORMmean, self.RENORMstd = jnp.zeros(2), jnp.zeros(2)       
+        
+    def __call__(self, features: Float[Array, "Nfeatures Ny Nx"],
+                        forcing: Float[Array, '4 Ny Nx'],                   
+                    ) -> Float[Array, "Currents Ny Nx"]:
+        
+        U,V,TAx,TAy = forcing[:,0], forcing[:,1], forcing[:,2], forcing[:,3]
+        
+        dynamic_part = self.RHS_dyn(U,V,TAx,TAy)
+        dissipation_part = self.dissipationNN(features)
+        return dynamic_part + dissipation_part
+        
+        
+        
+    
+    
     
     
 class Rayleigh_damping(eqx.Module):
@@ -184,6 +214,8 @@ class Rayleigh_damping(eqx.Module):
     def __call__(self, x):
         return jnp.stack([- self.R*x[0], -self.R*x[1]])
     
+
+
 
 def Forward_Euler(X0, RHS_dyn, diss_model, forcing, dt, dt_forcing, Nsteps):
     TAx, TAy, features = forcing
