@@ -87,12 +87,12 @@ class DissipationRayleigh(eqx.Module):
     """
     layers: list
     # renormalization values (mean,std)
-    RENORMmean  : np.array 
-    RENORMstd    : np.array
+    RENORMmean  :jnp.array 
+    RENORMstd    : jnp.array
     
     def __init__(self, R = jnp.asarray(0.1)):
         self.layers = [ Rayleigh_damping(R) ]
-        self.RENORMmean, self.RENORMstd = np.zeros(2, dtype='float32'), np.zeros(2, dtype='float32')           
+        self.RENORMmean, self.RENORMstd = jnp.zeros(2, dtype='float32'), jnp.zeros(2, dtype='float32')           
 
     def __call__(self, x: Float[Array, "Nfeatures Ny Nx"]) -> Float[Array, "Currents Ny Nx"]:
         for layer in self.layers:
@@ -164,11 +164,11 @@ class DissipationRayleigh_NNlinear(eqx.Module):
     
     
 class RHS_dynamic(eqx.Module):   
-    fc : np.ndarray
+    fc : jnp.ndarray
     K : jnp.ndarray
         
     def __init__(self, fc, K):
-        self.fc = np.asarray(fc)
+        self.fc = jnp.asarray(fc)
         self.K = jnp.asarray(K)
   
     def __call__(self, U, V, TAx, TAy):
@@ -178,7 +178,7 @@ class RHS_dynamic(eqx.Module):
     
     
 
-class RHS():
+class RHS(eqx.Module):
     
     RHS_dyn : eqx.Module
     dissipationNN : eqx.Module
