@@ -63,32 +63,38 @@ from constants import oneday, distance_1deg_equator
 # NN hyper parameters
 TRAIN           = False      # run the training and save best model
 SAVE            = True     # save model and figures
-LEARNING_RATE   = 1e-3      # initial learning rate for optimizer
-MAX_STEP        = 100        # number of epochs
+LEARNING_RATE   = 1e-3      
+MAX_STEP        = 300        # number of epochs
 PRINT_EVERY     = 10        # print infos every 'PRINT_EVERY' epochs
-BATCH_SIZE      = -1      # size of a batch (time), set to -1 for no batching
+BATCH_SIZE      = 200      # size of a batch (time), set to -1 for no batching
 SEED            = 5678      # for reproductibility
-features_names  = ['U','V']   # what features to use in the NN
-mymode          = 'hybrid' # NN_only, hybrid
+features_names  = ['U','V','TAx','TAy']   # what features to use in the NN
+mymode          = 'NN_only' # NN_only, hybrid
 
+# evolving learning rate (linear)
+lr_init = 1e-3      # initial lr
+lr_end = 1e-3       # end lr
+tr_steps = 30       # how many steps to go from lr_init to lr_end
+tr_start = 100      # how many iteration before changing lr
 
 PLOTTING        = True
 TIME_INTEG      = False
 
 # Defining data
-Ntests      = 10*24         # number of hours for test (over the data)
+# Ntests      = 10*24       # number of hours for test (over the data)
+test_ratio  = 20             # % of hours for test (over the data)
 Nsize       = 128           # size of the domain, in nx ny
 dt_forcing  = 3600          # time step of forcing
 dt          = 3600.         # time step for Euler integration
 dx          = 0.1           # X data resolution in ° 
 dy          = 0.1           # Y data resolution in ° 
-K0          = -0.           # initial K0
+K0          = 1.           # initial K0
 
 
 filename = ['../../data_regrid/croco_1h_inst_surf_2005-01-01-2005-01-31_0.1deg_conservative.nc',
-            # '../../data_regrid/croco_1h_inst_surf_2005-02-01-2005-02-28_0.1deg_conservative.nc',
-            # '../../data_regrid/croco_1h_inst_surf_2005-03-01-2005-03-31_0.1deg_conservative.nc',
-            # "../../data_regrid/croco_1h_inst_surf_2005-04-01-2005-04-30_0.1deg_conservative.nc"
+            '../../data_regrid/croco_1h_inst_surf_2005-02-01-2005-02-28_0.1deg_conservative.nc',
+            '../../data_regrid/croco_1h_inst_surf_2005-03-01-2005-03-31_0.1deg_conservative.nc',
+            "../../data_regrid/croco_1h_inst_surf_2005-04-01-2005-04-30_0.1deg_conservative.nc"
             ]
 # prepare data
 ds = xr.open_mfdataset(filename)
@@ -96,6 +102,8 @@ ds = ds.isel(lon=slice(-Nsize-1,-1),lat=slice(-Nsize-1,-1)) # <- this could be c
 ds = ds.rename({'oceTAUX':'TAx', 'oceTAUY':'TAy'})
 fc = np.asarray(2*2*np.pi/86164*np.sin(ds.lat.values*np.pi/180))
 
+if mymode=='NN_only': # temporaire
+    K0 = -10.
 # intialize
 my_dynamic_RHS = RHS_dynamic(fc, K0)
 my_coriolis_term = Coriolis(fc)
@@ -124,7 +132,7 @@ L_no_param_RHS = {"RHS_dissRayleigh":my_coriolis_term,
 #====================================================================================================
 # END PARAMETERS
 #====================================================================================================
-
+Ntests = test_ratio*len(ds.time)//100
 
 if mymode=='NN_only':
     L_models = L_my_diss
@@ -134,7 +142,7 @@ else:
     raise Exception(f'You want to use the mode {mymode} but it is not recognized')
 
 
-
+learning_rate_fn = optax.linear_schedule(lr_init, lr_end, tr_start)
 
 # create folder for each set of features
 name_base_folder = 'features'+''.join('_'+variable for variable in features_names)+'/'
@@ -168,7 +176,7 @@ for namemodel, my_model in L_models.items():
         print('* training ...')
         model, best_model, Train_loss, Test_loss = train(
                                                     the_model           = my_model,
-                                                    optim               = optax.adam(LEARNING_RATE), # optax.adam(LEARNING_RATE), #optax.lbfgs(LEARNING_RATE),
+                                                    optim               = optax.adam(learning_rate_fn), # optax.adam(LEARNING_RATE), #optax.lbfgs(LEARNING_RATE),
                                                     iter_train_data     = iter_train_data,
                                                     train_data          = train_set,
                                                     test_data           = test_set,

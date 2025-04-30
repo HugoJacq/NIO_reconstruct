@@ -28,7 +28,7 @@ def batch_loader(data_set   : dict,
     assert all(data_set[key].shape[0] == dataset_size for key in data_set.keys()) # <- check that all array are on the same time lenght
     indices = np.arange(dataset_size)
     while True:
-        perm = indices # np.random.permutation(indices)
+        perm = np.random.permutation(indices) # indices # 
         start = 0
         if batch_size<=0:
             end = dataset_size-1 # no batch
@@ -88,13 +88,13 @@ def loss_hybrid(dynamic_model, static_model, n_features, n_target, n_forcing):
     """
     RHS_model = eqx.combine(dynamic_model, static_model)
     # prediction = RHS_model(n_features, n_forcing)
-    alpha = 0.5
+    alpha = 0.01
     prediction_diss_undim = RHS_model.dissipationNN(n_features)
     # prediction_diss_dim = prediction_diss_undim*RHS_model.RENORMstd[:,np.newaxis, np.newaxis] + RHS_model.RENORMmean[:,np.newaxis, np.newaxis]
     prediction_stress = RHS_model.stress(n_forcing[0],n_forcing[1])
     # prediction = alpha*prediction_stress + (1-alpha)*prediction_diss_undim
     prediction = prediction_stress + prediction_diss_undim
-    # jax.debug.print('normalized: stress {}, diss {}, target {}', prediction_stress[0].mean(), prediction_diss_undim[0].mean(), n_target[0].mean())
+    # jax.debug.print('normalized: stress {}, diss {}, target {}', alpha*prediction_stress[0].mean(), (1-alpha)*prediction_diss_undim[0].mean(), n_target[0].mean())
     return jnp.sqrt( (prediction[0] - n_target[0])**2 + (prediction[1] - n_target[1])**2 )
 
 def vmap_loss_hybrid(dynamic_model, static_model, data_batch):
@@ -169,28 +169,7 @@ def train(
         # DE-NORMALIZATION
         ###################
         # get mean, std from target for renormalization of NN output
-        if mode=='NN_only':
-            # here target is dUdt + RHS_dyn so we use that1
-            mean, std = jnp.mean(batch_data['target'],axis=(0,2,3)), jnp.std(batch_data['target'],axis=(0,2,3))
-        
-        elif mode=='hybrid':
-            # here target is dUdt, we need to compute RHS_dyn with the last value of K0
-            """"""
-            full_model = eqx.combine(dynamic_model, static_model)
-            # print(batch_data['forcing'].shape)
-            
-            # RHS_dyn = jax.vmap(full_model.RHS_dyn)(batch_data['forcing'][:,0],
-            #                                     batch_data['forcing'][:,1],
-            #                                     batch_data['forcing'][:,2],
-            #                                     batch_data['forcing'][:,3])
-            # print(RHS_dyn.shape)
-            # print(RHS_dyn.mean(axis=(0,2,3)))
-            # print(batch_data['target'].mean(axis=(0,2,3)))
-
-            # mean, std = jnp.mean(batch_data['target']-RHS_dyn,axis=(0,2,3)), jnp.std(batch_data['target']-RHS_dyn,axis=(0,2,3))
-            mean, std = jnp.mean(batch_data['target'],axis=(0,2,3)), jnp.std(batch_data['target'],axis=(0,2,3))
-            #batch_data['target'] = batch_data['target'] - RHS_dyn
-            
+        mean, std = jnp.mean(batch_data['target'],axis=(0,2,3)), jnp.std(batch_data['target'],axis=(0,2,3))
         static_model = eqx.tree_at( lambda t:t.RENORMmean, static_model, mean)
         static_model = eqx.tree_at( lambda t:t.RENORMstd, static_model, std)
        
@@ -208,14 +187,17 @@ def train(
         elif mode=='hybrid':
             dynamic_model, opt_state, train_loss, grads = make_step_hybrid(dynamic_model, batch_data, opt_state)
             if grads.stress.K is not None:
-                if jnp.abs(grads.stress.K) < 1e-7:
+                dK = jnp.abs(grads.stress.K*jnp.exp(dynamic_model.stress.K))
+                if dK < 1e-4:
                     print('     K0 has converged, it is now kept constant')
-                    print(f'         K0 = {dynamic_model.stress.K}, dK = {grads.stress.K}')
+                    print(f'         dK = {dK}')
+                    print(f'         K0 = {dynamic_model.stress.K}, dK0 = {grads.stress.K}')
                     static_model = eqx.tree_at( lambda t:t.stress.K, static_model, dynamic_model.stress.K, is_leaf=lambda x: x is None) # <- set K0 as converged
                     dynamic_model = eqx.tree_at( lambda t:t.stress.K, dynamic_model, None) # <- remove K0 from trainable parameters
-            
-            # print(f'         K0 = {dynamic_model.RHS_dyn.K}, dK = {grads.RHS_dyn.K}, R = {dynamic_model.dissipationNN.layers[0].R}, dR = {grads.dissipationNN.layers[0].R}')
-            print(f'         K0 = {dynamic_model.stress.K}, dK = {grads.stress.K}')
+                else:
+                    # print(f'         K0 = {dynamic_model.RHS_dyn.K}, dK = {grads.RHS_dyn.K}, R = {dynamic_model.dissipationNN.layers[0].R}, dR = {grads.dissipationNN.layers[0].R}')
+                    print(f'         dK {jnp.abs(grads.stress.K*jnp.exp(dynamic_model.stress.K))}', )
+                    print(f'         K0 = {dynamic_model.stress.K}, dK0 = {grads.stress.K}')
             evaluate = evaluate_hybrid
             
         elif mode=='hybrid_sequential':

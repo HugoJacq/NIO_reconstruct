@@ -30,11 +30,11 @@ class DissipationCNN(eqx.Module):
                         eqx.nn.Conv2d(8, 16, padding='SAME', kernel_size=3, key=key2),
                         jax.nn.relu,
                         eqx.nn.Conv2d(16, 2, padding='SAME', kernel_size=3, key=key3),
-                        eqx.nn.MaxPool2d(kernel_size=2),
+                        eqx.nn.MaxPool2d(kernel_size=3),
                         jnp.ravel,
-                        eqx.nn.Linear(2*127*127, 512, key=key4),
+                        eqx.nn.Linear(2*126*126, 256, key=key4),
                         jax.nn.sigmoid,
-                        eqx.nn.Linear(512, 2*128*128, key=key5),
+                        eqx.nn.Linear(256, 2*128*128, key=key5),
                         # jax.nn.sigmoid,
                         lambda x:jnp.reshape(x, (2,128,128)),
                         ]
@@ -194,8 +194,10 @@ class Stress(eqx.Module):
         self.K = jnp.asarray(K)
   
     def __call__(self, TAx, TAy):
-        d_U = jnp.exp(self.K)*TAx
-        d_V = jnp.exp(self.K)*TAy
+        # d_U = jnp.exp(self.K)*TAx
+        # d_V = jnp.exp(self.K)*TAy
+        d_U = self.K*TAx
+        d_V = self.K*TAy
         return jnp.stack([d_U, d_V], axis=0)
 
 class RHS_turb(eqx.Module):
