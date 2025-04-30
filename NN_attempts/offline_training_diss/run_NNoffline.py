@@ -61,7 +61,7 @@ from constants import oneday, distance_1deg_equator
 #====================================================================================================
 
 # NN hyper parameters
-TRAIN           = True      # run the training and save best model
+TRAIN           = False      # run the training and save best model
 SAVE            = True     # save model and figures
 LEARNING_RATE   = 1e-3      # initial learning rate for optimizer
 MAX_STEP        = 100        # number of epochs
@@ -332,14 +332,14 @@ for namemodel, my_model in L_models.items():
             coriolis_test = np.stack([fc*V, -fc*U], axis=1)
             diss_undim_test = jax.vmap(trained_model.dissipationNN)(my_test_data['features'])
             diss_dim_test = diss_undim_test*trained_model.RENORMstd[:,np.newaxis, np.newaxis] + trained_model.RENORMmean[:,np.newaxis, np.newaxis]
-            myRHS_test = coriolis_test + stress_dim_test + diss_dim_test
+            myRHS_test = stress_dim_test + diss_dim_test + coriolis_test
             xtime = np.arange(len(ds.time)-Ntests, len(ds.time)-1 )*dt_forcing/oneday
             
             fig, ax = plt.subplots(1,1,figsize = (10,5), constrained_layout=True,dpi=100)
             ax.plot(xtime, myRHS_test[:,0].mean(axis=(1,2)), label='RHS U estimate', c='b')
-            ax.plot(xtime, test_set['target'][:,0].mean(axis=(1,2)), label='dUdt target', c='b', alpha=0.5)
+            ax.plot(xtime, (test_set['target']+ coriolis_test)[:,0].mean(axis=(1,2)), label='dUdt target', c='b', alpha=0.5)
             ax.plot(xtime, myRHS_test[:,1].mean(axis=(1,2)), label='RHS V estimate', c='orange')
-            ax.plot(xtime, test_set['target'][:,1].mean(axis=(1,2)), label='dVdt target', c='orange', alpha=0.5)
+            ax.plot(xtime, (test_set['target']+ coriolis_test)[:,1].mean(axis=(1,2)), label='dVdt target', c='orange', alpha=0.5)
             ax.set_xlabel('time (days)')
             ax.set_ylabel('RHS')
             ax.set_title('test_data')
@@ -353,18 +353,19 @@ for namemodel, my_model in L_models.items():
             
             U,V = my_train_data['features'][:,0], my_train_data['features'][:,1]
             TAx,TAy = my_train_data['forcing'][:,0], my_train_data['forcing'][:,1] 
-            stress_train = jax.vmap(trained_model.stress)(TAx,TAy)
+            stress_undim_train = jax.vmap(trained_model.stress)(TAx,TAy)
+            stress_dim_train = stress_undim_train*trained_model.RENORMstd[:,np.newaxis, np.newaxis] + trained_model.RENORMmean[:,np.newaxis, np.newaxis]
             coriolis_train = np.stack([fc*V, -fc*U], axis=1)
             diss_undim_train = jax.vmap(trained_model.dissipationNN)(my_train_data['features'])
             diss_dim_train = diss_undim_train*trained_model.RENORMstd[:,np.newaxis, np.newaxis] + trained_model.RENORMmean[:,np.newaxis, np.newaxis]
-            myRHS_train = coriolis_train + stress_train + diss_dim_train
+            myRHS_train = coriolis_train + stress_dim_train + diss_dim_train
             xtime = np.arange(0, len(ds.time)-Ntests )*dt_forcing/oneday
 
             fig, ax = plt.subplots(1,1,figsize = (10,5), constrained_layout=True,dpi=100)
             ax.plot(xtime, myRHS_train[:,0].mean(axis=(1,2)), label='RHS U estimate', c='b')
-            ax.plot(xtime, train_set['target'][:,0].mean(axis=(1,2)), label='dUdt target', c='b', alpha=0.5)
+            ax.plot(xtime, (train_set['target']+coriolis_train)[:,0].mean(axis=(1,2)), label='dUdt target', c='b', alpha=0.5)
             ax.plot(xtime, myRHS_train[:,1].mean(axis=(1,2)), label='RHS V estimate', c='orange')
-            ax.plot(xtime, train_set['target'][:,1].mean(axis=(1,2)), label='dVdt target', c='orange', alpha=0.5)
+            ax.plot(xtime, (train_set['target']+coriolis_train)[:,1].mean(axis=(1,2)), label='dVdt target', c='orange', alpha=0.5)
             ax.set_xlabel('time (days)')
             ax.set_ylabel('RHS')
             ax.set_title('train_data')
@@ -374,7 +375,6 @@ for namemodel, my_model in L_models.items():
                 fig.savefig(path_save+'train_data_dim.png') 
                   
             # non dim data
-            
             n_stress_train = jax.vmap(trained_model.stress)(my_train_data['forcing'][:,0], 
                                                             my_train_data['forcing'][:,1] )
             n_target_train = my_train_data['target']
@@ -393,8 +393,6 @@ for namemodel, my_model in L_models.items():
                 
             # terms of U budget on train data
             coriolis = fc.mean()*ds.V.isel(time=slice(0,len(ds.time)-Ntests)).mean(axis=(1,2)).values
-            est_K0 = np.exp(trained_model.stress.K)
-            # stress = est_K0*ds.TAx.isel(time=slice(0,len(ds.time)-Ntests)).mean(axis=(1,2)).values
             stress_undim = jax.vmap(trained_model.stress)(my_train_data['forcing'][:,0],
                                                           my_train_data['forcing'][:,1])
             stress_dim = (stress_undim*trained_model.RENORMstd[:,np.newaxis, np.newaxis] + trained_model.RENORMmean[:,np.newaxis, np.newaxis]
@@ -412,13 +410,38 @@ for namemodel, my_model in L_models.items():
             ax.plot(xtime, est_diss_dim, label='estimated diss', c='cyan')
             ax.plot(xtime, true_dudt, label='true dUdt',c='k')
             ax.plot(xtime, est_dudt, label='estimated dUdt',c='k',ls='--')
-            # ax.plot(xtime, true_dudt - coriolis, label=' dim target', c='grey')
             ax.set_xlabel('days')
             ax.set_ylabel('m/s2')
             ax.set_title('U budget, train period')
             ax.legend()
             if SAVE:
                 fig.savefig(path_save+'U_budget_train.png')
+                
+            # terms of U budget on test data
+            coriolis = fc.mean()*ds.V.isel(time=slice(len(ds.time)-Ntests,-1)).mean(axis=(1,2)).values
+            stress_undim = jax.vmap(trained_model.stress)(my_test_data['forcing'][:,0],
+                                                          my_test_data['forcing'][:,1])
+            stress_dim = (stress_undim*trained_model.RENORMstd[:,np.newaxis, np.newaxis] + trained_model.RENORMmean[:,np.newaxis, np.newaxis]
+                            )[:,0].mean(axis=(1,2))
+            est_diss_undim = jax.vmap(trained_model.dissipationNN)(my_test_data['features']) 
+            est_diss_dim = (est_diss_undim*trained_model.RENORMstd[:,np.newaxis, np.newaxis] + trained_model.RENORMmean[:,np.newaxis, np.newaxis]
+                            )[:,0].mean(axis=(1,2))
+            true_dudt = np.gradient(ds.U.isel(time=slice(len(ds.time)-Ntests,-1)), dt_forcing, axis=0).mean(axis=(1,2))
+            est_dudt = coriolis + stress_dim + est_diss_dim
+            xtime = np.arange(0,len(coriolis))*dt_forcing/oneday
+
+            fig, ax = plt.subplots(1,1,figsize = (10,5), constrained_layout=True,dpi=100)
+            ax.plot(xtime, coriolis, label='Coriolis', c='orange')
+            ax.plot(xtime, stress_dim, label='K0*tau',c='g')
+            ax.plot(xtime, est_diss_dim, label='estimated diss', c='cyan')
+            ax.plot(xtime, true_dudt, label='true dUdt',c='k')
+            ax.plot(xtime, est_dudt, label='estimated dUdt',c='k',ls='--')
+            ax.set_xlabel('days')
+            ax.set_ylabel('m/s2')
+            ax.set_title('U budget, test period')
+            ax.legend()
+            if SAVE:
+                fig.savefig(path_save+'U_budget_test.png')
 
             
             
