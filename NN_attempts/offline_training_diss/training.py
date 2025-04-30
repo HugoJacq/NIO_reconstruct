@@ -84,7 +84,7 @@ def evaluate_NN(dynamic_model, static_model, data_batch):
 # -> HYBRID MODELS
 def loss_hybrid(dynamic_model, static_model, n_features, n_target, n_forcing):
     """
-    this loss is computed on dimensional values
+    this loss is computed on normalized values
     """
     RHS_model = eqx.combine(dynamic_model, static_model)
     # prediction = RHS_model(n_features, n_forcing)
@@ -93,11 +93,8 @@ def loss_hybrid(dynamic_model, static_model, n_features, n_target, n_forcing):
     # prediction_diss_dim = prediction_diss_undim*RHS_model.RENORMstd[:,np.newaxis, np.newaxis] + RHS_model.RENORMmean[:,np.newaxis, np.newaxis]
     prediction_stress = RHS_model.stress(n_forcing[0],n_forcing[1])
     # prediction = alpha*prediction_stress + (1-alpha)*prediction_diss_undim
-    
     prediction = prediction_stress + prediction_diss_undim
-    
-    jax.debug.print('normalized: stress {}, diss {}, target {}', prediction_stress[0].mean(), prediction_diss_undim[0].mean(), n_target[0].mean())
-    
+    # jax.debug.print('normalized: stress {}, diss {}, target {}', prediction_stress[0].mean(), prediction_diss_undim[0].mean(), n_target[0].mean())
     return jnp.sqrt( (prediction[0] - n_target[0])**2 + (prediction[1] - n_target[1])**2 )
 
 def vmap_loss_hybrid(dynamic_model, static_model, data_batch):
@@ -201,7 +198,6 @@ def train(
         # NORMALIZATION AT BATCH
         #########################
         batch_data = normalize_batch(batch_data) # <- modify in place 'batch_data'
-        
         ###################
         # MAKE STEP
         ###################
@@ -212,7 +208,7 @@ def train(
         elif mode=='hybrid':
             dynamic_model, opt_state, train_loss, grads = make_step_hybrid(dynamic_model, batch_data, opt_state)
             if grads.stress.K is not None:
-                if grads.stress.K < 1e-7:
+                if jnp.abs(grads.stress.K) < 1e-7:
                     print('     K0 has converged, it is now kept constant')
                     print(f'         K0 = {dynamic_model.stress.K}, dK = {grads.stress.K}')
                     static_model = eqx.tree_at( lambda t:t.stress.K, static_model, dynamic_model.stress.K, is_leaf=lambda x: x is None) # <- set K0 as converged
@@ -243,13 +239,12 @@ def train(
         ###################
         # SAVING BEST MODEL
         ###################
+        bestdyn = dynamic_model
         if save_best_model:
             if test_loss<minLoss:
                 # keep the best model
                 minLoss = test_loss
                 bestdyn = dynamic_model 
-        else:
-            bestdyn = dynamic_model
             
         if step==maxstep-1:
             lastmodel = eqx.combine(dynamic_model, static_model)

@@ -624,3 +624,10 @@ NN_attempts/offline_training_diss/features_U_V/RHS_dissRayleigh/Loss.png
 NN_attempts/offline_training_diss/features_U_V/RHS_dissRayleigh/test_data_dim.png
 NN_attempts/offline_training_diss/features_U_V/RHS_dissRayleigh/train_data_dim.png
 NN_attempts/offline_training_diss/features_U_V/RHS_dissRayleigh/U_budget.png
+NN_attempts/offline_training_diss/__pycache__/NNmodels.cpython-310.pyc
+NN_attempts/offline_training_diss/__pycache__/preprocessing.cpython-310.pyc
+NN_attempts/offline_training_diss/__pycache__/training.cpython-310.pyc
+NN_attempts/offline_training_diss/features_U_V/DissipationCNN/U_budget_test.png
+NN_attempts/offline_training_diss/features_U_V/DissipationCNN/U_budget_train.png
+NN_attempts/offline_training_diss/features_U_V/RHS_dissCNN/train_data_undim.png
+NN_attempts/offline_training_diss/features_U_V/RHS_dissCNN/U_budget_train.png
