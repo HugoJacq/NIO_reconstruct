@@ -57,8 +57,8 @@ def data_maker(ds              : xr.core.dataset.Dataset,
         
         elif mode=='hybrid':
             # here 'no_parameter_RHS' is the Coriolis term
-            d_U, d_V = no_parameter_RHS(data.TAx.values.astype(mydtype),  
-                                        data.TAy.values.astype(mydtype))
+            d_U, d_V = no_parameter_RHS(data.U.values.astype(mydtype),  
+                                        data.V.values.astype(mydtype))
             set['target'] = np.stack([dUdt-d_U, dVdt-d_V], axis=1)
             set['forcing'] = features_maker(data, ['TAx','TAy'], out_axis=1, out_dtype=mydtype) # forcing is for the RHS_dynamic part
         
@@ -106,11 +106,16 @@ def normalize_batch(batch_data, deep_copy=False):
     else:
         new_data = batch_data
         
-    L_to_be_normalized = ['features','target','forcing']    
+    # print(batch_data['target'].shape)
+    L_to_be_normalized = list(batch_data.keys()) # ['features','target','forcing']    
     for name in L_to_be_normalized:
-        Num = batch_data[name].shape[1]
-        for k in range(Num):
-            mean = jnp.mean(batch_data[name][:,k,:,:])
-            std = jnp.std(batch_data[name][:,k,:,:])
-            new_data[name] = new_data[name].at[:,k,:,:].set( (batch_data[name][:,k,:,:]-mean)/std )   
+        mean = jnp.mean(batch_data[name],axis=(0,2,3))
+        std = jnp.std(batch_data[name],axis=(0,2,3))
+        new_data[name] = (batch_data[name]-mean[:,np.newaxis,np.newaxis])/std[:,np.newaxis,np.newaxis] 
+        
+        # Num = batch_data[name].shape[1]
+        # for k in range(Num):
+        #     mean = jnp.mean(batch_data[name][:,k,:,:])
+        #     std = jnp.std(batch_data[name][:,k,:,:])
+        #     new_data[name] = new_data[name].at[:,k,:,:].set( (batch_data[name][:,k,:,:]-mean)/std )   
     return new_data
