@@ -78,7 +78,7 @@ tr_steps = 30       # how many steps to go from lr_init to lr_end
 tr_start = 100      # how many iteration before changing lr
 
 PLOTTING        = True
-TIME_INTEG      = False
+TIME_INTEG      = True
 
 # Defining data
 # Ntests      = 10*24       # number of hours for test (over the data)
@@ -452,6 +452,31 @@ for namemodel, my_model in L_models.items():
                 fig.savefig(path_save+'U_budget_test.png')
 
             
-            
+            if TIME_INTEG:
+                print('* Time integration')
+                Nhours = 24
+                Nsteps = Nhours*60
+                dt = 60.
+                
+                
+                """
+                To do: adapt 'Forward_Euler' à la nouvelle architecture pour pouvoir intégrer en temps la solution et comparer les trajectoires
+                
+                """
+                
+                # features = np.stack([ds.U.values, ds.V.values], axis=1)
+                features = features_maker(ds, features_names, dx, dy, out_axis=1, out_dtype='float')
+                forcing = ds.TAx.values, ds.TAy.values, features
+                U,V = Forward_Euler(X0=(0.,0.), RHS_dyn=my_dynamic_RHS, diss_model=trained_model, forcing=forcing, dt=dt, dt_forcing=dt_forcing, Nsteps=Nsteps)
+                xtime = np.arange(0, Nsteps*dt, dt)/onehour
+                
+                fig, ax = plt.subplots(1,1,figsize = (10,5), constrained_layout=True,dpi=100)
+                ax.plot(xtime, U.mean(axis=(1,2)), label='estimated')
+                ax.plot(np.arange(0,Nhours), ds.U.isel(time=slice(0,Nhours)).mean(axis=(1,2)).values, label='true')
+                ax.set_xlabel('hour')
+                ax.set_title('integrated (Euler) vs truth')
+                ax.set_ylabel('U')
+                if SAVE:
+                    fig.savefig(path_save+'U_traj_Euler.png')
         
 plt.show()

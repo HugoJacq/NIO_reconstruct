@@ -8,7 +8,8 @@ import sys
 sys.path.insert(0, '../../src')
 from constants import *
 
-
+# a tester : Unet
+# https://github.com/Ceyron/UNet-in-JAX/blob/main/simple_unet_poisson_solver_in_jax.ipynb
 
 class DissipationCNN(eqx.Module):
     """
@@ -27,12 +28,13 @@ class DissipationCNN(eqx.Module):
                 
         self.layers = [eqx.nn.Conv2d(Nfeatures, 8, padding='SAME', kernel_size=3, key=key1),
                         jax.nn.relu,
-                        eqx.nn.Conv2d(8, 16, padding='SAME', kernel_size=3, key=key2),
-                        jax.nn.relu,
-                        eqx.nn.Conv2d(16, 2, padding='SAME', kernel_size=3, key=key3),
+                        eqx.nn.Conv2d(8, 4, padding='SAME', kernel_size=3, key=key2),
+                        eqx.nn.MaxPool2d(kernel_size=3),
+                        # jax.nn.relu,
+                        eqx.nn.Conv2d(4, 2, padding='SAME', kernel_size=3, key=key3),
                         eqx.nn.MaxPool2d(kernel_size=3),
                         jnp.ravel,
-                        eqx.nn.Linear(2*126*126, 256, key=key4),
+                        eqx.nn.Linear(2*124*124, 256, key=key4),
                         jax.nn.sigmoid,
                         eqx.nn.Linear(256, 2*128*128, key=key5),
                         # jax.nn.sigmoid,
