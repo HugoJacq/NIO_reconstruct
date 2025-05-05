@@ -252,43 +252,47 @@ def rotary_spectra(dt,Ua,Va,U,V):
 		- U,V : True currents (1D)
 	OUTPUT:
 		- frequency array
-		- tuple of 4 (MPr2,Mpr1,MPe2,MPe1):
+		- tuple of 4 (Pr2,Pr1,Pe2,Pe1):
 			- counter clockwise and clockwise spectra of truth
 			- counter clockwise and clockwise spectra of estimate
 	"""
 	nt = U.shape[0]
 	nf = 400
 	#print(nt,nf)
-	ensit = np.arange(0,nt-nf,int(nf/2))
-	for it in ensit:
-		ff, Pr1 = psd1d(U[it:it+nf]+1j*V[it:it+nf],dx=dt, detrend=True, tap=0.2)
-		ff, Pr2 = psd1d(U[it:it+nf]-1j*V[it:it+nf],dx=dt, detrend=True, tap=0.2)
-		ff, Pe1 = psd1d((Ua[it:it+nf]-U[it:it+nf]) +1j* (Va[it:it+nf]-V[it:it+nf]) ,dx=dt, detrend=True, tap=0.2)
-		ff, Pe2 = psd1d((Ua[it:it+nf]-U[it:it+nf]) -1j* (Va[it:it+nf]-V[it:it+nf]) ,dx=dt, detrend=True, tap=0.2)
+	# ensit = np.arange(0,nt-nf,int(nf/2))
+	# for it in ensit:
+	ff, Pr1 = psd1d(U+1j*V,dx=dt, detrend=True, tap=0.2)
+	ff, Pr2 = psd1d(U-1j*V,dx=dt, detrend=True, tap=0.2)
+	ff, Pe1 = psd1d((Ua-U) +1j* (Va-V) ,dx=dt, detrend=True, tap=0.2)
+	ff, Pe2 = psd1d((Ua-U) -1j* (Va-V) ,dx=dt, detrend=True, tap=0.2)
 	
 	return ff, Pr2, Pr1, Pe2, Pe1
 
 def rotary_spectra_2D(dt, Ua, Va, U, V):
 	"""
-	'rotary_spectra' applied on x and y dimensions of arrays
+	'rotary_spectra' applied on x, y and time dimensions of arrays
 	"""
-	_, ny, nx = Ua.shape
+	nt, ny, nx = Ua.shape
 	skip=10
 	count=0
+	nf = 400
+	ensit = np.arange(0,nt-nf,int(nf/2))
+	
 	for i in range(nx)[::skip]:
 		for j in range(ny)[::skip]:
-			ff, Pr2, Pr1, Pe2, Pe1 = rotary_spectra(dt,Ua[:,j,i],Va[:,j,i],U[:,j,i],V[:,j,i])
-			if count==0:
-				MPr1 = +Pr1
-				MPr2 = +Pr2
-				MPe1 = +Pe1
-				MPe2 = +Pe2
-			else:
-				MPr1 += Pr1
-				MPr2 += Pr2 
-				MPe1 += Pe1
-				MPe2 += Pe2 
-			count += 1
+			for it in ensit:
+				ff, Pr2, Pr1, Pe2, Pe1 = rotary_spectra(dt,Ua[it:it+nf,j,i],Va[it:it+nf,j,i],U[it:it+nf,j,i],V[it:it+nf,j,i])
+				if count==0:
+					MPr1 = +Pr1
+					MPr2 = +Pr2
+					MPe1 = +Pe1
+					MPe2 = +Pe2
+				else:
+					MPr1 += Pr1
+					MPr2 += Pr2 
+					MPe1 += Pe1
+					MPe2 += Pe2 
+				count += 1
 	MPr1 /= count
 	MPr2 /= count
 	MPe1 /= count

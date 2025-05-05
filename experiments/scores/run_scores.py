@@ -26,6 +26,8 @@ from Listes_models import L_2D_models, L_nlayers_models
 # PARAMETERS
 # ===========================================================================
 
+NORM_FREQ = False
+
 # model parameters    
 t0                  = 60*oneday     # start day 
 t1                  = 100*oneday    # end day
@@ -145,16 +147,21 @@ if __name__ == "__main__":
         
         RMSE = np.mean( np.sqrt( (sol[0]-truth[0])**2 + (sol[1]-truth[1])**2))
         
-        ff, MPr2, MPr1, MPe2, MPe1 = rotary_spectra_2D(onehour, sol[0], sol[1], truth[0], truth[1])
-        mean_fc = 2*2*np.pi/86164*np.sin(point_loc[1]*np.pi/180)
+        ff, MPr2, MPr1, MPe2, MPe1 = rotary_spectra_2D(1., sol[0], sol[1], truth[0], truth[1])
+        if NORM_FREQ:
+            mean_fc = 2*2*np.pi/86164*np.sin(point_loc[1]*np.pi/180)*onehour/(2*np.pi)
+            xtxt = r'f/$f_c$'
+        else:
+            mean_fc = 1
+            xtxt = 'h-1'
         fig, axs = plt.subplots(2,1,figsize=(7,6), gridspec_kw={'height_ratios': [4, 1.5]})
         axs[0].loglog(ff/mean_fc,MPr2, c='k', label='reference')
         axs[0].loglog(ff/mean_fc,MPe2, c='b', label='error (model - truth)')
         #axs[0].axis([2e-3,2e-1, 1e-4,2e0])
         axs[0].grid('on', which='both')
-        plt.xlabel(r'f/$f_c$')
+        axs[1].set_xlabel(xtxt)
         axs[0].legend()
-        axs[0].set_ylabel('Clockwise PSD')
+        axs[0].set_ylabel('Clockwise PSD (m2/s2)')
         axs[0].title.set_text(model_name +f', RMSE={np.round(RMSE,5)}')
 
         axs[1].semilogx(ff/mean_fc,(1-MPe2/MPr2)*100, c='b', label='Reconstruction Score')
