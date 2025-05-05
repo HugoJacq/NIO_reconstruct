@@ -78,16 +78,18 @@ class Forcing_from_PAPA:
         # opening dataset
         ds = open_PAPA_station_file(path_file)        
         time_a = np.arange(0,len(ds.time)*dt_forcing, dt_forcing)
+        print(len(time_a))
         itmin = nearest(time_a, t0)
         itmax = nearest(time_a, t1)
-        ds = ds.isel(time=slice(itmin,itmax))     
+        print(itmin, itmax)
         self.data = ds.isel(time=slice(itmin,itmax))
         self.U,self.V = self.data.U.values,self.data.V.values
-        self.TAx,self.TAy = self.data.TAx.values*rho,self.data.TAy.values*rho # stress = Cd*U**2 !
+        self.TAx,self.TAy = self.data.TAx.values*rho, self.data.TAy.values*rho # stress = Cd*U**2 !
         self.fc = 2*2*np.pi/86164*np.sin(LAT*np.pi/180)
         self.nt = len(self.data.time)
         self.time = np.arange(0,self.nt*dt_forcing,dt_forcing) 
         self.dt_forcing = dt_forcing
+        print(self.TAx.shape)
 
 
 # WIP

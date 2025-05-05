@@ -111,8 +111,7 @@ class Observation_from_PAPA:
         ds = open_PAPA_station_file(path_file)        
         time_a = np.arange(0,len(ds.time)*dt_forcing, dt_forcing)
         itmin = nearest(time_a, t0)
-        itmax = nearest(time_a, t1)
-        ds = ds.isel(time=slice(itmin,itmax))     
+        itmax = nearest(time_a, t1)    
         self.data = ds.isel(time=slice(itmin,itmax))
         self.U,self.V = self.data.U.values,self.data.V.values
         self.dt_forcing = dt_forcing

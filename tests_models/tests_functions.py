@@ -466,14 +466,14 @@ def model_instanciation(model_name, forcing, args_model, call_args, extra_args):
         if Nl==1:
             pk = jnp.asarray([-11.31980127, -10.28525189])    
         elif Nl==2:
-            pk = jnp.asarray([-10.,-10., -9., -9.])   
+            pk = jnp.asarray([-15.,-10., -10., -10.])   
         model = unsteak.junsteak(pk, forcing, Nl, call_args, extra_args)   
         
     elif model_name=='junsteak_kt':
         if Nl==1:
             pk = jnp.asarray([-11.31980127, -10.28525189])    
         elif Nl==2:
-            pk = jnp.asarray([-10.,-10., -9., -9.]) 
+            pk = jnp.asarray([-15.,-10., -10., -10.]) 
         NdT = len(np.arange(t0, t1,dTK)) # int((t1-t0)//dTK) 
         pk = kt_ini(pk, NdT)
         model = unsteak.junsteak_kt(pk, dTK, forcing, Nl, call_args, extra_args)   
@@ -482,7 +482,7 @@ def model_instanciation(model_name, forcing, args_model, call_args, extra_args):
         if Nl==1:
             pk = jnp.asarray([-11.31980127, -10.28525189])    
         elif Nl==2:
-            pk = jnp.asarray([-10.,-10., -9., -9.]) 
+            pk = jnp.asarray([-15.,-10., -10., -10.]) 
         NdT = len(np.arange(t0, t1,dTK)) # int((t1-t0)//dTK) 
         pk = kt_ini(pk, NdT)
         model = unsteak.junsteak_kt_2D(pk, dTK, forcing, Nl, call_args, extra_args)   
@@ -491,7 +491,7 @@ def model_instanciation(model_name, forcing, args_model, call_args, extra_args):
         if Nl==1:
             pk = jnp.asarray([-11.31980127, -10.28525189])    
         elif Nl==2:
-            pk = jnp.asarray([-10.,-10., -9., -9.]) 
+            pk = jnp.asarray([-15.,-10., -10., -10.]) 
         NdT = len(np.arange(t0, t1,dTK)) # int((t1-t0)//dTK) 
         pk = kt_ini(pk, NdT)
         model = unsteak.junsteak_kt_2D_adv(pk, dTK, forcing, Nl, call_args, extra_args)   

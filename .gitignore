@@ -653,3 +653,9 @@ experiments/compared_to_PAPA/png_models_at_PAPA/zonal_current_jslab.png
 experiments/compared_to_PAPA/png_models_at_PAPA/zonal_current_junsteak_kt.png
 experiments/compared_to_PAPA/saved_models/jslab.pt
 experiments/compared_to_PAPA/saved_models/junsteak_kt.pt
+experiments/compared_to_PAPA/png_models_at_PAPA/PSD_score_jslab.png
+experiments/compared_to_PAPA/png_models_at_PAPA/PSD_score_junsteak_kt.png
+experiments/compared_to_PAPA/png_models_at_PAPA/zonal_current_jslab_kt.png
+experiments/compared_to_PAPA/png_models_at_PAPA/zonal_current_junsteak.png
+experiments/compared_to_PAPA/saved_models/jslab_kt.pt
+experiments/compared_to_PAPA/saved_models/junsteak.pt

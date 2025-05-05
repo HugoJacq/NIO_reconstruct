@@ -10,7 +10,7 @@ import numpy as np
 import scipy
 
 import tools
-from Listes_models import L_variable_Kt, L_nlayers_models, L_models_total_current
+from Listes_models import L_nlayers_models, L_models_total_current
 
 class Variational:
     """
@@ -191,6 +191,7 @@ class Variational:
             #new_dynamic_model = my_replace(dynamic_model, params) # replace new params
             new_dynamic_model = eqx.tree_at( lambda tree:tree.pk, dynamic_model, params)
             value, grad = self.grad_cost(new_dynamic_model, static_model)
+            # jax.debug.print('cost {}, grads {}', value, grad.pk)
             return value, grad.pk
             
 

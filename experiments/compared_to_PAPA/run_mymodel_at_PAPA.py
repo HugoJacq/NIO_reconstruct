@@ -15,6 +15,8 @@ sys.path.insert(0, '../../src')
 os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false" # for jax
 import jax
 import jax.numpy as jnp
+jax.config.update('jax_platform_name', 'cpu')
+
 
 from models.classic_slab import jslab, jslab_kt, jslab_kt_2D
 from basis import kt_ini, kt_1D_to_2D, pkt2Kt_matrix
@@ -34,7 +36,7 @@ start = clock.time()
 # PARAMETERS
 # ============================================================
 
-L_model_to_test     = ['jslab','junsteak_kt'] #  
+L_model_to_test     = ['jslab','jslab_kt','junsteak','junsteak_kt'] #   'jslab',
 
 # model parameters
 Nl                  = 2                         # number of layers for multilayer models
@@ -47,14 +49,14 @@ FILTER_AT_FC        = False
 
 # run parameters
 t0                  = 0*oneday
-t1                  = 50*oneday
+t1                  = 30*oneday
 dt                  = 60.        # timestep of the model (s) 
 
 # What to do
-SAVE_PKs            = False
-maxiter             = 100         # max number of iteration for minimization
-PLOT                = True
-
+SAVE_PKs            = True         # minimzize and save PKs
+maxiter             = 100           # max number of iteration for minimization
+PLOT                = True          # plot or not
+NORM_FREQ           = False         # normalise frequency in PSD plots
 # PLOT
 dpi=200
 
@@ -117,6 +119,8 @@ if __name__ == "__main__":
     args_model = {'dTK':dTK, 'Nl':Nl}
     
     for model_name in L_model_to_test:
+        print('')
+        print('* Working on '+model_name)
         mymodel = model_instanciation(model_name, myforcing, args_model, call_args, extra_args)
         var_dfx = inv.Variational(mymodel, myobservation, filter_at_fc=FILTER_AT_FC)    
 
@@ -134,6 +138,8 @@ if __name__ == "__main__":
             mymodel = eqx.tree_deserialise_leaves(path_save_models+model_name+'.pt',   # <- getting the saved PyTree 
                                                 mymodel                    # <- here the call is just to get the structure
                                                 )
+            fc = mymodel.fc
+            
             # estimate of current 
             sol = mymodel()
             if model_name in L_nlayers_models:
@@ -141,19 +147,24 @@ if __name__ == "__main__":
             else:
                 Ua,Va = sol[0], sol[1]
             
+            # truth
+            U,V = myforcing.U,myforcing.V
+            U_nio,V_nio = tools.my_fc_filter(mymodel.dt_forcing,U+1j*V, fc)
+            
             # observations
             step_obs = int(period_obs)//int(dt_forcing)
             Uobs,Vobs = myobservation.get_obs()
             timeobs = myobservation.time_obs
             
             # RMSE
+            sRMSE = tools.score_RMSE((Ua,Va), (U,V))                # <- RMSE w.r.t. the full U
+            sRMSE_nio = tools.score_RMSE((Ua,Va), (U_nio,V_nio)) 
+            # sRMSE = tools.score_RMSE((Ua[::step_obs],Va[::step_obs]), (Uobs,Vobs))    # <- RMSE w.r.t. only observations
             
-            # sRMSE = tools.score_RMSE((Ua[::step_obs],Va[::step_obs]), (Uobs,Vobs))
-            sRMSE = tools.score_RMSE((Ua,Va), (myforcing.U,myforcing.V))
-            
-            fig, ax = plt.subplots(2,1,figsize = (10,10),constrained_layout=True,dpi=dpi)
-            ax[0].set_title(model_name+f' at PAPA, t0={t0/oneday} t1={t1/oneday} days, RMSE={np.round(sRMSE,4)}')
-            ax[0].plot(myforcing.time/oneday, myforcing.U, label='truth', c='k')
+            fig, ax = plt.subplots(2,1,figsize = (6,5),constrained_layout=True,dpi=dpi)
+            ax[0].set_title(model_name+f' at PAPA, t0={t0/oneday} t1={t1/oneday} days\nRMSE={np.round(sRMSE,5)} RMSE_nio={np.round(sRMSE_nio,5)}')
+            ax[0].plot(myforcing.time/oneday, U, label='truth', c='k', alpha=0.5)
+            ax[0].plot(myforcing.time/oneday, U_nio, label='truth NIO', c='k', alpha=1)
             ax[0].plot(myforcing.time/oneday, Ua, label=model_name, c='b')
             ax[0].scatter(timeobs/oneday, Uobs, c='r', marker='x')
             ax[1].set_xlabel('days')
@@ -164,8 +175,42 @@ if __name__ == "__main__":
             ax[1].plot(myforcing.time/oneday, myforcing.TAy, label=r'$\tau_y$', c='orange')
             ax[1].set_ylabel('wind stress as Cd*U**2')
             ax[1].legend()
+            ax[1].set_ylim([-3,3])
+            for axe in ax:
+                axe.grid()
             fig.savefig(f'{path_save_png}zonal_current_{model_name}.png')
             
+            
+            # PSD and PSD score
+            if False:
+                # Rotary spectra
+                ff, CWr, ACWr, CWe, ACWe = tools.rotary_spectra(1., Ua, Va, myforcing.U, myforcing.V)
+                wsize = 21
+                CWe_smoothed = tools.savitzky_golay(CWe, window_size=wsize, order=4, deriv=0, rate=1)
+                CWr_smoothed = tools.savitzky_golay(ACWe, window_size=wsize, order=4, deriv=0, rate=1)
+            
+                if NORM_FREQ:
+                    mean_fc = 2*2*np.pi/86164*np.sin(point_loc[1]*np.pi/180)*onehour/(2*np.pi)
+                    xtxt = r'f/$f_c$'
+                else:
+                    mean_fc = 1
+                    xtxt = 'h-1'
+                fig, axs = plt.subplots(2,1,figsize=(7,6), gridspec_kw={'height_ratios': [4, 1.5]})
+                axs[0].loglog(ff/mean_fc,CWr_smoothed, c='k', label='reference')
+                axs[0].loglog(ff/mean_fc,CWe_smoothed, c='b', label='error (model - truth)')
+                #axs[0].axis([2e-3,2e-1, 1e-4,2e0])
+                axs[0].grid('on', which='both')
+                axs[1].set_xlabel(xtxt)
+                axs[0].legend()
+                axs[0].set_ylabel('Clockwise PSD (m2/s2)')
+                axs[0].title.set_text(model_name +f', RMSE={np.round(sRMSE,5)}')
+
+                axs[1].semilogx(ff/mean_fc,(1-CWe_smoothed/CWr_smoothed)*100, c='b', label='Reconstruction Score')
+                #axs[1].axis([2e-3,2e-1,0,100])
+                axs[1].set_ylim([0,100])
+                axs[1].grid('on', which='both')
+                axs[1].set_ylabel('Scores (%)')
+                fig.savefig(f'{path_save_png}PSD_score_{model_name}.png')
             
             
     plt.show()
