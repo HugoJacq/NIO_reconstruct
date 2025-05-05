@@ -133,20 +133,22 @@ def savitzky_golay(y, window_size, order, deriv=0, rate=1):
 	y = np.concatenate((firstvals, y, lastvals))
 	return np.convolve( m[::-1], y, mode='valid')
 
-def score_RMSE(U,Ut):
+def score_RMSE(U	:tuple,
+               Ut	:tuple):
     """
     RMSE between U and true Ut
     
     INPUT:
-		- U: 1D array, shape of Ut
-		- Ut: 1D array
+		- U: tuple of 1D array, shape of Ut
+		- Ut: tuple of  1D array
     OUTPUT:
 		- scalar, RMSE
     """
     # nt = len(U)
-    return np.mean( np.sqrt(  (U-Ut)**2 ) )
+    return np.mean( np.sqrt(  (U[0]-Ut[0])**2 + (U[1]-Ut[1])**2 ) )
 
-def score_RMSE_2D(U,Ut):
+def score_RMSE_2D(U	:tuple,
+                  Ut:tuple):
     """
     RMSE between U and true Ut
     
@@ -156,8 +158,7 @@ def score_RMSE_2D(U,Ut):
     OUTPUT:
 		- scalar, RMSE
     """
-    nt = len(U)
-    timeRMSE = np.sqrt( np.sum( (U-Ut)**2, axis=0 )/ nt, axis=0 )
+    timeRMSE = np.sqrt(  (U[0]-Ut[0])**2 + (U[1]-Ut[1])**2 )
     return np.mean(timeRMSE)
 
 def nearest(array,value):
@@ -609,8 +610,8 @@ def my_fc_filter(dt_timeserie, VAR, fc):
 
 def open_PAPA_station_file(file_list):
 	"""
-
-	Note: by default, files are .cdf, but if you convert it to .nc they can be opened with xarray
+	Note: by default, files are .cdf, but if you convert it to .nc they can be opened with xarray.
+	not sure, to be verified: the conversion is just changing the extension name from .cdf to .nc
 	"""
 	selected_depth = [-4.,15.] # [15., 35.] m, 15 or 35, winds are at -4 of depth
 
@@ -626,7 +627,7 @@ def open_PAPA_station_file(file_list):
 	ds['V'] = ds['V'].sel(depth=selected_depth[1],method='nearest')/100 # cm/s to m/s
 
 	# wind stress, as Cd*wind**2
-	Cd = 10e-5
+	Cd = 1e-5
 	WINDu = ds.WU_422.sel(depth=-4.,method='nearest').values
 	WINDv = ds.WV_423.sel(depth=-4.,method='nearest').values
 	TAx = np.sign(WINDu)*Cd*WINDu**2

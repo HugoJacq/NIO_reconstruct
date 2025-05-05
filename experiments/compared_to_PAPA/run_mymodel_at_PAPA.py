@@ -34,7 +34,7 @@ start = clock.time()
 # PARAMETERS
 # ============================================================
 
-L_model_to_test     = ['jslab','junsteak_kt']
+L_model_to_test     = ['jslab','junsteak_kt'] #  
 
 # model parameters
 Nl                  = 2                         # number of layers for multilayer models
@@ -51,7 +51,7 @@ t1                  = 50*oneday
 dt                  = 60.        # timestep of the model (s) 
 
 # What to do
-SAVE_PKs            = True
+SAVE_PKs            = False
 maxiter             = 100         # max number of iteration for minimization
 PLOT                = True
 
@@ -105,6 +105,7 @@ if __name__ == "__main__":
         print(f'You chose to run the model for t1={t1//oneday} days but the forcing is available up to t={len(dsfull.time)*dt_forcing//oneday} days\n'
                         +f'I will use t1={len(dsfull.time)*dt_forcing//oneday} days')
         t1 = len(dsfull.time)*dt_forcing
+        
     ### END WARNINGS
     
     
@@ -140,16 +141,31 @@ if __name__ == "__main__":
             else:
                 Ua,Va = sol[0], sol[1]
             
-            # RMSE
-            sRMSE = tools.score_RMSE(Ua, myforcing.U)
+            # observations
+            step_obs = int(period_obs)//int(dt_forcing)
+            Uobs,Vobs = myobservation.get_obs()
+            timeobs = myobservation.time_obs
             
-            fig, ax = plt.subplots(1,1,figsize = (10,5),constrained_layout=True,dpi=dpi)
-            ax.set_title(model_name+f' at PAPA, t0={t0/oneday} t1={t1/oneday} days, RMSE={np.round(sRMSE,4)}')
-            ax.plot(myforcing.time/oneday, myforcing.U, label='truth', c='k')
-            ax.plot(myforcing.time/oneday, Ua, label=model_name, c='b')
-            ax.set_xlabel('days')
-            ax.set_ylabel('U (m/s)')
-            ax.set_ylim([-0.5,0.5])
+            # RMSE
+            
+            # sRMSE = tools.score_RMSE((Ua[::step_obs],Va[::step_obs]), (Uobs,Vobs))
+            sRMSE = tools.score_RMSE((Ua,Va), (myforcing.U,myforcing.V))
+            
+            fig, ax = plt.subplots(2,1,figsize = (10,10),constrained_layout=True,dpi=dpi)
+            ax[0].set_title(model_name+f' at PAPA, t0={t0/oneday} t1={t1/oneday} days, RMSE={np.round(sRMSE,4)}')
+            ax[0].plot(myforcing.time/oneday, myforcing.U, label='truth', c='k')
+            ax[0].plot(myforcing.time/oneday, Ua, label=model_name, c='b')
+            ax[0].scatter(timeobs/oneday, Uobs, c='r', marker='x')
+            ax[1].set_xlabel('days')
+            ax[0].set_ylabel('U (m/s)')
+            ax[0].set_ylim([-0.5,0.5])
+            ax[0].legend()
+            ax[1].plot(myforcing.time/oneday, myforcing.TAx, label=r'$\tau_x$', c='b')
+            ax[1].plot(myforcing.time/oneday, myforcing.TAy, label=r'$\tau_y$', c='orange')
+            ax[1].set_ylabel('wind stress as Cd*U**2')
+            ax[1].legend()
             fig.savefig(f'{path_save_png}zonal_current_{model_name}.png')
+            
+            
             
     plt.show()
