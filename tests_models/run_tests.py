@@ -73,7 +73,7 @@ FILTER_AT_FC        = False      # minimize filtered ageo current with obs if m
 IDEALIZED_RUN       = False       # try the model on a step wind stress
 
 # Switches
-L_model_to_test             = ['junsteak_kt_2D_adv'] # L_all
+L_model_to_test             = ['junsteak_kt'] # L_all
 
 # PLOT
 dpi=200

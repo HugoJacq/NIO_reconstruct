@@ -143,8 +143,8 @@ def score_RMSE(U,Ut):
     OUTPUT:
 		- scalar, RMSE
     """
-    nt = len(U)
-    return np.sqrt( np.sum( (U-Ut)**2 )/ nt )
+    # nt = len(U)
+    return np.mean( np.sqrt(  (U-Ut)**2 ) )
 
 def score_RMSE_2D(U,Ut):
     """

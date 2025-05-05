@@ -1,5 +1,5 @@
 """
-Here we want to find the optimal dTK for the vector pk.
+Here we want to have a look on models performance at PAPA station
 """
 
 
@@ -14,7 +14,8 @@ os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false" # for jax
 import jax
 import jax.numpy as jnp
 
-from models.classic_slab import jslab, jslab_kt, jslab_kt_2D, kt_ini, kt_1D_to_2D, pkt2Kt_matrix
+from models.classic_slab import jslab, jslab_kt, jslab_kt_2D
+from basis import kt_ini, kt_1D_to_2D, pkt2Kt_matrix
 import forcing
 import inv
 import observations
@@ -32,7 +33,6 @@ start = clock.time()
 # ============================================================
 # PARAMETERS
 # ============================================================
-#ON_HPC      = False      # on HPC
 
 # model parameters
 Nl                  = 1         # number of layers for multilayer models
@@ -123,9 +123,9 @@ if __name__ == "__main__":
     if TEST_SLAB_KT:
         NdT = len(np.arange(t0, t1,dTK)) # int((t1-t0)//dTK) 
         pk = kt_ini(pk, NdT)
-        mymodel = jslab_kt(pk, TAx, TAy, fc, dTK, dt_forcing, nl=1, AD_mode=AD_mode, call_args=call_args, k_base=k_base)
+        mymodel = jslab_kt(pk, TAx, TAy, fc, dTK, dt_forcing, AD_mode=AD_mode, call_args=call_args, k_base=k_base)
     elif TEST_SLAB:
-        mymodel = jslab(pk, TAx, TAy, fc, dt_forcing, nl=1, AD_mode=AD_mode, call_args=call_args)
+        mymodel = jslab(pk, TAx, TAy, fc, dt_forcing, AD_mode=AD_mode, call_args=call_args)
     var_dfx = inv.Variational(mymodel,observations1D)
     
     if FORWARD_PASS:

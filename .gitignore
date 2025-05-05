@@ -649,3 +649,7 @@ NN_attempts/offline_training_diss/features_U_V_TAx_TAy/DissipationCNN/U_budget_t
 NN_attempts/offline_training_diss/features_U_V_TAx_TAy/DissipationCNN/U_traj_Euler.png
 regrid_croco/nice_plot_Ut_2maps.png
 regrid_croco/nice_plot_Ut_LR.png
+experiments/compared_to_PAPA/png_models_at_PAPA/zonal_current_jslab.png
+experiments/compared_to_PAPA/png_models_at_PAPA/zonal_current_junsteak_kt.png
+experiments/compared_to_PAPA/saved_models/jslab.pt
+experiments/compared_to_PAPA/saved_models/junsteak_kt.pt
