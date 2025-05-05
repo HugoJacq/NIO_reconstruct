@@ -256,11 +256,6 @@ def rotary_spectra(dt,Ua,Va,U,V):
 			- counter clockwise and clockwise spectra of truth
 			- counter clockwise and clockwise spectra of estimate
 	"""
-	nt = U.shape[0]
-	nf = 400
-	#print(nt,nf)
-	# ensit = np.arange(0,nt-nf,int(nf/2))
-	# for it in ensit:
 	ff, Pr1 = psd1d(U+1j*V,dx=dt, detrend=True, tap=0.2)
 	ff, Pr2 = psd1d(U-1j*V,dx=dt, detrend=True, tap=0.2)
 	ff, Pe1 = psd1d((Ua-U) +1j* (Va-V) ,dx=dt, detrend=True, tap=0.2)
