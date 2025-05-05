@@ -647,3 +647,5 @@ NN_attempts/offline_training_diss/features_U_V_TAx_TAy/DissipationCNN/train_data
 NN_attempts/offline_training_diss/features_U_V_TAx_TAy/DissipationCNN/U_budget_test.png
 NN_attempts/offline_training_diss/features_U_V_TAx_TAy/DissipationCNN/U_budget_train.png
 NN_attempts/offline_training_diss/features_U_V_TAx_TAy/DissipationCNN/U_traj_Euler.png
+regrid_croco/nice_plot_Ut_2maps.png
+regrid_croco/nice_plot_Ut_LR.png
