@@ -116,7 +116,7 @@ class Observation_from_PAPA:
         self.U,self.V = self.data.U.values,self.data.V.values
         self.dt_forcing = dt_forcing
         self.obs_period = periode_obs
-        self.time_obs = np.arange(0, len(self.data.time)*dt_forcing,periode_obs)
+        self.time_obs = np.arange(t0, t1, periode_obs)
         
     def get_obs(self, is_utotal=False):
         """
