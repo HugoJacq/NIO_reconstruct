@@ -24,7 +24,8 @@ class Variational:
 
     def loss_fn(self, sol, obs):
         sol = jnp.asarray(sol)
-        return jnp.nanmean( jnp.sqrt((sol[0]-obs[0])**2 + (sol[1]-obs[1])**2 ))
+        skip = 3    # this skips the 'skip' first observations
+        return jnp.nanmean( jnp.sqrt((sol[0][skip:]-obs[0][skip:])**2 + (sol[1][skip:]-obs[1][skip:])**2 ))
     
     @eqx.filter_jit
     def cost(self, dynamic_model, static_model):
