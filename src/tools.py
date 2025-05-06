@@ -613,27 +613,33 @@ def open_PAPA_station_file(file_list):
 	Note: by default, files are .cdf, but if you convert it to .nc they can be opened with xarray.
 	not sure, to be verified: the conversion is just changing the extension name from .cdf to .nc
 	"""
-	selected_depth = [-4.,15.] # [15., 35.] m, 15 or 35, winds are at -4 of depth
+	selected_depth = [-4.,0.,15.] # [15., 35.] m, 15 or 35, winds are at -4 of depth, stress at 0.
 
 	# opening file
-	ds = xr.open_mfdataset(file_list)	
-	ds = ds.sel(depth=selected_depth, method='nearest').isel(lat=0,lon=0)
+	ds = xr.open_mfdataset(file_list)  
+	ds = ds.sel(depth=selected_depth, method='nearest')
 	# filter nans
-	ds['WU_422'] = ds.WU_422.where(ds.WU_422<10e3,other=0.)
-	ds['WV_423'] = ds.WV_423.where(ds.WV_423<10e3,other=0.)
+	ds['WU_422'] = ds.WU_422.where(ds.WU_422<10e3,other=0.).isel(lat=1,lon=1)
+	ds['WV_423'] = ds.WV_423.where(ds.WV_423<10e3,other=0.).isel(lat=1,lon=1)
 	# renaming with nicer names
 	ds = ds.rename({'U_320':'U','V_321':'V'})
-	ds['U'] = ds['U'].sel(depth=selected_depth[1],method='nearest')/100
-	ds['V'] = ds['V'].sel(depth=selected_depth[1],method='nearest')/100 # cm/s to m/s
-
+	
+	ds['U'] = ds['U'].sel(depth=15.,method='nearest').isel(lat=1,lon=1)/100
+	ds['V'] = ds['V'].sel(depth=15.,method='nearest').isel(lat=1,lon=1)/100 # cm/s to m/s
+	
 	# wind stress, as Cd*wind**2
 	Cd = 1e-5
 	WINDu = ds.WU_422.sel(depth=-4.,method='nearest').values
 	WINDv = ds.WV_423.sel(depth=-4.,method='nearest').values
 	TAx = np.sign(WINDu)*Cd*WINDu**2
 	TAy = np.sign(WINDv)*Cd*WINDv**2
-	ds['TAx'] = (('time'),TAx.data)
-	ds['TAy'] = (('time'),TAy.data)
+	ds['TAx_cdUU'] = (('time'),TAx.data)
+	ds['TAy_cdUU'] = (('time'),TAy.data)
+ 
+	# wind stress from data (COARE)
+	ds = ds.rename({'TX_442':'TAx','TY_443':'TAy'})
+	ds['TAx'] = ds.TAx.where(ds.TAx<10e3,other=0.).sel(depth=0.,method='nearest').isel(lat=0,lon=0)
+	ds['TAy'] = ds.TAy.where(ds.TAy<10e3,other=0.).sel(depth=0.,method='nearest').isel(lat=0,lon=0)
 	return ds
 
     

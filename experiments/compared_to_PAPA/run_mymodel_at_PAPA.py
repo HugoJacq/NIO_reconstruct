@@ -48,12 +48,12 @@ FILTER_AT_FC        = False
 
 
 # run parameters
-t0                  = 0*oneday
-t1                  = 30*oneday
+t0                  = 20*oneday
+t1                  = 50*oneday
 dt                  = 60.        # timestep of the model (s) 
 
 # What to do
-SAVE_PKs            = True         # minimzize and save PKs
+SAVE_PKs            = False         # minimzize and save PKs
 maxiter             = 100           # max number of iteration for minimization
 PLOT                = True          # plot or not
 NORM_FREQ           = False         # normalise frequency in PSD plots
@@ -83,7 +83,8 @@ name_data = ['cur50n145w_hr.nc',
               'sss50n145w_hr.nc',
               'sst50n145w_hr.nc',
               't50n145w_hr.nc',
-              'w50n145w_hr.nc']
+              'w50n145w_hr.nc',
+              'tau50n145w_hr.nc']
 
 # Observations
 period_obs          = oneday # 86400      # s, how many second between observations  
@@ -157,25 +158,27 @@ if __name__ == "__main__":
             timeobs = myobservation.time_obs
             
             # RMSE
-            sRMSE = tools.score_RMSE((Ua,Va), (U,V))                # <- RMSE w.r.t. the full U
-            sRMSE_nio = tools.score_RMSE((Ua,Va), (U_nio,V_nio)) 
+            skip = 3
+            sRMSE = tools.score_RMSE((Ua[skip:],Va[skip:]), (U[skip:],V[skip:]))                # <- RMSE w.r.t. the full U
+            sRMSE_nio = tools.score_RMSE((Ua[skip:],Va[skip:]), (U_nio[skip:],V_nio[skip:])) 
             # sRMSE = tools.score_RMSE((Ua[::step_obs],Va[::step_obs]), (Uobs,Vobs))    # <- RMSE w.r.t. only observations
             
             fig, ax = plt.subplots(2,1,figsize = (6,5),constrained_layout=True,dpi=dpi)
-            ax[0].set_title(model_name+f' at PAPA, t0={t0/oneday} t1={t1/oneday} days\nRMSE={np.round(sRMSE,5)} RMSE_nio={np.round(sRMSE_nio,5)}')
+            ax[0].set_title(model_name+f' at PAPA\nRMSE={np.round(sRMSE,5)} RMSE_nio={np.round(sRMSE_nio,5)}')
             ax[0].plot(myforcing.time/oneday, U, label='truth', c='k', alpha=0.5)
             ax[0].plot(myforcing.time/oneday, U_nio, label='truth NIO', c='k', alpha=1)
             ax[0].plot(myforcing.time/oneday, Ua, label=model_name, c='b')
             ax[0].scatter(timeobs/oneday, Uobs, c='r', marker='x')
-            ax[1].set_xlabel('days')
             ax[0].set_ylabel('U (m/s)')
             ax[0].set_ylim([-0.5,0.5])
             ax[0].legend()
+            
             ax[1].plot(myforcing.time/oneday, myforcing.TAx, label=r'$\tau_x$', c='b')
             ax[1].plot(myforcing.time/oneday, myforcing.TAy, label=r'$\tau_y$', c='orange')
-            ax[1].set_ylabel('wind stress as Cd*U**2')
+            ax[1].set_ylabel('wind stress N/m2')
             ax[1].legend()
-            ax[1].set_ylim([-3,3])
+            ax[1].set_ylim([-1.5,1.5])
+            ax[1].set_xlabel('days')
             for axe in ax:
                 axe.grid()
             fig.savefig(f'{path_save_png}zonal_current_{model_name}.png')
