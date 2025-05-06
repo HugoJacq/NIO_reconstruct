@@ -12,6 +12,8 @@ import numpy as np
 import xarray as xr
 import matplotlib.pyplot as plt
 import equinox as eqx
+import jax
+# jax.config.update('jax_platform_name', 'cpu')
 
 from map_of_K.functions import compute_and_save_pk
 from tests_models.tests_functions import model_instanciation
@@ -20,8 +22,8 @@ import forcing
 import observations
 import inv
 from constants import oneday, onehour
-from tools import rotary_spectra, rotary_spectra_2D
-from Listes_models import L_2D_models, L_nlayers_models
+from tools import rotary_spectra_2D, my_fc_filter
+from Listes_models import L_nlayers_models
 # ===========================================================================
 # PARAMETERS
 # ===========================================================================
@@ -30,7 +32,7 @@ NORM_FREQ = False
 
 # model parameters    
 t0                  = 60*oneday     # start day 
-t1                  = 100*oneday    # end day
+t1                  = 90*oneday    # end day
 dt                  = 60.           # timestep of the model (s) 
 call_args = t0, t1, dt
 args_model = {'dTK' : 10*oneday,    # how much vectork K changes with time, basis change to 'k_base'      
@@ -52,7 +54,7 @@ path_save_pk = './pk_save/'
 
 # location
 point_loc = [-47.4,34.6]    # event of march 8th 0300, t0=60 t1=100
-R = 5                       # degrees
+R = 2.5                       # degrees
 LON_bounds = [point_loc[0]-R,point_loc[0]+R]
 LAT_bounds = [point_loc[1]-R,point_loc[1]+R]
 
@@ -61,6 +63,7 @@ path_save_png = './png_scores/'
 
 # Forcing
 dt_forcing          = onehour      # forcing timestep
+
 # Croco data
 path_regrid = '../../data_regrid/'
 name_regrid = ['croco_1h_inst_surf_2005-01-01-2005-01-31_0.1deg_conservative.nc',
@@ -145,6 +148,13 @@ if __name__ == "__main__":
         truth = myobservation.U, myobservation.V
         nt, ny, nx = sol[0].shape        
         
+        # truth_nio = my_fc_filter(3600.,
+        #                          truth[0].mean(axis=(1,2))+1j*truth[1].mean(axis=(1,2)), 
+        #                          mymodel.fc.mean())
+        truth_nio = my_fc_filter(3600.,
+                                 truth[0][:,ny//2,nx//2]+1j*truth[1][:,ny//2,nx//2], 
+                                 mymodel.fc.mean())
+        
         RMSE = np.mean( np.sqrt( (sol[0]-truth[0])**2 + (sol[1]-truth[1])**2))
         
         ff, CWr, ACWr, CWe, ACWe = rotary_spectra_2D(1., sol[0], sol[1], truth[0], truth[1])
@@ -172,12 +182,20 @@ if __name__ == "__main__":
         fig.savefig(path_save_png + model_name + '_diag.png')
         
         xtime = np.arange(t0,t1,dt_forcing)/oneday
-        fig, ax = plt.subplots(1,1 , figsize=(10,6), constrained_layout=True)
-        ax.plot(xtime, sol[0][:,ny//2,nx//2], label=model_name)
-        ax.plot(xtime, truth[0][:,ny//2,nx//2], label='truth')
-        ax.legend()
-        ax.set_xlabel('time (days)')
-        ax.set_ylabel('Ageo current m/s')
+        fig, ax = plt.subplots(2,1 , figsize=(7,6), constrained_layout=True)
+        # ax[0].plot(xtime, sol[0].mean(axis=(1,2)), c='b', label=model_name) # [:,ny//2,nx//2]
+        # ax[0].plot(xtime, truth[0].mean(axis=(1,2)), c='k', label='truth', alpha=0.5)
+        ax[0].plot(xtime, sol[0][:,ny//2,nx//2], c='b', label=model_name) # [:,ny//2,nx//2]
+        ax[0].plot(xtime, truth[0][:,ny//2,nx//2], c='k', label='truth', alpha=0.5)
+        ax[0].plot(xtime, truth_nio[0], c='k', label='truth NIO', alpha=1)
+        ax[0].legend()
+        ax[0].set_ylabel('Ageo current m/s')
+        
+        ax[1].plot(xtime, myforcing.TAx[:,ny//2,nx//2], c='b', label='TAx')
+        ax[1].plot(xtime, myforcing.TAy[:,ny//2,nx//2], c='orange', label='TAy')
+        ax[1].set_ylabel('wind stress N/m2')
+        ax[1].set_xlabel('time (days)')
+        fig.savefig(path_save_png + model_name + '_traj.png')
     
     print(f'Total execution time : {clock.time()-time0}')
     plt.show()

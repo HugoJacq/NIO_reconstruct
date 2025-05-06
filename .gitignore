@@ -660,3 +660,9 @@ experiments/compared_to_PAPA/png_models_at_PAPA/zonal_current_junsteak.png
 experiments/compared_to_PAPA/saved_models/jslab_kt.pt
 experiments/compared_to_PAPA/saved_models/junsteak.pt
 data_PAPA_2018/tau50n145w_hr.nc
+experiments/scores/pk_save/jslab_kt_2D/link_previous.txt
+experiments/scores/pk_save/junsteak_kt_2D/link_previous.txt
+experiments/scores/pk_save/junsteak_kt_2D_adv/link_previous.txt
+experiments/scores/png_scores/jslab_kt_2D_traj.png
+experiments/scores/png_scores/junsteak_kt_2D_adv_traj.png
+experiments/scores/png_scores/junsteak_kt_2D_traj.png

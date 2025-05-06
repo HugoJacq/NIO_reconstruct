@@ -24,7 +24,7 @@ import jax
 import jax.numpy as jnp
 import equinox as eqx
 #import jax
-#jax.config.update('jax_platform_name', 'cpu')
+# jax.config.update('jax_platform_name', 'cpu')
 #jax.config.update("jax_transfer_guard", "log_explicit") 
 
 # my inmports
@@ -73,7 +73,7 @@ FILTER_AT_FC        = False      # minimize filtered ageo current with obs if m
 IDEALIZED_RUN       = False       # try the model on a step wind stress
 
 # Switches
-L_model_to_test             = ['junsteak_kt'] # L_all
+L_model_to_test             = ['junsteak_kt_2D'] # L_all
 
 # PLOT
 dpi=200

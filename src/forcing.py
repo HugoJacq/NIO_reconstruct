@@ -66,6 +66,13 @@ class Forcing2D:
         self.time = np.arange(0,self.nt*dt_forcing,dt_forcing)
         self.dt_forcing = dt_forcing
         
+        
+        # mylon = (LON_bounds[1] + LON_bounds[0])/2
+        # mylat = (LAT_bounds[1] + LAT_bounds[0])/2
+        # self.data.oceTAUX.sel(lon=mylon, lat=mylat,method='nearest').plot(x='time')
+        # plt.show()
+        # raise Exception
+        
 class Forcing_from_PAPA:
     """
     Forcing fields from the PAPA sation, located at 50.1N 144.9W    
