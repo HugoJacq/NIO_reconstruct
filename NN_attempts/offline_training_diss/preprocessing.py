@@ -107,7 +107,7 @@ def normalize_batch(batch_data, deep_copy=False):
         new_data = batch_data
         
     # print(batch_data['target'].shape)
-    L_to_be_normalized = list(batch_data.keys()) # ['features','target','forcing']    
+    L_to_be_normalized = ['features']  # list(batch_data.keys())    
     for name in L_to_be_normalized:
         mean = jnp.mean(batch_data[name],axis=(0,2,3))
         std = jnp.std(batch_data[name],axis=(0,2,3))

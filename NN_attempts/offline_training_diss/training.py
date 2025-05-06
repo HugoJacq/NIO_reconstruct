@@ -87,13 +87,23 @@ def loss_hybrid(dynamic_model, static_model, n_features, n_target, n_forcing):
     this loss is computed on normalized values
     """
     RHS_model = eqx.combine(dynamic_model, static_model)
-    # prediction = RHS_model(n_features, n_forcing)
+    
+    
+    prediction = RHS_model(n_features, n_forcing)
+    
+    # prediction_diss_undim = RHS_model.dissipationNN(n_features)
+    
+    # giving back a dimension to NN term
+    # prediction_diss_dim = prediction_diss_undim*RHS_model.RENORMstd[:,np.newaxis, np.newaxis] + RHS_model.RENORMmean[:,np.newaxis, np.newaxis] 
+    
+    # stress term with normalized forcing
+    # prediction_stress = RHS_model.stress(n_forcing[0],n_forcing[1])
+    
+    # regularization
     alpha = 0.01
-    prediction_diss_undim = RHS_model.dissipationNN(n_features)
-    # prediction_diss_dim = prediction_diss_undim*RHS_model.RENORMstd[:,np.newaxis, np.newaxis] + RHS_model.RENORMmean[:,np.newaxis, np.newaxis]
-    prediction_stress = RHS_model.stress(n_forcing[0],n_forcing[1])
     # prediction = alpha*prediction_stress + (1-alpha)*prediction_diss_undim
-    prediction = prediction_stress + prediction_diss_undim
+    
+    # prediction = prediction_stress + prediction_diss_undim
     # jax.debug.print('normalized: stress {}, diss {}, target {}', alpha*prediction_stress[0].mean(), (1-alpha)*prediction_diss_undim[0].mean(), n_target[0].mean())
     return jnp.sqrt( (prediction[0] - n_target[0])**2 + (prediction[1] - n_target[1])**2 )
 
@@ -140,21 +150,22 @@ def train(
     
     @eqx.filter_jit
     def make_step_hybrid(model, train_batch, opt_state): #  <- train both K0 and theta
+        # jax.debug.print('K at entry make_step_hybrid {}',model.stress.K)
         loss_value, grads = jax.value_and_grad(vmap_loss_hybrid)(model, static_model, train_batch)
         # loss_value = vmap_loss(model, static_model, train_batch)
         # grads = jax.jacfwd(vmap_loss)(model, static_model, train_batch)
-        updates, opt_state = optim.update(grads, opt_state, model) #         
+        updates, opt_state = optim.update(grads, opt_state, model) #      
+        # jax.debug.print('K at middle make_step_hybrid {}',updates.stress.K) 
         new_dyn = eqx.apply_updates(model, updates)
+        # jax.debug.print('K at end make_step_hybrid {}',new_dyn.stress.K)
         return new_dyn, opt_state, loss_value, grads
     
     # =================
     # INITIALIZITION
     # =================
     dynamic_model, static_model = my_partition(the_model, mode=mode)
-    # print(dynamic_model)
-    # print(static_model)
-    # raise Exception
     opt_state = optim.init(dynamic_model)
+    
     Test_loss = []
     Train_loss = []
     minLoss = 999
@@ -187,15 +198,15 @@ def train(
         elif mode=='hybrid':
             dynamic_model, opt_state, train_loss, grads = make_step_hybrid(dynamic_model, batch_data, opt_state)
             if grads.stress.K is not None:
-                dK = jnp.abs(grads.stress.K*jnp.exp(dynamic_model.stress.K))
-                if dK < 1e-4:
+                # dK = jnp.abs(grads.stress.K*jnp.exp(dynamic_model.stress.K))
+                dK = jnp.abs(grads.stress.K)
+                if dK < 1e-5:
                     print('     K0 has converged, it is now kept constant')
                     print(f'         dK = {dK}')
                     print(f'         K0 = {dynamic_model.stress.K}, dK0 = {grads.stress.K}')
                     static_model = eqx.tree_at( lambda t:t.stress.K, static_model, dynamic_model.stress.K, is_leaf=lambda x: x is None) # <- set K0 as converged
                     dynamic_model = eqx.tree_at( lambda t:t.stress.K, dynamic_model, None) # <- remove K0 from trainable parameters
                 else:
-                    # print(f'         K0 = {dynamic_model.RHS_dyn.K}, dK = {grads.RHS_dyn.K}, R = {dynamic_model.dissipationNN.layers[0].R}, dR = {grads.dissipationNN.layers[0].R}')
                     print(f'         dK {jnp.abs(grads.stress.K*jnp.exp(dynamic_model.stress.K))}', )
                     print(f'         K0 = {dynamic_model.stress.K}, dK0 = {grads.stress.K}')
             evaluate = evaluate_hybrid
@@ -205,6 +216,7 @@ def train(
         else:
             raise Exception(f'You chose the training mode {mode} but it is not recognized')
 
+        
         ###################
         # LOSS PLOT DATA
         ###################

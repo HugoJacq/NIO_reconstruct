@@ -37,6 +37,7 @@ This script:
             with target = dCdt + RHS_dynamic
 """
 # regular modules import
+from pdb import Restart
 import xarray as xr
 import numpy as np
 import jax
@@ -46,7 +47,7 @@ import matplotlib.pyplot as plt
 import os 
 import sys
 sys.path.insert(0, '../../src')
-jax.config.update('jax_platform_name', 'cpu')
+# jax.config.update('jax_platform_name', 'cpu')
 os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false" # for jax
 # jax.config.update("jax_enable_x64", True)
 
@@ -61,24 +62,27 @@ from constants import oneday, distance_1deg_equator
 #====================================================================================================
 
 # NN hyper parameters
-TRAIN           = False      # run the training and save best model
+TRAIN           = True      # run the training and save best model
+RESTART         = True     # this doesnt work, idk why the optimizer wants to always initialise parameter at = learning rate ...
 SAVE            = True     # save model and figures
 LEARNING_RATE   = 1e-3      
+
+
 MAX_STEP        = 300        # number of epochs
 PRINT_EVERY     = 10        # print infos every 'PRINT_EVERY' epochs
-BATCH_SIZE      = 200      # size of a batch (time), set to -1 for no batching
+BATCH_SIZE      = 1000      # size of a batch (time), set to -1 for no batching
 SEED            = 5678      # for reproductibility
 features_names  = ['U','V','TAx','TAy']   # what features to use in the NN
-mymode          = 'NN_only' # NN_only, hybrid
+mymode          = 'hybrid' # NN_only, hybrid
 
 # evolving learning rate (linear)
-lr_init = 1e-3      # initial lr
-lr_end = 1e-3       # end lr
+lr_init = 1e-5      # initial lr
+lr_end = 1e-4       # end lr
 tr_steps = 30       # how many steps to go from lr_init to lr_end
-tr_start = 100      # how many iteration before changing lr
+tr_start = 0      # how many iteration before changing lr
 
 PLOTTING        = True
-TIME_INTEG      = True
+TIME_INTEG      = False
 
 # Defining data
 # Ntests      = 10*24       # number of hours for test (over the data)
@@ -88,7 +92,7 @@ dt_forcing  = 3600          # time step of forcing
 dt          = 3600.         # time step for Euler integration
 dx          = 0.1           # X data resolution in ° 
 dy          = 0.1           # Y data resolution in ° 
-K0          = 1.           # initial K0
+K0          = 1e-6           # initial K0
 
 
 filename = ['../../data_regrid/croco_1h_inst_surf_2005-01-01-2005-01-31_0.1deg_conservative.nc',
@@ -174,6 +178,10 @@ for namemodel, my_model in L_models.items():
     # run the training
     if TRAIN:
         print('* training ...')
+        if RESTART:
+            print('     -> restarting training !')
+            my_model = eqx.tree_deserialise_leaves(path_save+'best_model.pt', my_model)
+        
         model, best_model, Train_loss, Test_loss = train(
                                                     the_model           = my_model,
                                                     optim               = optax.adam(learning_rate_fn), # optax.adam(LEARNING_RATE), #optax.lbfgs(LEARNING_RATE),
@@ -207,6 +215,7 @@ for namemodel, my_model in L_models.items():
     print('target mean, std V:', trained_model.RENORMmean[1], trained_model.RENORMstd[1])
 
     # print('final R value is',trained_model.layers[0].R)
+    print('final K value is',trained_model.stress.K)
     if PLOTTING:
         print('* Plotting')
         
@@ -326,6 +335,93 @@ for namemodel, my_model in L_models.items():
                     fig.savefig(path_save+'U_traj_Euler.png')
                     
         elif mymode=='hybrid':
+            
+            ########################
+            ########################
+            # TEST ZONE
+            #
+            # I want to see if:
+            # - using dimensioned value in loss function is ok
+            #       so I normalize only the features for the NN
+            #
+            
+            
+            # test data
+            U,V = test_set['features'][:,0], test_set['features'][:,1]
+            TAx,TAy = test_set['forcing'][:,0], test_set['forcing'][:,1] 
+            stress_test = jax.vmap(trained_model.stress)(TAx,TAy)
+            coriolis_test = np.stack([fc*V, -fc*U], axis=1)
+            my_test_data = normalize_batch(test_set, deep_copy=True)
+            diss_test = jax.vmap(trained_model.dissipationNN)(my_test_data['features'])
+            
+            myRHS_test = stress_test + diss_test + coriolis_test
+            xtime = np.arange(len(ds.time)-Ntests, len(ds.time)-1 )*dt_forcing/oneday
+            
+            fig, ax = plt.subplots(1,1,figsize = (10,5), constrained_layout=True,dpi=100)
+            ax.plot(xtime, myRHS_test[:,0].mean(axis=(1,2)), label='RHS U estimate', c='b')
+            ax.plot(xtime, (test_set['target']+ coriolis_test)[:,0].mean(axis=(1,2)), label='dUdt target', c='b', alpha=0.5)
+            ax.plot(xtime, myRHS_test[:,1].mean(axis=(1,2)), label='RHS V estimate', c='orange')
+            ax.plot(xtime, (test_set['target']+ coriolis_test)[:,1].mean(axis=(1,2)), label='dVdt target', c='orange', alpha=0.5)
+            ax.set_xlabel('time (days)')
+            ax.set_ylabel('RHS')
+            ax.set_title('test_data')
+            # ax.set_ylim([-1e-4,1e-4])
+            ax.legend()
+            
+            
+            
+            
+            # train data
+            U,V = train_set['features'][:,0], train_set['features'][:,1]
+            TAx,TAy = train_set['forcing'][:,0], train_set['forcing'][:,1] 
+            stress_train = jax.vmap(trained_model.stress)(TAx,TAy)
+            coriolis_train = np.stack([fc*V, -fc*U], axis=1)
+            my_train_data = normalize_batch(train_set, deep_copy=True)
+            diss_train = jax.vmap(trained_model.dissipationNN)(my_train_data['features'])
+            
+            myRHS_train = stress_train + diss_train + coriolis_train
+            xtime = np.arange(0, len(ds.time)-Ntests )*dt_forcing/oneday
+            
+            fig, ax = plt.subplots(1,1,figsize = (10,5), constrained_layout=True,dpi=100)
+            ax.plot(xtime, myRHS_train[:,0].mean(axis=(1,2)), label='RHS U estimate', c='b')
+            ax.plot(xtime, (train_set['target']+ coriolis_train)[:,0].mean(axis=(1,2)), label='dUdt target', c='b', alpha=0.5)
+            ax.plot(xtime, myRHS_train[:,1].mean(axis=(1,2)), label='RHS V estimate', c='orange')
+            ax.plot(xtime, (train_set['target']+ coriolis_train)[:,1].mean(axis=(1,2)), label='dVdt target', c='orange', alpha=0.5)
+            ax.set_xlabel('time (days)')
+            ax.set_ylabel('RHS')
+            ax.set_title('train_data')
+            # ax.set_ylim([-1e-4,1e-4])
+            ax.legend()
+            
+            
+            plt.show()
+            
+            # U budget
+            true_dudt = np.gradient(ds.U.isel(time=slice(0,len(ds.time)-Ntests)), dt_forcing, axis=0).mean(axis=(1,2))
+            est_dudt = (coriolis_train[:,0].mean(axis=(1,2)) 
+                        + stress_train[:,0].mean(axis=(1,2))
+                        + diss_train[:,0].mean(axis=(1,2))
+                            )
+            
+            fig, ax = plt.subplots(1,1,figsize = (10,5), constrained_layout=True,dpi=100)
+            ax.plot(xtime, coriolis_train[:,0].mean(axis=(1,2)), label='Coriolis', c='orange')
+            ax.plot(xtime, stress_train[:,0].mean(axis=(1,2)), label='K0*tau',c='g')
+            ax.plot(xtime, diss_train[:,0].mean(axis=(1,2)), label='estimated diss', c='cyan')
+            ax.plot(xtime, true_dudt, label='true dUdt',c='k')
+            ax.plot(xtime, est_dudt, label='estimated dUdt',c='k',ls='--')
+            ax.set_xlabel('days')
+            ax.set_ylabel('m/s2')
+            ax.set_title('U budget, train period')
+            ax.legend()
+            
+            plt.show()
+            
+            raise Exception
+            ########################
+            ########################
+            
+            
+            
             
             print(f'K0 value is {trained_model.stress.K}')
             
