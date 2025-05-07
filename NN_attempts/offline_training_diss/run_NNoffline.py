@@ -37,7 +37,7 @@ This script:
             with target = dCdt + RHS_dynamic
 """
 # regular modules import
-from pdb import Restart
+import pickle
 import xarray as xr
 import numpy as np
 import jax
@@ -47,13 +47,16 @@ import matplotlib.pyplot as plt
 import os 
 import sys
 sys.path.insert(0, '../../src')
+
+import cloudpickle
+
 # jax.config.update('jax_platform_name', 'cpu')
 os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false" # for jax
 # jax.config.update("jax_enable_x64", True)
 
 # my modules imports
 from preprocessing import data_maker, features_maker
-from training import batch_loader, train, normalize_batch
+from training import batch_loader, train, normalize_batch, my_partition
 from NNmodels import *
 from constants import oneday, distance_1deg_equator
 
@@ -62,13 +65,13 @@ from constants import oneday, distance_1deg_equator
 #====================================================================================================
 
 # NN hyper parameters
-TRAIN           = True      # run the training and save best model
-RESTART         = True     # this doesnt work, idk why the optimizer wants to always initialise parameter at = learning rate ...
+TRAIN           = False      # run the training and save best model
+RESTART         = False     # this doesnt work, idk why the optimizer wants to always initialise parameter at = learning rate ...
 SAVE            = True     # save model and figures
 LEARNING_RATE   = 1e-3      
 
 
-MAX_STEP        = 300        # number of epochs
+MAX_STEP        = 1_000        # number of epochs
 PRINT_EVERY     = 10        # print infos every 'PRINT_EVERY' epochs
 BATCH_SIZE      = 1000      # size of a batch (time), set to -1 for no batching
 SEED            = 5678      # for reproductibility
@@ -77,9 +80,9 @@ mymode          = 'hybrid' # NN_only, hybrid
 
 # evolving learning rate (linear)
 lr_init = 1e-5      # initial lr
-lr_end = 1e-4       # end lr
+lr_end = 1e-3       # end lr
+tr_start = 20      # how many iteration before changing lr
 tr_steps = 30       # how many steps to go from lr_init to lr_end
-tr_start = 0      # how many iteration before changing lr
 
 PLOTTING        = True
 TIME_INTEG      = False
@@ -177,23 +180,38 @@ for namemodel, my_model in L_models.items():
     
     # run the training
     if TRAIN:
+        
+        optimizer = optax.adam(learning_rate_fn)
+        
+        
         print('* training ...')
         if RESTART:
             print('     -> restarting training !')
+            raise Exception('Restarting the training is not yet coded, I need to save the optimizer state along the model ... Aborting')
             my_model = eqx.tree_deserialise_leaves(path_save+'best_model.pt', my_model)
+            dyn,stat = my_partition(my_model, mode=mymode)
+            # saved_opt_state = eqx.tree_deserialise_leaves(path_save+'opt_state.pt',optimizer.init(dyn))*
+            saved_opt_state = pickle.load(open(path_save+'opt_state.pt', 'r'))
+        else:
+            saved_opt_state = None
         
-        model, best_model, Train_loss, Test_loss = train(
+        
+        model, best_model, Train_loss, Test_loss, opt_state = train(
                                                     the_model           = my_model,
-                                                    optim               = optax.adam(learning_rate_fn), # optax.adam(LEARNING_RATE), #optax.lbfgs(LEARNING_RATE),
+                                                    optim               = optimizer,
                                                     iter_train_data     = iter_train_data,
                                                     train_data          = train_set,
                                                     test_data           = test_set,
                                                     maxstep             = MAX_STEP,
                                                     print_every         = PRINT_EVERY,
                                                     mode                = mymode,
+                                                    restarting          = RESTART,
+                                                    saved_opt_state     = saved_opt_state
                                                     )
         if SAVE:
             eqx.tree_serialise_leaves(path_save+'best_model.pt',best_model)   # <- saves the pytree
+            # eqx.tree_serialise_leaves(path_save+'opt_state.pt',opt_state)   # <- saves the pytree
+            # cloudpickle.dump(opt_state, open(path_save+'opt_state.pt', 'wb') )
 
         fig, ax = plt.subplots(1,1,figsize = (10,5), constrained_layout=True,dpi=100)
         epochs = np.arange(len(Train_loss))
@@ -367,7 +385,7 @@ for namemodel, my_model in L_models.items():
             ax.set_title('test_data')
             # ax.set_ylim([-1e-4,1e-4])
             ax.legend()
-            
+            fig.savefig(path_save+'test_data.png')
             
             
             
@@ -390,6 +408,7 @@ for namemodel, my_model in L_models.items():
             ax.set_xlabel('time (days)')
             ax.set_ylabel('RHS')
             ax.set_title('train_data')
+            fig.savefig(path_save+'train_data.png')
             # ax.set_ylim([-1e-4,1e-4])
             ax.legend()
             
@@ -413,6 +432,7 @@ for namemodel, my_model in L_models.items():
             ax.set_ylabel('m/s2')
             ax.set_title('U budget, train period')
             ax.legend()
+            fig.savefig(path_save+'U_budget_train.png')
             
             plt.show()
             

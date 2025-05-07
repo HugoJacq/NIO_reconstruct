@@ -35,7 +35,7 @@ class DissipationCNN(eqx.Module):
                         eqx.nn.MaxPool2d(kernel_size=3),
                         jnp.ravel,
                         eqx.nn.Linear(2*124*124, 256, key=key4),
-                        jax.nn.sigmoid,
+                        # jax.nn.tanh,
                         eqx.nn.Linear(256, 2*128*128, key=key5),
                         # jax.nn.sigmoid,
                         lambda x:jnp.reshape(x, (2,128,128)),

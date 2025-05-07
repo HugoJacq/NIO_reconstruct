@@ -8,6 +8,8 @@ import jax.tree_util as jtu
 from copy import deepcopy
 import time as clock
 from functools import partial
+from jaxtyping import PyTree
+
 
 from NNmodels import Rayleigh_damping
 from preprocessing import normalize_batch
@@ -135,8 +137,10 @@ def train(
         test_data           : dict,
         maxstep             : int,
         print_every         : int,
+        restarting          : bool= False,
         mode                : str = 'NN_only',
         save_best_model     : bool = True,
+        saved_opt_state     : PyTree = None,
             ):
     
     @eqx.filter_jit
@@ -164,12 +168,19 @@ def train(
     # INITIALIZITION
     # =================
     dynamic_model, static_model = my_partition(the_model, mode=mode)
-    opt_state = optim.init(dynamic_model)
+    if restarting:
+        opt_state = saved_opt_state
+    else:
+        opt_state = optim.init(dynamic_model)
     
     Test_loss = []
     Train_loss = []
     minLoss = 999
     put_on_device(test_data) # the test dataset is small, we put it once on the GPU
+        
+        
+    bestdyn = dynamic_model
+    opt_state_save = opt_state
         
     # =================
     # TRAIN LOOP
@@ -202,12 +213,10 @@ def train(
                 dK = jnp.abs(grads.stress.K)
                 if dK < 1e-5:
                     print('     K0 has converged, it is now kept constant')
-                    print(f'         dK = {dK}')
                     print(f'         K0 = {dynamic_model.stress.K}, dK0 = {grads.stress.K}')
                     static_model = eqx.tree_at( lambda t:t.stress.K, static_model, dynamic_model.stress.K, is_leaf=lambda x: x is None) # <- set K0 as converged
                     dynamic_model = eqx.tree_at( lambda t:t.stress.K, dynamic_model, None) # <- remove K0 from trainable parameters
                 else:
-                    print(f'         dK {jnp.abs(grads.stress.K*jnp.exp(dynamic_model.stress.K))}', )
                     print(f'         K0 = {dynamic_model.stress.K}, dK0 = {grads.stress.K}')
             evaluate = evaluate_hybrid
             
@@ -233,18 +242,18 @@ def train(
         ###################
         # SAVING BEST MODEL
         ###################
-        bestdyn = dynamic_model
+        
         if save_best_model:
             if test_loss<minLoss:
                 # keep the best model
                 minLoss = test_loss
                 bestdyn = dynamic_model 
-            
+                opt_state_save = opt_state
         if step==maxstep-1:
             lastmodel = eqx.combine(dynamic_model, static_model)
             bestmodel = eqx.combine(bestdyn, static_model)        
 
-    return lastmodel, bestmodel, Train_loss, Test_loss
+    return lastmodel, bestmodel, Train_loss, Test_loss, opt_state_save
 
 
 
