@@ -34,9 +34,15 @@ import equinox as eqx
 import optax
 import matplotlib.pyplot as plt
 import os
-
+import sys
+sys.path.insert(0, '../../src')
 # jax.config.update('jax_platform_name', 'cpu')
 os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false" # for jax
+
+# my imports
+from train_preprocessing import data_maker, batch_loader
+from train_functions import train
+from constants import oneday, distance_1deg_equator
 
 #====================================================================================================
 # PARAMETERS
@@ -51,7 +57,7 @@ PRINT_EVERY     = 10            # print infos every 'PRINT_EVERY' epochs
 BATCH_SIZE      = 1000          # size of a batch (time), set to -1 for no batching
 SEED            = 5678          # for reproductibility
 features_names  = ['U','V']     # what features to use in the NN
-
+forcing_names   = []
 
 # Defining data
 test_ratio  = 20            # % of hours for test (over the data)
@@ -97,8 +103,16 @@ key, subkey = jax.random.split(key, 2)
 
 
 # make test and train datasets
-"""add: data_maker: target, forcing, features""" 
-"""add: data iterator"""
+train_data, test_data = data_maker(ds=ds,
+                                    test_ratio=test_ratio, 
+                                    features_names=features_names,
+                                    forcing_names=forcing_names,
+                                    dx=dx*distance_1deg_equator,
+                                    dy=dy*distance_1deg_equator)
+
+train_iterator = batch_loader(data_set=train_data,
+                            batch_size=BATCH_SIZE)
+
 
 # add path to save figures according to model name
 path_save = name_base_folder+'namemodel'+'/'
@@ -107,11 +121,11 @@ os.system(f'mkdir -p {path_save}')
 if TRAIN:
     
     """optimizer initialization"""
-    """optionial: learning rate scheduler initialization"""
-    
+    """optional: learning rate scheduler initialization"""
+    raise Exception('J en suis là ! mercredi 07/05/25')
     # train loop
     """code: training loop"""
-    
+    outputs = train()
     if SAVE:
         best_model='toto'
         eqx.tree_serialise_leaves(path_save+'best_model.pt',best_model)

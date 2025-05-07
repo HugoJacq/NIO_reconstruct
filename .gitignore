@@ -678,3 +678,5 @@ NN_attempts/offline_training_diss/features_U_V_TAx_TAy/RHS_dissCNN/opt_state.pt
 NN_attempts/offline_training_diss/features_U_V_TAx_TAy/RHS_dissCNN/test_data.png
 NN_attempts/offline_training_diss/features_U_V_TAx_TAy/RHS_dissCNN/train_data.png
 NN_attempts/offline_training_diss/features_U_V_TAx_TAy/RHS_dissCNN/U_budget_train.png
+experiments/dissipation_parametrizations/__pycache__/train_functions.cpython-311.pyc
+experiments/dissipation_parametrizations/__pycache__/train_preprocessing.cpython-311.pyc
