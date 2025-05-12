@@ -39,22 +39,24 @@ def data_maker(ds               : xr.core.dataset.Dataset,
     train_set, test_set = {}, {}
     
     for set, data in zip([train_set, test_set],[ds_train,ds_test]):
-        # target is true current
-        set['target'] = np.stack([data.U.values.astype(mydtype),
-                                  data.V.values.astype(mydtype)], axis=1)
         
-        # U,V,TAx,TAy are in, lets add variables from 'forcing_names'
-        L_forcing = [data.U.values.astype(mydtype),
-                                  data.V.values.astype(mydtype),
-                                  data.TAx.values.astype(mydtype),
-                                  data.TAy.values.astype(mydtype)]
+        # target is true current at next time step
+        set['target'] = np.stack([data.U.isel(time=slice(1,-1)).values.astype(mydtype),
+                                  data.V.isel(time=slice(1,-1)).values.astype(mydtype)], axis=1)
+        
+        # U,V,TAx,TAy are in by default
+        L_forcing = [data.U.isel(time=slice(0,-2)).values.astype(mydtype),
+                    data.V.isel(time=slice(0,-2)).values.astype(mydtype),
+                    data.TAx.isel(time=slice(0,-2)).values.astype(mydtype),
+                    data.TAy.isel(time=slice(0,-2)).values.astype(mydtype)]
+        # lets add variables from 'forcing_names'
         for _, fname in enumerate(forcing_names): 
-            L_forcing.append(data[fname].values.astype(mydtype))
+            L_forcing.append(data[fname].isel(time=slice(0,-2)).values.astype(mydtype))
         set['forcing'] = np.stack(L_forcing, axis=1)
         
         # features are first in equinox NN layers, after batch dim
         #   so features.shape = batch_dim, n_features, ydim, xdim
-        set['features'] = features_maker(data, features_names, dx, dy, out_axis=1, out_dtype=mydtype)                         
+        set['features'] = features_maker(data.isel(time=slice(0,-2)), features_names, dx, dy, out_axis=1, out_dtype=mydtype)                         
     return train_set, test_set
 
 

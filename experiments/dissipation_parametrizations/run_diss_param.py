@@ -43,21 +43,22 @@ os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false" # for jax
 from train_preprocessing import data_maker, batch_loader
 from train_functions import train
 from constants import oneday, distance_1deg_equator
-
+from models_definition import RHS, Dissipation_Rayleigh, Stress_term, Coriolis_term
 #====================================================================================================
 # PARAMETERS
 #====================================================================================================
 
-TRAIN           = False      # run the training and save best model
+TRAIN           = True      # run the training and save best model
 SAVE            = True      # save model and figures
 PLOTTING        = True      # plot figures
 
-MAX_STEP        = 100           # number of epochs
+MAX_STEP        = 200           # number of epochs
 PRINT_EVERY     = 10            # print infos every 'PRINT_EVERY' epochs
-BATCH_SIZE      = 1000          # size of a batch (time), set to -1 for no batching
+BATCH_SIZE      = -1          # size of a batch (time), set to -1 for no batching
 SEED            = 5678          # for reproductibility
 features_names  = ['U','V']     # what features to use in the NN
-forcing_names   = []
+forcing_names   = []            # U,V,TAx,TAy already in by default
+N_integration_steps = 1         # 1 for offline, more for online
 
 # Defining data
 test_ratio  = 20            # % of hours for test (over the data)
@@ -65,8 +66,8 @@ Nsize       = 128           # size of the domain, in nx ny
 dt_forcing  = 3600          # time step of forcing
 dx          = 0.1           # X data resolution in ° 
 dy          = 0.1           # Y data resolution in ° 
-K0          = 1e-6           # initial K0
-
+K0          = 1e-6          # initial K0
+dt_Euler    = 60.           # secondes
 
 
 
@@ -85,10 +86,11 @@ name_base_folder = 'features'+''.join('_'+variable for variable in features_name
 os.system(f'mkdir -p {name_base_folder}')
 
 filename = ['../../data_regrid/croco_1h_inst_surf_2005-01-01-2005-01-31_0.1deg_conservative.nc',
-            '../../data_regrid/croco_1h_inst_surf_2005-02-01-2005-02-28_0.1deg_conservative.nc',
-            '../../data_regrid/croco_1h_inst_surf_2005-03-01-2005-03-31_0.1deg_conservative.nc',
-            "../../data_regrid/croco_1h_inst_surf_2005-04-01-2005-04-30_0.1deg_conservative.nc"
+            # '../../data_regrid/croco_1h_inst_surf_2005-02-01-2005-02-28_0.1deg_conservative.nc',
+            # '../../data_regrid/croco_1h_inst_surf_2005-03-01-2005-03-31_0.1deg_conservative.nc',
+            # "../../data_regrid/croco_1h_inst_surf_2005-04-01-2005-04-30_0.1deg_conservative.nc"
             ]
+
 # prepare data
 ds = xr.open_mfdataset(filename)
 ds = ds.isel(lon=slice(-Nsize-1,-1),lat=slice(-Nsize-1,-1)) # <- this could be centered on a physical location
@@ -96,17 +98,35 @@ ds = ds.rename({'oceTAUX':'TAx', 'oceTAUY':'TAy'})
 fc = np.asarray(2*2*np.pi/86164*np.sin(ds.lat.values*np.pi/180))
 Ntests = test_ratio*len(ds.time)//100 # how many instants used for test
 
-# NN initialization
-key = jax.random.PRNGKey(SEED)
-key, subkey = jax.random.split(key, 2)
-""" here add model initialization"""
 
+# warnings
+if N_integration_steps > BATCH_SIZE and BATCH_SIZE>0:
+    print(f'You have chosen to do online training but the number of integration step ({N_integration_steps}) is greater than the batch_size ({BATCH_SIZE})')
+    print(f'N_integration_steps has been reduced to the batch size value ({BATCH_SIZE})')
+    N_integration_steps = BATCH_SIZE
+if N_integration_steps<0:
+    print(f'N_integration_steps < 0, N_integration_steps = BATCH_SIZE ({BATCH_SIZE})')
+    N_integration_steps = BATCH_SIZE
+
+##########################################
+# EXPERIMENT 1:
+#
+# slab model, estimate of 
+#   K0 and r
+##########################################
+model_name = 'slab'
+
+# Initialization
+myCoriolis = Coriolis_term(fc = fc)
+myStress = Stress_term(K0 = K0, to_train=True)
+myDissipation = Dissipation_Rayleigh(R = 0.01, to_train=True)
+myRHS = RHS(myCoriolis, myStress, myDissipation)
 
 # make test and train datasets
 train_data, test_data = data_maker(ds=ds,
                                     test_ratio=test_ratio, 
-                                    features_names=features_names,
-                                    forcing_names=forcing_names,
+                                    features_names=['U','V'],
+                                    forcing_names=[],
                                     dx=dx*distance_1deg_equator,
                                     dy=dy*distance_1deg_equator)
 
@@ -115,23 +135,61 @@ train_iterator = batch_loader(data_set=train_data,
 
 
 # add path to save figures according to model name
-path_save = name_base_folder+'namemodel'+'/'
+path_save = name_base_folder+model_name+'/'
 os.system(f'mkdir -p {path_save}')
 
 if TRAIN:
     
-    """optimizer initialization"""
+    optimizer = optax.adam(1e-2)
     """optional: learning rate scheduler initialization"""
-    raise Exception('J en suis là ! mercredi 07/05/25')
+
     # train loop
-    """code: training loop"""
-    outputs = train()
+    lastmodel, bestmodel, Train_loss, Test_loss, opt_state_save = train(
+                                                                the_model   = myRHS,
+                                                                optim       = optimizer,
+                                                                iter_train_data = train_iterator,
+                                                                test_data       = test_data,
+                                                                maxstep    = MAX_STEP,
+                                                                tol         = 1e-5)
     if SAVE:
-        best_model='toto'
-        eqx.tree_serialise_leaves(path_save+'best_model.pt',best_model)
+        eqx.tree_serialise_leaves(path_save+f'best_{model_name}.pt', bestmodel)
         
-    """Plot: Loss(epochs) for train and test datasets"""
+    fig, ax = plt.subplots(1,1,figsize = (10,5), constrained_layout=True,dpi=100)
+    epochs = np.arange(len(Train_loss))
+    epochs_test = np.arange(len(Test_loss))*PRINT_EVERY
+    ax.plot(epochs, Train_loss, label='train')
+    ax.plot(epochs_test, Test_loss, label='test')
+    ax.set_xlabel('epochs')
+    ax.set_ylabel('Loss')
+    ax.set_yscale('log')
+    ax.legend()
+    if SAVE:
+        fig.savefig(path_save+'Loss.png')
+        
     print('done!')
+   
+   
+   
+##########################################
+# EXPERIMENT 2:
+#
+# slab model, with NN as dissipation 
+#   K0 is fixed and we find theta
+##########################################
+
+
+# NN initialization
+key = jax.random.PRNGKey(SEED)
+key, subkey = jax.random.split(key, 2)
+
+   
+if TRAIN:
+    """
+    """
+    
+#############
+# PLOTTING
+#############
     
 if PLOTTING:
     
@@ -154,4 +212,5 @@ if PLOTTING:
     """
     
     
-    plt.show()
+plt.show()
+
