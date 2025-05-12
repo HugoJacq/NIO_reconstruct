@@ -36,7 +36,7 @@ class Stress_term(eqx.Module):
         self.to_train = to_train
         
     def __call__(self, TA: Float[Array, "2 Ny Nx"]) -> Float[Array, "2 Ny Nx"]:
-        return jnp.stack([self.K0*TA[0], self.K0*TA[1]])
+        return jnp.stack([jnp.exp(self.K0)*TA[0], jnp.exp(self.K0)*TA[1]])
     
     def filter_set_trainable(self, filter_spec):
         return eqx.tree_at(lambda t: t.K0, filter_spec, replace=True)
@@ -75,7 +75,7 @@ class Dissipation_Rayleigh(eqx.Module):
         self.to_train = to_train
         
     def __call__(self, C: Float[Array, "2 Ny Nx"]) -> Float[Array, "2 Ny Nx"]:
-        return jnp.stack([- self.R*C[0], -self.R*C[1]])
+        return jnp.stack([- jnp.exp(self.R)*C[0], -jnp.exp(self.R)*C[1]])
     
     def filter_set_trainable(self, filter_spec):
         return eqx.tree_at(lambda t: t.R, filter_spec, replace=True)
