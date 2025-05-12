@@ -10,7 +10,8 @@ def data_maker(ds               : xr.core.dataset.Dataset,
                 features_names  : list  = [],
                 forcing_names   : list  = [],
                 dx              : float = 1.,
-                dy              : float = 1.):
+                dy              : float = 1.,
+                mydtype         : str = 'float32'):
     """ A simple data maker from a xarray dataset
     
     INPUTS:
@@ -35,7 +36,6 @@ def data_maker(ds               : xr.core.dataset.Dataset,
     
     ds_train = ds.isel(time=slice(0,Ntrain))
     ds_test = ds.isel(time=slice(-Ntests, -1))    
-    mydtype = 'float32'
     train_set, test_set = {}, {}
     
     for set, data in zip([train_set, test_set],[ds_train,ds_test]):
@@ -146,10 +146,12 @@ def batch_loader(data_set   : dict,
         else:
             end = batch_size
             mybatch = batch_size
-        while end < dataset_size:
+        while start < dataset_size:
+            print(start, end)
             batch_perm = perm[start:end]            
             yield {key:array[batch_perm] for (key,array) in data_set.items() }
             start = end
             end = start + mybatch
             if end > dataset_size:
                 end = dataset_size
+            raise Exception
