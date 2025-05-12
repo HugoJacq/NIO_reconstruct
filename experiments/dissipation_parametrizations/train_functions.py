@@ -4,6 +4,9 @@ import optax
 from jaxtyping import PyTree
 import jax.numpy as jnp
 import jax.tree_util as jtu
+from jax import lax
+import numpy as np
+
 
 from train_preprocessing import normalize_batch
 from time_integration import Integration_Euler    
@@ -19,8 +22,12 @@ def loss(dynamic_model, static_model, forcing, features, target, N_integration_s
     """
     RHS_model = eqx.combine(dynamic_model, static_model)
     
-    C = forcing[0:2,:,:]
-    TA = forcing[2:4,:,:]
+    if N_integration_steps==1:
+        C = forcing[0:2,:,:]
+        TA = forcing[2:4,:,:]
+    else:
+        C = forcing[:,0:2,:,:]
+        TA = forcing[:,2:4,:,:]
 
     # integration
     sol = Integration_Euler(C, TA, features, RHS_model, dt, N_integration_steps)
@@ -33,17 +40,74 @@ def vmap_loss(dynamic_model, static_model, data_batch, N_integration_steps, dt):
     """
     # print(data_batch['target'].shape)
     batch_size = data_batch['target'].shape[0]
-    skip = batch_size//N_integration_steps
-    return jnp.nanmean(jax.vmap(
-                            loss, in_axes=(None, None, 0, 0, 0, None, None))(
+    Ntraj = batch_size//N_integration_steps
+    
+    def fn_for_scan(sol, k):
+        """"""
+        
+        start = k*N_integration_steps
+        end = jnp.where((k+1)*N_integration_steps > batch_size,
+                        batch_size,
+                        (k+1)*N_integration_steps)
+        
+        jax.debug.print('start {}, end {}', {}, {})
+        # if (k+1)*N_integration_steps > batch_size:
+        #     end = batch_size
+        # else:
+        #     end = (k+1)*N_integration_steps
+        
+        result = jax.vmap(loss, in_axes=(None, None, 0, 0, 0, None, None))(
                                 dynamic_model, 
                                 static_model, 
-                                data_batch['forcing'][::skip],
-                                data_batch['features'][::skip],
-                                data_batch['target'][::skip],
+                                data_batch['forcing'][start:end],
+                                data_batch['features'][start:end],
+                                data_batch['target'][start:end],
                                 N_integration_steps,
                                 dt)
-                        )
+        
+        sol = sol.at[start:end].set(result)
+        
+        return sol, None
+    X0 = jnp.zeros_like(data_batch['target'])  
+    sol = lax.scan(fn_for_scan, X0, np.arange(0,Ntraj))
+        
+        
+    # for k in range(Ntraj):
+    #     start = k*N_integration_steps
+    #     if (k+1)*N_integration_steps > batch_size:
+    #         end = batch_size
+    #     else:
+    #         end = (k+1)*N_integration_steps
+        
+    #     sol.append( jax.vmap(loss, in_axes=(None, None, 0, 0, 0, None, None))(
+    #                             dynamic_model, 
+    #                             static_model, 
+    #                             data_batch['forcing'][start:end],
+    #                             data_batch['features'][start:end],
+    #                             data_batch['target'][start:end],
+    #                             N_integration_steps,
+    #                             dt)
+    #              )
+    # return jnp.nanmean(jnp.asarray(sol))
+    return jnp.nanmean(sol) 
+    
+    
+    
+    
+    
+    
+    
+    
+    # return jnp.nanmean(jax.vmap(
+    #                         loss, in_axes=(None, None, 0, 0, 0, None, None))(
+    #                             dynamic_model, 
+    #                             static_model, 
+    #                             data_batch['forcing'][::N_integration_steps],
+    #                             data_batch['features'][::N_integration_steps],
+    #                             data_batch['target'][::N_integration_steps],
+    #                             N_integration_steps,
+    #                             dt)
+    #                     )
     
     
     
@@ -62,6 +126,7 @@ def train(the_model          : eqx.Module,
     
     @eqx.filter_jit
     def make_step( model, train_batch, opt_state):
+        print(train_batch['target'].shape)
         loss_value, grads = jax.value_and_grad(vmap_loss)(model, 
                                                           static_model, 
                                                           train_batch,
@@ -69,7 +134,14 @@ def train(the_model          : eqx.Module,
                                                           dt)
         # loss_value = vmap_loss(model, static_model, train_batch)
         # grads = jax.jacfwd(vmap_loss)(model, static_model, train_batch)
-        updates, opt_state = optim.update(grads, opt_state, model) #         
+        updates, opt_state = optim.update(grads, opt_state, model,
+                                          value=loss_value,
+                                          grad=grads,
+                                          value_fn=lambda d:vmap_loss(d, static_model, 
+                                                                    train_batch,
+                                                                    N_integration_steps,
+                                                                    dt)
+                                          )
         new_dyn = eqx.apply_updates(model, updates)
         return new_dyn, opt_state, loss_value, grads
         
@@ -86,6 +158,7 @@ def train(the_model          : eqx.Module,
     bestdyn = dynamic_model
     opt_state_save = opt_state
     evaluate = vmap_loss
+    CONVERGED = False
     
     # =================
     # TRAIN LOOP
@@ -127,21 +200,26 @@ def train(the_model          : eqx.Module,
                 minLoss = test_loss
                 bestdyn = dynamic_model 
                 opt_state_save = opt_state
-        if step==maxstep-1:
-            lastmodel = eqx.combine(dynamic_model, static_model)
-            bestmodel = eqx.combine(bestdyn, static_model)        
+        # if step==maxstep-1:
+        #     lastmodel = eqx.combine(dynamic_model, static_model)
+        #     bestmodel = eqx.combine(bestdyn, static_model)        
 
         ###################
         # Exit if converged
         ###################
         if tol is not None:
             leafs, _ = jtu.tree_flatten(grads, is_leaf=eqx.is_array)
-            print(f' list of grad is : {leafs}')
+            # print(f' list of grad is : {leafs}')
             maxgrad = jnp.amax(jnp.abs(jnp.asarray(leafs)))
             if maxgrad < tol:
+                CONVERGED = True
                 print(f' loop has converged with tol={tol}')
                 print(f' list of grad is : {leafs}')
-                break
+                
+        if CONVERGED or step==maxstep-1:        
+            lastmodel = eqx.combine(dynamic_model, static_model)
+            bestmodel = eqx.combine(bestdyn, static_model)    
+            break
         
     return lastmodel, bestmodel, Train_loss, Test_loss, opt_state_save
     
@@ -154,7 +232,7 @@ def my_partition(model):
     """
     filter_spec = jtu.tree_map(lambda x: False, model)    
     for term_name, term in model.__dict__.items():
-        if term.to_train:
+        if (term_name[0:2]!='__') and (term.to_train):
             filter_for_term = term.filter_set_trainable(filter_spec.__dict__[term_name])
             filter_spec = eqx.tree_at( lambda t:t.__dict__[term_name], filter_spec, filter_for_term)
     return eqx.partition(model, filter_spec) 

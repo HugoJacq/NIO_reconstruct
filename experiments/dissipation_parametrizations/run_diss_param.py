@@ -26,6 +26,7 @@ subquestions:
 """
 
 # regular modules import
+from copy import deepcopy
 import pickle
 import xarray as xr
 import numpy as np
@@ -38,10 +39,12 @@ import sys
 sys.path.insert(0, '../../src')
 # jax.config.update('jax_platform_name', 'cpu')
 os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false" # for jax
+jax.config.update("jax_enable_x64", True)
 
 # my imports
-from train_preprocessing import data_maker, batch_loader
-from train_functions import train
+from train_preprocessing import data_maker, batch_loader, normalize_batch
+from train_functions import train, my_partition
+from time_integration import Integration_Euler
 from constants import oneday, distance_1deg_equator
 from models_definition import RHS, Dissipation_Rayleigh, Stress_term, Coriolis_term
 #====================================================================================================
@@ -52,31 +55,26 @@ TRAIN           = True      # run the training and save best model
 SAVE            = True      # save model and figures
 PLOTTING        = True      # plot figures
 
-MAX_STEP        = 200           # number of epochs
+MAX_STEP        = 100           # number of epochs
 PRINT_EVERY     = 10            # print infos every 'PRINT_EVERY' epochs
-BATCH_SIZE      = -1          # size of a batch (time), set to -1 for no batching
 SEED            = 5678          # for reproductibility
 features_names  = ['U','V']     # what features to use in the NN
 forcing_names   = []            # U,V,TAx,TAy already in by default
+
+BATCH_SIZE      = -1          # size of a batch (time), set to -1 for no batching
 N_integration_steps = 1         # 1 for offline, more for online
 
 # Defining data
 test_ratio  = 20            # % of hours for test (over the data)
+mydtype     = 'float'       # type of data
 Nsize       = 128           # size of the domain, in nx ny
 dt_forcing  = 3600          # time step of forcing
 dx          = 0.1           # X data resolution in ° 
 dy          = 0.1           # Y data resolution in ° 
-K0          = 1e-6          # initial K0
 dt_Euler    = 60.           # secondes
 
-
-
-
-
-
-
-
-
+K0          = -8.           # initial K0
+R           = -8.           # initial R
 #====================================================================================================
 
 #====================================================================================================
@@ -100,6 +98,8 @@ Ntests = test_ratio*len(ds.time)//100 # how many instants used for test
 
 
 # warnings
+if BATCH_SIZE<0:
+    BATCH_SIZE = len(ds.time) - Ntests - 2
 if N_integration_steps > BATCH_SIZE and BATCH_SIZE>0:
     print(f'You have chosen to do online training but the number of integration step ({N_integration_steps}) is greater than the batch_size ({BATCH_SIZE})')
     print(f'N_integration_steps has been reduced to the batch size value ({BATCH_SIZE})')
@@ -107,6 +107,8 @@ if N_integration_steps > BATCH_SIZE and BATCH_SIZE>0:
 if N_integration_steps<0:
     print(f'N_integration_steps < 0, N_integration_steps = BATCH_SIZE ({BATCH_SIZE})')
     N_integration_steps = BATCH_SIZE
+if BATCH_SIZE%N_integration_steps!=0:
+    raise Exception(f'N_integration_steps is not a divider of BATCH_SIZE: {N_integration_steps}%{BATCH_SIZE}={BATCH_SIZE%N_integration_steps}, try again')
 
 ##########################################
 # EXPERIMENT 1:
@@ -119,7 +121,7 @@ model_name = 'slab'
 # Initialization
 myCoriolis = Coriolis_term(fc = fc)
 myStress = Stress_term(K0 = K0, to_train=True)
-myDissipation = Dissipation_Rayleigh(R = 0.01, to_train=True)
+myDissipation = Dissipation_Rayleigh(R = R, to_train=True)
 myRHS = RHS(myCoriolis, myStress, myDissipation)
 
 # make test and train datasets
@@ -128,7 +130,8 @@ train_data, test_data = data_maker(ds=ds,
                                     features_names=['U','V'],
                                     forcing_names=[],
                                     dx=dx*distance_1deg_equator,
-                                    dy=dy*distance_1deg_equator)
+                                    dy=dy*distance_1deg_equator,
+                                    mydtype=mydtype)
 
 train_iterator = batch_loader(data_set=train_data,
                             batch_size=BATCH_SIZE)
@@ -141,6 +144,7 @@ os.system(f'mkdir -p {path_save}')
 if TRAIN:
     
     optimizer = optax.adam(1e-2)
+    optimizer = optax.lbfgs()
     """optional: learning rate scheduler initialization"""
 
     # train loop
@@ -148,15 +152,18 @@ if TRAIN:
                                                                 the_model   = myRHS,
                                                                 optim       = optimizer,
                                                                 iter_train_data = train_iterator,
-                                                                test_data       = test_data,
-                                                                maxstep    = MAX_STEP,
-                                                                tol         = 1e-5)
+                                                                test_data   = test_data,
+                                                                maxstep     = MAX_STEP,
+                                                                print_every = 1,
+                                                                tol         = 1e-6,
+                                                                N_integration_steps = N_integration_steps,
+                                                                dt          = dt_Euler)
     if SAVE:
         eqx.tree_serialise_leaves(path_save+f'best_{model_name}.pt', bestmodel)
         
     fig, ax = plt.subplots(1,1,figsize = (10,5), constrained_layout=True,dpi=100)
     epochs = np.arange(len(Train_loss))
-    epochs_test = np.arange(len(Test_loss))*PRINT_EVERY
+    epochs_test = np.arange(len(Test_loss))*1
     ax.plot(epochs, Train_loss, label='train')
     ax.plot(epochs_test, Test_loss, label='test')
     ax.set_xlabel('epochs')
@@ -165,9 +172,39 @@ if TRAIN:
     ax.legend()
     if SAVE:
         fig.savefig(path_save+'Loss.png')
-        
+    
+    print(f'Final K0 = {bestmodel.stress_term.K0}')
+    print(f'Final r = {bestmodel.dissipation_term.R}')
     print('done!')
-   
+
+if True:
+    # Plotting the solution
+    """"""
+    best_RHS = eqx.tree_deserialise_leaves(path_save+f'best_{model_name}.pt',   # <- getting the saved PyTree 
+                                                myRHS)                          # <- here the call is just to get the structure
+                                                
+    dynamic_model, static_model = my_partition(best_RHS)
+    n_test_data = normalize_batch(test_data, deep_copy=True)
+    # RHS_value = jax.vmap(best_RHS, 
+    #                      in_axes=(None, None, 0, 0, 0, None, None))(
+    #                             dynamic_model, 
+    #                             static_model, 
+    #                             n_test_data['forcing'][::N_integration_steps],
+    #                             n_test_data['features'][::N_integration_steps],
+    #                             n_test_data['target'][::N_integration_steps],
+    #                             N_integration_steps,
+    #                             dt_Euler)
+                         
+    # sol = jax.vmap(Integration_Euler)(X0 = n_test_data['forcing'][:,0:2,:,:],
+    #                                   forcing = n_test_data['forcing'][:,2:4,:,:],
+    #                                   features = n_test_data['features'],
+    #                                   RHS = RHS_value,
+    #                                   dt = dt_Euler,
+    #                                   Nsteps = N_integration_steps
+    #                                   )
+    
+    
+    
    
    
 ##########################################
