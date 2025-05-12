@@ -133,6 +133,8 @@ def batch_loader(data_set   : dict,
     dataset_size = data_set[first_key].shape[0] # <- time extent
     assert all(data_set[key].shape[0] == dataset_size for key in data_set.keys()) # <- check that all array are on the same time lenght
     indices = np.arange(dataset_size)
+    if batch_size>len(indices):
+        raise Exception(f'Your batch size is {batch_size} but you have data for only {len(indices)} points')
     while True:
         perm = np.random.permutation(indices) # indices # 
         start = 0
