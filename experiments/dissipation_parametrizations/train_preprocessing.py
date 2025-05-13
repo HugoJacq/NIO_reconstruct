@@ -2,6 +2,7 @@ import xarray as xr
 import numpy as np
 import jax.numpy as jnp
 import jax
+from jax import lax
 from copy import deepcopy
 from functools import partial
 
@@ -11,7 +12,7 @@ def data_maker(ds               : xr.core.dataset.Dataset,
                 forcing_names   : list  = [],
                 dx              : float = 1.,
                 dy              : float = 1.,
-                mydtype         : str = 'float32'):
+                mydtype         : str = 'float32',):
     """ A simple data maker from a xarray dataset
     
     INPUTS:
@@ -45,18 +46,15 @@ def data_maker(ds               : xr.core.dataset.Dataset,
                                   data.V.isel(time=slice(1,-1)).values.astype(mydtype)], axis=1)
         
         # U,V,TAx,TAy are in by default
-        L_forcing = [data.U.isel(time=slice(0,-2)).values.astype(mydtype),
-                    data.V.isel(time=slice(0,-2)).values.astype(mydtype),
-                    data.TAx.isel(time=slice(0,-2)).values.astype(mydtype),
-                    data.TAy.isel(time=slice(0,-2)).values.astype(mydtype)]
-        # lets add variables from 'forcing_names'
-        for _, fname in enumerate(forcing_names): 
-            L_forcing.append(data[fname].isel(time=slice(0,-2)).values.astype(mydtype))
-        set['forcing'] = np.stack(L_forcing, axis=1)
+        L_forcing = ['U','V','TAx','TAy'] + forcing_names
+        set['forcing'] = features_maker(data.isel(time=slice(0,-2)), L_forcing, dx, dy, out_axis=1, out_dtype=mydtype)      
         
         # features are first in equinox NN layers, after batch dim
         #   so features.shape = batch_dim, n_features, ydim, xdim
-        set['features'] = features_maker(data.isel(time=slice(0,-2)), features_names, dx, dy, out_axis=1, out_dtype=mydtype)                         
+        # U and V are in by default
+        L_features = ['U','V'] + features_names
+        set['features'] = features_maker(data.isel(time=slice(0,-2)), L_features, dx, dy, out_axis=1, out_dtype=mydtype)    
+                  
     return train_set, test_set
 
 
@@ -95,7 +93,7 @@ def features_maker(data             : xr.core.dataset.Dataset,
     
     
 @partial(jax.jit, static_argnames=['deep_copy'])
-def normalize_batch(batch_data, deep_copy=False):
+def normalize_batch(batch_data, L_to_be_normalized=[], deep_copy=False):
     """ A normalizer of 'batch_data'
     
     normalized = (original - mean) / std
@@ -106,18 +104,35 @@ def normalize_batch(batch_data, deep_copy=False):
         new_data = deepcopy(batch_data)
     else:
         new_data = batch_data
+    norms = {}
+    # if a NN is present, normalize its inputs 
+    # if NN, add 'features' to 'L_to_be_normalized'
     
-    # if a NN is present, normalize its inputs    
-    L_to_be_normalized = ['features'] 
+    # L_names = list(batch_data.keys())
+    # def fn_for_scan(carry, k):
+    #     new_data, norms = carry
+    #     name = L_names[k]
+    #     mean, std = lax.select( name in L_to_be_normalized,
+    #                            (jnp.mean(batch_data[name],axis=(0,2,3)),jnp.std(batch_data[name],axis=(0,2,3))),
+    #                            (jnp.zeros(batch_data[name].shape[1]),jnp.ones(batch_data[name].shape[1])))
+    #     new_data[name] = (batch_data[name]-mean[:,np.newaxis,np.newaxis])/std[:,np.newaxis,np.newaxis] 
+    #     norms[name] = {'mean':mean, 'std':std}
+    #     return new_data, norms
     
-    for name in L_to_be_normalized:
-        if name in list(batch_data.keys()):
+    # new_data, norms = lax.scan(fn_for_scan, (new_data, norms), jnp.arange(len(L_names)))
+    
+    
+    for name in list(batch_data.keys()):
+        if name in L_to_be_normalized:
             mean = jnp.mean(batch_data[name],axis=(0,2,3))
             std = jnp.std(batch_data[name],axis=(0,2,3))
             new_data[name] = (batch_data[name]-mean[:,np.newaxis,np.newaxis])/std[:,np.newaxis,np.newaxis] 
+            norms[name] = {'mean':mean, 'std':std}
         else:
-            new_data[name] = batch_data[name] # do nothing (case when no NN)
-    return new_data
+            norms[name] = {'mean':jnp.zeros(batch_data[name].shape[1]), 
+                           'std':jnp.ones(batch_data[name].shape[1])} # do nothing (case when no NN)
+    
+    return new_data, norms
     
     
     
@@ -147,11 +162,9 @@ def batch_loader(data_set   : dict,
             end = batch_size
             mybatch = batch_size
         while start < dataset_size:
-            print(start, end)
             batch_perm = perm[start:end]            
             yield {key:array[batch_perm] for (key,array) in data_set.items() }
             start = end
             end = start + mybatch
             if end > dataset_size:
                 end = dataset_size
-            raise Exception

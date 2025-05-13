@@ -26,7 +26,6 @@ subquestions:
 """
 
 # regular modules import
-from copy import deepcopy
 import pickle
 import xarray as xr
 import numpy as np
@@ -37,7 +36,7 @@ import matplotlib.pyplot as plt
 import os
 import sys
 sys.path.insert(0, '../../src')
-# jax.config.update('jax_platform_name', 'cpu')
+jax.config.update('jax_platform_name', 'cpu')
 os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false" # for jax
 jax.config.update("jax_enable_x64", True)
 
@@ -58,7 +57,7 @@ PLOTTING        = True      # plot figures
 MAX_STEP        = 100           # number of epochs
 PRINT_EVERY     = 10            # print infos every 'PRINT_EVERY' epochs
 SEED            = 5678          # for reproductibility
-features_names  = ['U','V']     # what features to use in the NN
+features_names  = []            # what features to use in the NN (U,V in by default)
 forcing_names   = []            # U,V,TAx,TAy already in by default
 
 BATCH_SIZE      = -1          # size of a batch (time), set to -1 for no batching
@@ -127,7 +126,7 @@ myRHS = RHS(myCoriolis, myStress, myDissipation)
 # make test and train datasets
 train_data, test_data = data_maker(ds=ds,
                                     test_ratio=test_ratio, 
-                                    features_names=['U','V'],
+                                    features_names=[],
                                     forcing_names=[],
                                     dx=dx*distance_1deg_equator,
                                     dy=dy*distance_1deg_equator,
@@ -142,7 +141,7 @@ path_save = name_base_folder+model_name+'/'
 os.system(f'mkdir -p {path_save}')
 
 if TRAIN:
-    
+    print('* Training the slab model ...')
     optimizer = optax.adam(1e-2)
     optimizer = optax.lbfgs()
     """optional: learning rate scheduler initialization"""
@@ -157,7 +156,8 @@ if TRAIN:
                                                                 print_every = 1,
                                                                 tol         = 1e-6,
                                                                 N_integration_steps = N_integration_steps,
-                                                                dt          = dt_Euler)
+                                                                dt          = dt_Euler,
+                                                                L_to_be_normalized = [])
     if SAVE:
         eqx.tree_serialise_leaves(path_save+f'best_{model_name}.pt', bestmodel)
         
