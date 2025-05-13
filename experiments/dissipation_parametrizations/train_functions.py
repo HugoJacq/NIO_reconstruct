@@ -15,7 +15,7 @@ from time_integration import Integration_Euler
 def fn_loss(sol, obs):
     return jnp.mean( jnp.sqrt( (sol[0]-obs[0])**2 + (sol[1]-obs[1])**2 ))
     
-def loss(dynamic_model, static_model, forcing, features, target, N_integration_steps, dt, norms_features):
+def loss(dynamic_model, static_model, forcing, features, target, N_integration_steps, dt, dt_forcing, norms_features):
     """
     Compute the distance between target and the integrated trajectory. 
     if N_integration_steps==1, estimates only the next time currents, otherwise compares trajectories
@@ -26,32 +26,39 @@ def loss(dynamic_model, static_model, forcing, features, target, N_integration_s
     TA = forcing[:,2:4,:,:]
     
     # integration
-    sol = Integration_Euler(X0, TA, features, RHS_model, dt, N_integration_steps, norms_features)
+    sol = Integration_Euler(X0, TA, features, RHS_model, dt, dt_forcing, N_integration_steps, norms_features)
     return fn_loss(sol, target)  
     
-def vmap_loss(dynamic_model, static_model, data_batch, N_integration_steps, dt, norms_features):
+def vmap_loss(dynamic_model, static_model, data_batch, N_integration_steps, dt, dt_forcing, norms_features):
     """
     vmap on the initial condition, generates a number of trajectories (batch_size//N_integration_steps)
     at most: batch_size trajectories (each of length 1), at less: 1 trajectory (of length batch_size)
     
-    Note: it has been assured that batch_size % N_integration_steps == 0
+    Note: it has been assured beforehand that
+                batch_size % N_integration_steps == 0
     """
     batch_size, _, Ny, Nx = data_batch['target'].shape
     Ntraj = batch_size//N_integration_steps    
     
     def fn_for_scan(L, k):
         start = k*N_integration_steps
-        forcing_for_this_traj = lax.dynamic_slice(data_batch['forcing'],    (start, 0, 0, 0),   (N_integration_steps, data_batch['forcing'].shape[1], Ny, Nx))
-        features_for_this_traj = lax.dynamic_slice(data_batch['features'],  (start, 0, 0, 0),   (N_integration_steps, data_batch['features'].shape[1], Ny, Nx))
-        target_for_this_traj = lax.dynamic_slice(data_batch['target'],      (start, 0, 0, 0),   (N_integration_steps, data_batch['target'].shape[1], Ny, Nx))
-        L = L + loss(dynamic_model, 
+        forcing_for_this_traj = lax.dynamic_slice(data_batch['forcing'],    (start, 0, 0, 0),   (N_integration_steps+1, data_batch['forcing'].shape[1], Ny, Nx))
+        features_for_this_traj = lax.dynamic_slice(data_batch['features'],  (start, 0, 0, 0),   (N_integration_steps+1, data_batch['features'].shape[1], Ny, Nx))
+        target_for_this_traj = lax.dynamic_slice(data_batch['target'],      (start, 0, 0, 0),   (N_integration_steps+1, data_batch['target'].shape[1], Ny, Nx))
+
+        loss_value = loss(dynamic_model, 
                         static_model, 
                         forcing_for_this_traj,
                         features_for_this_traj,
                         target_for_this_traj,
                         N_integration_steps,
                         dt,
+                        dt_forcing, 
                         norms_features)
+        
+        # jax.debug.print('loss_value {}',loss_value)
+        
+        L = L + loss_value
         return L, None
         
     L = 0.
@@ -72,19 +79,23 @@ def train(the_model          : eqx.Module,
         tol                 = None,
         N_integration_steps : int = 1, # default is offline mode
         dt                  : float = 60.,
+        dt_forcing          : float = 3600.,
         L_to_be_normalized  : list = []
             ):
     
     @eqx.filter_jit
     def make_step( model, train_batch, opt_state):
-        loss_value, grads = jax.value_and_grad(vmap_loss)(model, 
-                                                          static_model, 
-                                                          train_batch,
-                                                          N_integration_steps,
-                                                          dt,
-                                                          norms)
-        # loss_value = vmap_loss(model, static_model, train_batch)
-        # grads = jax.jacfwd(vmap_loss)(model, static_model, train_batch)
+        # loss_value, grads = jax.value_and_grad(vmap_loss)(model, 
+        #                                                   static_model, 
+        #                                                   train_batch,
+        #                                                   N_integration_steps,
+        #                                                   dt,
+        #                                                   dt_forcing, 
+        #                                                   norms)
+        loss_value = vmap_loss(model, static_model, train_batch, N_integration_steps,
+                                dt, dt_forcing, norms)
+        grads = jax.jacfwd(vmap_loss)(model, static_model, train_batch, N_integration_steps,
+                                dt, dt_forcing, norms)
         updates, opt_state = optim.update(grads, opt_state, model,
                                           value=loss_value,
                                           grad=grads,
@@ -92,9 +103,11 @@ def train(the_model          : eqx.Module,
                                                                     train_batch,
                                                                     N_integration_steps,
                                                                     dt,
+                                                                    dt_forcing, 
                                                                     norms)
                                           )
         new_dyn = eqx.apply_updates(model, updates)
+        jax.debug.print('New K0 {}, new R {}', new_dyn.stress_term.K0, new_dyn.dissipation_term.R)
         return new_dyn, opt_state, loss_value, grads
         
     # =================
@@ -136,6 +149,7 @@ def train(the_model          : eqx.Module,
                                  test_data,
                                  N_integration_steps,
                                  dt,
+                                 dt_forcing, 
                                  test_norms)
             print(
                 f"{step=}, train_loss={train_loss.item()}, "    # train loss of current epoch (uses the old model)

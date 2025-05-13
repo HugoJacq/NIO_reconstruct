@@ -30,30 +30,30 @@ def data_maker(ds               : xr.core.dataset.Dataset,
     
     nt = len(ds.time)
     Ntests = test_ratio*len(ds.time)//100 # how many instants used for test
-    Ntrain = nt-Ntests
+    Ntrain = nt - Ntests
     
     if Ntests>nt:
         raise Exception(f'Data_loader: you ask for {Ntests} instants for test, but the dataset contains only {nt} instants')
     
     ds_train = ds.isel(time=slice(0,Ntrain))
-    ds_test = ds.isel(time=slice(-Ntests, -1))    
+    ds_test = ds.isel(time=slice(-Ntests, nt))    
     train_set, test_set = {}, {}
     
     for set, data in zip([train_set, test_set],[ds_train,ds_test]):
         
         # target is true current at next time step
-        set['target'] = np.stack([data.U.isel(time=slice(1,-1)).values.astype(mydtype),
-                                  data.V.isel(time=slice(1,-1)).values.astype(mydtype)], axis=1)
+        set['target'] = np.stack([data.U.values.astype(mydtype),
+                                  data.V.values.astype(mydtype)], axis=1)
         
         # U,V,TAx,TAy are in by default
-        L_forcing = ['U','V','TAx','TAy'] + forcing_names
-        set['forcing'] = features_maker(data.isel(time=slice(0,-2)), L_forcing, dx, dy, out_axis=1, out_dtype=mydtype)      
+        L_forcing = ['U','V','TAx','TAy'] + forcing_names 
+        set['forcing'] = features_maker(data, L_forcing, dx, dy, out_axis=1, out_dtype=mydtype)    
         
         # features are first in equinox NN layers, after batch dim
         #   so features.shape = batch_dim, n_features, ydim, xdim
         # U and V are in by default
         L_features = ['U','V'] + features_names
-        set['features'] = features_maker(data.isel(time=slice(0,-2)), L_features, dx, dy, out_axis=1, out_dtype=mydtype)    
+        set['features'] = features_maker(data, L_features, dx, dy, out_axis=1, out_dtype=mydtype)    
                   
     return train_set, test_set
 
