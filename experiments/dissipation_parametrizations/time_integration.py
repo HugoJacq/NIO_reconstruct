@@ -7,6 +7,7 @@ import numpy as np
 import jax.numpy as jnp
 import jax 
 from functools import partial
+import equinox as eqx
 
 def one_step_Euler(X0       : Float[Array, "2 Ny Nx"], 
                    forcing  : Float[Array, "2 Ny Nx"], 
@@ -96,7 +97,7 @@ def Integration_Euler(X0        : Float[Array, "2 Ny Nx"],
     C = C.at[0,:,:,:].set(X0)
     carry = C, forcing, features
     # loop on time steps every 'dt_forcing'
-    final,_ = lax.scan(outer_loop, carry, xs=np.arange(Nsteps))
+    final,_ = eqx.internal.scan(outer_loop, carry, xs=np.arange(Nsteps), kind='checkpointed')
     C,_,_ = final
     
     return C

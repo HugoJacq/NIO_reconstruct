@@ -53,17 +53,17 @@ from models_definition import RHS, Dissipation_Rayleigh, Stress_term, Coriolis_t
 # PARAMETERS
 #====================================================================================================
 
-TRAIN           = False      # run the training and save best model
+TRAIN           = True      # run the training and save best model
 SAVE            = True      # save model and figures
 PLOTTING        = True      # plot figures
 
-MAX_STEP        = 20           # number of epochs
+MAX_STEP        = 100           # number of epochs
 PRINT_EVERY     = 10            # print infos every 'PRINT_EVERY' epochs
 SEED            = 5678          # for reproductibility
 features_names  = []            # what features to use in the NN (U,V in by default)
 forcing_names   = []            # U,V,TAx,TAy already in by default
 
-BATCH_SIZE      = 300          # size of a batch (time), set to -1 for no batching
+BATCH_SIZE      = -1          # size of a batch (time), set to -1 for no batching
 
 dt_Euler    = 60.           # secondes
 N_integration_steps = 1         # 1 for offline, more for online
@@ -78,8 +78,8 @@ dx          = 0.1           # X data resolution in °
 dy          = 0.1           # Y data resolution in ° 
 
 
-K0          = -10.           # initial K0
-R           = -4.           # initial R
+K0          = -10.5           # initial K0
+R           = -10.5           # initial R
 #====================================================================================================
 
 #====================================================================================================
@@ -148,8 +148,10 @@ os.system(f'mkdir -p {path_save}')
 
 if TRAIN:
     print('* Training the slab model ...')
-    optimizer = optax.adam(1e-2)
-    # optimizer = optax.lbfgs()
+    # optimizer = optax.adam(1e-3)
+    optimizer = optax.lbfgs(linesearch=optax.scale_by_zoom_linesearch(
+                                                max_linesearch_steps=55,
+                                                verbose=True))
     """optional: learning rate scheduler initialization"""
 
     # train loop
@@ -262,13 +264,14 @@ if False:
     ax.legend()
     
     
-if False:
+if True:
+    print('* map of cost function for full train dataset')
     # map of the cost function
     n_train_data, norms = normalize_batch(train_data, 
                                   L_to_be_normalized=[])
     
-    R_range = np.arange(-12,-10,0.25)
-    K0_range = np.arange(-12,-10,0.25)
+    R_range     = np.arange(-14, -3, 1)
+    K0_range    = np.arange(-14, -3, 1)
     
     L = np.zeros((len(R_range),len(K0_range)))
     for j,r in enumerate(R_range):
@@ -279,19 +282,24 @@ if False:
             L[j,i] = vmap_loss(dynamic_model, static_model, n_train_data, N_integration_steps, dt_Euler, dt_forcing, norms)
     
     fig, ax = plt.subplots(1,1,figsize = (10,5), constrained_layout=True,dpi=100)
-    s = ax.pcolormesh(K0_range, R_range, L, cmap='jet')
-    plt.colorbar(s, ax=ax, norm='log')
+    s = ax.pcolormesh(K0_range, R_range, L, cmap='jet', norm='log',vmin=1e-3,vmax=10.)
+    plt.colorbar(s, ax=ax)
     ax.set_xlabel('log(K0)')
     ax.set_ylabel('log(R)')
     ax.set_title('cost function map (train_data)')
     
 if True:
+    print('* testing my integration function')
     # testing the integration with my function
     #
     # soluion is app. R = -10.5, K0=-11.0
     
     mymodel = eqx.tree_at( lambda t:t.dissipation_term.R, myRHS, -10.5)
     mymodel = eqx.tree_at( lambda t:t.stress_term.K0, mymodel, -11.0)
+    
+    trained_model = eqx.tree_deserialise_leaves(path_save+'best_slab.pt',   # <- getting the saved PyTree 
+                                                myRHS                    # <- here the call is just to get the structure
+                                                )
     
     n_train_data, norms = normalize_batch(train_data, 
                                   L_to_be_normalized=[])
@@ -307,15 +315,30 @@ if True:
                              Ntrain,
                              norms)
     
+    traj_2 = Integration_Euler(X0, 
+                             myforcing,
+                             n_train_data['features'],
+                             trained_model,
+                             dt_Euler,
+                             dt_forcing,
+                             Ntrain,
+                             norms)
+    
     xtime = np.arange(0, Ntrain, 1)*dt_forcing/oneday
     fig, ax = plt.subplots(1,1,figsize = (10,5), constrained_layout=True,dpi=100)
-    ax.plot(xtime, traj[:,0].mean(axis=(1,2)), c='b', label='slab U')
+    ax.plot(xtime, traj[:,0].mean(axis=(1,2)), c='b', label='slab U (by hand)')
+    ax.plot(xtime, traj_2[:,0].mean(axis=(1,2)), c='g', label='slab U (by train)')
     ax.plot(xtime, n_train_data['target'][:,0].mean(axis=(1,2)), c='k', label='true U')
     ax.plot()
     ax.set_xlabel('time (days)')
     ax.set_ylabel('zonal current (m/s)')
     ax.set_title('slab, on train_data')
     ax.legend()
+    
+    
+    
+    
+    
 ##########################################
 # EXPERIMENT 2:
 #

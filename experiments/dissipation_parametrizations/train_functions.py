@@ -13,7 +13,7 @@ from time_integration import Integration_Euler
   
   
 def fn_loss(sol, obs):
-    return jnp.mean( jnp.sqrt( (sol[0]-obs[0])**2 + (sol[1]-obs[1])**2 ))
+    return jnp.mean( safe_for_grad_sqrt( (sol[:,0]-obs[:,0])**2 + (sol[:,1]-obs[:,1])**2 ))
     
 def loss(dynamic_model, static_model, forcing, features, target, N_integration_steps, dt, dt_forcing, norms_features):
     """
@@ -26,7 +26,7 @@ def loss(dynamic_model, static_model, forcing, features, target, N_integration_s
     TA = forcing[:,2:4,:,:]
     
     # integration
-    sol = Integration_Euler(X0, TA, features, RHS_model, dt, dt_forcing, N_integration_steps, norms_features)
+    sol = Integration_Euler(X0, TA, features, RHS_model, dt, dt_forcing, N_integration_steps, norms_features)  
     return fn_loss(sol, target)  
     
 def vmap_loss(dynamic_model, static_model, data_batch, N_integration_steps, dt, dt_forcing, norms_features):
@@ -85,17 +85,17 @@ def train(the_model          : eqx.Module,
     
     @eqx.filter_jit
     def make_step( model, train_batch, opt_state):
-        # loss_value, grads = jax.value_and_grad(vmap_loss)(model, 
-        #                                                   static_model, 
-        #                                                   train_batch,
-        #                                                   N_integration_steps,
-        #                                                   dt,
-        #                                                   dt_forcing, 
-        #                                                   norms)
-        loss_value = vmap_loss(model, static_model, train_batch, N_integration_steps,
-                                dt, dt_forcing, norms)
-        grads = jax.jacfwd(vmap_loss)(model, static_model, train_batch, N_integration_steps,
-                                dt, dt_forcing, norms)
+        loss_value, grads = jax.value_and_grad(vmap_loss)(model, 
+                                                          static_model, 
+                                                          train_batch,
+                                                          N_integration_steps,
+                                                          dt,
+                                                          dt_forcing, 
+                                                          norms)
+        # loss_value = vmap_loss(model, static_model, train_batch, N_integration_steps,
+        #                         dt, dt_forcing, norms)
+        # grads = jax.jacfwd(vmap_loss)(model, static_model, train_batch, N_integration_steps,
+        #                         dt, dt_forcing, norms)
         updates, opt_state = optim.update(grads, opt_state, model,
                                           value=loss_value,
                                           grad=grads,
@@ -152,7 +152,7 @@ def train(the_model          : eqx.Module,
                                  dt_forcing, 
                                  test_norms)
             print(
-                f"{step=}, train_loss={train_loss.item()}, "    # train loss of current epoch (uses the old model)
+                f"\n{step=}, train_loss={train_loss.item()}, "    # train loss of current epoch (uses the old model)
                 f"test_loss={test_loss.item()}"                 # test loss of next epoch (uses the new model)
             )
             Test_loss.append(test_loss.item())
@@ -201,3 +201,7 @@ def my_partition(model):
             filter_spec = eqx.tree_at( lambda t:t.__dict__[term_name], filter_spec, filter_for_term)
     return eqx.partition(model, filter_spec) 
     
+    
+def safe_for_grad_sqrt(x):
+  y = jnp.sqrt(jnp.where(x != 0., x, 1.))  # replace x=0. with any non zero real
+  return jnp.where(x != 0., y, 0.)  # replace it back with O. (or x)
