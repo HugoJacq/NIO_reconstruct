@@ -31,7 +31,6 @@ def data_maker(ds               : xr.core.dataset.Dataset,
     nt = len(ds.time)
     Ntests = test_ratio*len(ds.time)//100 # how many instants used for test
     Ntrain = nt - Ntests
-    
     if Ntests>nt:
         raise Exception(f'Data_loader: you ask for {Ntests} instants for test, but the dataset contains only {nt} instants')
     
@@ -153,7 +152,8 @@ def batch_loader(data_set   : dict,
     if batch_size>len(indices):
         raise Exception(f'Your batch size is {batch_size} but you have data for only {len(indices)} points')
     while True:
-        perm = np.random.permutation(indices)
+        # perm = np.random.permutation(indices)
+        perm = block_shuffle(indices, block_size=batch_size)
         start = 0
         if batch_size<=0:
             end = dataset_size # no batch
@@ -161,11 +161,56 @@ def batch_loader(data_set   : dict,
         else:
             end = batch_size
             mybatch = batch_size
-        while start < dataset_size:
-            print(start, end)
+        while end <= dataset_size:
             batch_perm = perm[start:end]            
             yield {key:array[batch_perm] for (key,array) in data_set.items() }
             start = end
             end = start + mybatch
-            if end > dataset_size:
-                end = dataset_size
+            # if end > dataset_size:
+            #     end = dataset_size
+            
+            
+def block_shuffle(arr, block_size=2):
+    """
+    Shuffle a list of integers by blocks of specified size.
+    If there are extra elements that don't form a complete block,
+    they stay with their left neighbors (considered as one larger block).
+    
+    Parameters:
+    arr (list or numpy.ndarray): The input array to be shuffled
+    block_size (int): The size of blocks to consider when shuffling (default: 2)
+    
+    Returns:
+    numpy.ndarray: The shuffled array
+    
+    Example:
+    >>> block_shuffle([1, 2, 3, 4, 5, 6], 2)
+    array([3, 4, 1, 2, 5, 6])  # This is just one possible result since the shuffle is random
+    >>> block_shuffle([1, 2, 3, 4, 5, 6, 7], 2)
+    array([3, 4, 5, 6, 7, 1, 2])  # Extra element 7 sticks with its left neighbors 5,6
+    """
+    # Convert to numpy array if it's a list
+    arr = np.array(arr)
+    
+    # Create blocks with special handling for remainder
+    blocks = []
+    i = 0
+    while i < len(arr):
+        if i + block_size <= len(arr):
+            # Complete block
+            blocks.append(arr[i:i+block_size])
+            i += block_size
+        else:
+            # Last incomplete block - includes all remaining elements
+            # This ensures extra elements stick with their left neighbors
+            blocks.append(arr[i:])
+            break
+    
+    # Convert to numpy array for easier manipulation
+    blocks = np.array(blocks, dtype=object)
+    # Shuffle the blocks
+    blocks = np.random.permutation(blocks)
+    
+    # Flatten the result
+    result = np.array(np.concatenate(blocks), dtype=int)
+    return result
