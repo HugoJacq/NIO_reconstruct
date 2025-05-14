@@ -153,15 +153,16 @@ def batch_loader(data_set   : dict,
     if batch_size>len(indices):
         raise Exception(f'Your batch size is {batch_size} but you have data for only {len(indices)} points')
     while True:
-        perm = np.random.permutation(indices) # indices # 
+        perm = np.random.permutation(indices)
         start = 0
         if batch_size<=0:
-            end = dataset_size-1 # no batch
-            mybatch = dataset_size-1
+            end = dataset_size # no batch
+            mybatch = dataset_size
         else:
             end = batch_size
             mybatch = batch_size
         while start < dataset_size:
+            print(start, end)
             batch_perm = perm[start:end]            
             yield {key:array[batch_perm] for (key,array) in data_set.items() }
             start = end
