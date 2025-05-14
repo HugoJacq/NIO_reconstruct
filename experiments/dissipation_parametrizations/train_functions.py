@@ -42,9 +42,10 @@ def vmap_loss(dynamic_model, static_model, data_batch, N_integration_steps, dt, 
     
     def fn_for_scan(L, k):
         start = k*N_integration_steps
-        forcing_for_this_traj = lax.dynamic_slice(data_batch['forcing'],    (start, 0, 0, 0),   (N_integration_steps+1, data_batch['forcing'].shape[1], Ny, Nx))
-        features_for_this_traj = lax.dynamic_slice(data_batch['features'],  (start, 0, 0, 0),   (N_integration_steps+1, data_batch['features'].shape[1], Ny, Nx))
-        target_for_this_traj = lax.dynamic_slice(data_batch['target'],      (start, 0, 0, 0),   (N_integration_steps+1, data_batch['target'].shape[1], Ny, Nx))
+        # print(data_batch['forcing'].shape, (N_integration_steps+1, data_batch['forcing'].shape[1], Ny, Nx))
+        forcing_for_this_traj = lax.dynamic_slice(data_batch['forcing'],    (start, 0, 0, 0),   (N_integration_steps, data_batch['forcing'].shape[1], Ny, Nx))
+        features_for_this_traj = lax.dynamic_slice(data_batch['features'],  (start, 0, 0, 0),   (N_integration_steps, data_batch['features'].shape[1], Ny, Nx))
+        target_for_this_traj = lax.dynamic_slice(data_batch['target'],      (start, 0, 0, 0),   (N_integration_steps, data_batch['target'].shape[1], Ny, Nx))
 
         loss_value = loss(dynamic_model, 
                         static_model, 
@@ -129,6 +130,7 @@ def train(the_model          : eqx.Module,
     # TRAIN LOOP
     # =================
     for step, batch_data in zip(range(maxstep), iter_train_data):    
+        print('')
         ####################################
         # NORMALIZATION AT BATCH (NN inputs)
         ####################################
@@ -152,7 +154,7 @@ def train(the_model          : eqx.Module,
                                  dt_forcing, 
                                  test_norms)
             print(
-                f"\n{step=}, train_loss={train_loss.item()}, "    # train loss of current epoch (uses the old model)
+                f"{step=}, train_loss={train_loss.item()}, "    # train loss of current epoch (uses the old model)
                 f"test_loss={test_loss.item()}"                 # test loss of next epoch (uses the new model)
             )
             Test_loss.append(test_loss.item())

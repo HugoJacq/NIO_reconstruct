@@ -39,7 +39,7 @@ import matplotlib as mpl
 import os
 import sys
 sys.path.insert(0, '../../src')
-# jax.config.update('jax_platform_name', 'cpu')
+jax.config.update('jax_platform_name', 'cpu')
 os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false" # for jax
 jax.config.update("jax_enable_x64", True)
 
@@ -66,8 +66,8 @@ forcing_names   = []            # U,V,TAx,TAy already in by default
 BATCH_SIZE      = -1          # size of a batch (time), set to -1 for no batching
 
 dt_Euler    = 60.           # secondes
-N_integration_steps = 1         # 1 for offline, more for online
-N_integration_steps_verif = 1  # number of time step to integrate during in use cases of the model
+N_integration_steps = BATCH_SIZE         # 1 for offline, more for online
+N_integration_steps_verif = BATCH_SIZE  # number of time step to integrate during in use cases of the model
 
 # Defining data
 test_ratio  = 20            # % of hours for test (over the data)
@@ -104,13 +104,15 @@ Ntrain = len(ds.time) - Ntests
 
 # warnings
 if BATCH_SIZE<0:
-    BATCH_SIZE = len(ds.time) - Ntests - 2
+    BATCH_SIZE = len(ds.time) - Ntests 
+    N_integration_steps = BATCH_SIZE
+    N_integration_steps_verif = BATCH_SIZE
 if N_integration_steps > BATCH_SIZE and BATCH_SIZE>0:
     print(f'You have chosen to do online training but the number of integration step ({N_integration_steps}) is greater than the batch_size ({BATCH_SIZE})')
     print(f'N_integration_steps has been reduced to the batch size value ({BATCH_SIZE})')
     N_integration_steps = BATCH_SIZE
 if N_integration_steps<0:
-    print(f'N_integration_steps < 0, N_integration_steps = BATCH_SIZE ({BATCH_SIZE})')
+    print(f'N_integration_steps is < 0, N_integration_steps is set to = BATCH_SIZE ({BATCH_SIZE})')
     N_integration_steps = BATCH_SIZE
 if BATCH_SIZE%N_integration_steps!=0:
     raise Exception(f'N_integration_steps is not a divider of BATCH_SIZE: {N_integration_steps}%{BATCH_SIZE}={BATCH_SIZE%N_integration_steps}, try again')
@@ -137,7 +139,6 @@ train_data, test_data = data_maker(ds=ds,
                                     dx=dx*distance_1deg_equator,
                                     dy=dy*distance_1deg_equator,
                                     mydtype=mydtype)
-
 train_iterator = batch_loader(data_set=train_data,
                             batch_size=BATCH_SIZE)
 
@@ -148,10 +149,10 @@ os.system(f'mkdir -p {path_save}')
 
 if TRAIN:
     print('* Training the slab model ...')
-    # optimizer = optax.adam(1e-3)
-    optimizer = optax.lbfgs(linesearch=optax.scale_by_zoom_linesearch(
-                                                max_linesearch_steps=55,
-                                                verbose=True))
+    optimizer = optax.adam(1e-2)
+    # optimizer = optax.lbfgs(linesearch=optax.scale_by_zoom_linesearch(
+    #                                             max_linesearch_steps=55,
+    #                                             verbose=True))
     """optional: learning rate scheduler initialization"""
 
     # train loop
@@ -186,10 +187,12 @@ if TRAIN:
     print(f'Final r = {bestmodel.dissipation_term.R}')
     print('done!')
 
-if False:
+if True:
     # Plotting the solution
     """"""
-    
+    best_RHS = eqx.tree_deserialise_leaves(path_save+'best_slab.pt',   # <- getting the saved PyTree 
+                                                myRHS                    # <- here the call is just to get the structure
+                                                )
     
     print(f'K0 = {best_RHS.stress_term.K0}')
     print(f'r = {best_RHS.dissipation_term.R}')
@@ -287,6 +290,7 @@ if True:
     ax.set_xlabel('log(K0)')
     ax.set_ylabel('log(R)')
     ax.set_title('cost function map (train_data)')
+    fig.savefig(name_base_folder+'cost_function_map.png')
     
 if True:
     print('* testing my integration function')
