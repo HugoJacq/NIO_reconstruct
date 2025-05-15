@@ -720,3 +720,5 @@ experiments/dissipation_parametrizations/features/slab/offline/cost_function_map
 experiments/dissipation_parametrizations/features/slab/offline/Loss.png
 experiments/dissipation_parametrizations/features/slab/offline/traj_test.png
 experiments/dissipation_parametrizations/features/slab/offline/traj_train.png
+experiments/dissipation_parametrizations/pngs/offline/trajectory_test.png
+experiments/dissipation_parametrizations/pngs/offline/trajectory_train.png
