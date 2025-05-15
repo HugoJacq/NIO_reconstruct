@@ -702,3 +702,9 @@ experiments/dissipation_parametrizations/features_U_V/slab/best_slab.pt
 experiments/dissipation_parametrizations/features_U_V/slab/Loss.png
 experiments/dissipation_parametrizations/features/slab/best_slab.pt
 experiments/dissipation_parametrizations/features/slab/Loss.png
+experiments/dissipation_parametrizations/features/NN/best_RHS_NN.pt
+experiments/dissipation_parametrizations/features/NN/Loss.png
+experiments/dissipation_parametrizations/features/NN/traj_test.png
+experiments/dissipation_parametrizations/features/NN/traj_train.png
+experiments/dissipation_parametrizations/features/slab/best_RHS_slab.pt
+experiments/dissipation_parametrizations/features/slab/cost_function_map.png

@@ -2,6 +2,7 @@ import equinox as eqx
 import jax.numpy as jnp
 from jaxtyping import Float, Array, PyTree
 import jax
+import numpy as np
 """
 * A RHS class that takes terms as input, each of them either a physical param or a NN (eqx.module)
 """
@@ -84,7 +85,61 @@ class Dissipation_Rayleigh(eqx.Module):
     
 class Dissipation_CNN(eqx.Module):
     """
+    Dissipation is parametrized as a CNN.
+    
+    Inputs are features normalized
     """
+    layers: list
+    to_train : bool
+    
+    # renormalization values (mean,std)
+    NORMmean  : np.array 
+    NORMstd    : np.array
+    
+    def __init__(self, key, Nfeatures, dtype='float32', to_train=True):
+        key1, key2, key3, key4, key5 = jax.random.split(key, 5)
+                
+        self.layers = [eqx.nn.Conv2d(Nfeatures, 8, padding='SAME', kernel_size=3, key=key1),
+                        jax.nn.relu,
+                        eqx.nn.Conv2d(8, 4, padding='SAME', kernel_size=3, key=key2),
+                        eqx.nn.MaxPool2d(kernel_size=3),
+                        eqx.nn.Conv2d(4, 2, padding='SAME', kernel_size=3, key=key3),
+                        eqx.nn.MaxPool2d(kernel_size=3),
+                        jnp.ravel,
+                        eqx.nn.Linear(2*124*124, 256, key=key4),
+                        eqx.nn.Linear(256, 2*128*128, key=key5),
+                        ]
+        # intialization of last linear layers ------------------------------
+        # weights as normal distribution, std=1. and mean=0.
+        # bias as 0.
+        
+        # print(self.layers[-1].weight.mean(), self.layers[-1].weight.std())
+        # print(self.layers[-1].bias.mean(), self.layers[-1].bias.std())
+
+        initializer = jax.nn.initializers.normal(stddev=1e-4) # mean is 0.
+        self.layers[-1] = eqx.tree_at( lambda t:t.weight, self.layers[-1], initializer(key5, (2*128*128,256 )))
+        self.layers[-1] = eqx.tree_at( lambda t:t.bias, self.layers[-1], self.layers[-1].bias*0.)
+        
+        # print(self.layers[-1].weight.mean(), self.layers[-1].weight.std())
+        # print(self.layers[-1].bias.mean(), self.layers[-1].bias.std())
+        # ------------------------------------------------------------------
+        
+        
+        self.NORMmean, self.NORMstd = np.zeros(2, dtype=dtype), np.ones(2, dtype=dtype)   
+        self.to_train = to_train
+        
+    def __call__(self, x: Float[Array, "Nfeatures Ny Nx"]) -> Float[Array, "Currents Ny Nx"]:
+        for layer in self.layers:
+            x = layer(x)      
+        x = jnp.reshape(x, (2,128,128))
+        return x*1e-2
+    
+    def filter_set_trainable(self, filter_spec):
+        for i, layer in enumerate(filter_spec.layers):
+            if isinstance(layer, eqx.nn.Linear) or isinstance(layer, eqx.nn.Conv):
+                filter_spec = eqx.tree_at(lambda t: t.layers[i].weight, filter_spec, replace=True)
+                filter_spec = eqx.tree_at(lambda t: t.layers[i].bias, filter_spec, replace=True)
+        return filter_spec
     
     
 

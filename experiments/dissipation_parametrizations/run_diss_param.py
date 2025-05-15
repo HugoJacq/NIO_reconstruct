@@ -39,7 +39,7 @@ import matplotlib as mpl
 import os
 import sys
 sys.path.insert(0, '../../src')
-jax.config.update('jax_platform_name', 'cpu')
+# jax.config.update('jax_platform_name', 'cpu')
 os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false" # for jax
 jax.config.update("jax_enable_x64", True)
 
@@ -48,25 +48,26 @@ from train_preprocessing import data_maker, batch_loader, normalize_batch
 from train_functions import train, my_partition, vmap_loss
 from time_integration import Integration_Euler
 from constants import oneday, onehour, distance_1deg_equator
-from models_definition import RHS, Dissipation_Rayleigh, Stress_term, Coriolis_term
+from models_definition import RHS, Dissipation_Rayleigh, Stress_term, Coriolis_term, Dissipation_CNN
 #====================================================================================================
 # PARAMETERS
 #====================================================================================================
 
-TRAIN           = True      # run the training and save best model
+TRAIN_SLAB      = False      # run the training and save best model
+TRAIN_NN        = False
 SAVE            = True      # save model and figures
 PLOTTING        = True      # plot figures
 
-MAX_STEP        = 100           # number of epochs
+MAX_STEP        = 10           # number of epochs
 PRINT_EVERY     = 10            # print infos every 'PRINT_EVERY' epochs
 SEED            = 5678          # for reproductibility
 features_names  = []            # what features to use in the NN (U,V in by default)
 forcing_names   = []            # U,V,TAx,TAy already in by default
 
-BATCH_SIZE      = -1          # size of a batch (time), set to -1 for no batching
+BATCH_SIZE      = 300          # size of a batch (time), set to -1 for no batching
 
 dt_Euler    = 60.           # secondes
-N_integration_steps = BATCH_SIZE         # 1 for offline, more for online
+N_integration_steps = BATCH_SIZE         # 2 for offline, more for online
 N_integration_steps_verif = BATCH_SIZE  # number of time step to integrate during in use cases of the model
 
 # Defining data
@@ -78,8 +79,8 @@ dx          = 0.1           # X data resolution in °
 dy          = 0.1           # Y data resolution in ° 
 
 
-K0          = -10.5           # initial K0
-R           = -10.5           # initial R
+K0          = -8.           # initial K0
+R           = -8.           # initial R
 #====================================================================================================
 
 #====================================================================================================
@@ -105,8 +106,10 @@ Ntrain = len(ds.time) - Ntests
 # warnings
 if BATCH_SIZE<0:
     BATCH_SIZE = len(ds.time) - Ntests 
-    N_integration_steps = BATCH_SIZE
-    N_integration_steps_verif = BATCH_SIZE
+    if N_integration_steps <0:
+        N_integration_steps = BATCH_SIZE
+    if N_integration_steps_verif<0:
+        N_integration_steps_verif = BATCH_SIZE
 if N_integration_steps > BATCH_SIZE and BATCH_SIZE>0:
     print(f'You have chosen to do online training but the number of integration step ({N_integration_steps}) is greater than the batch_size ({BATCH_SIZE})')
     print(f'N_integration_steps has been reduced to the batch size value ({BATCH_SIZE})')
@@ -147,12 +150,10 @@ train_iterator = batch_loader(data_set=train_data,
 path_save = name_base_folder+model_name+'/'
 os.system(f'mkdir -p {path_save}')
 
-if TRAIN:
-    print('* Training the slab model ...')
-    optimizer = optax.adam(1e-2)
-    # optimizer = optax.lbfgs(linesearch=optax.scale_by_zoom_linesearch(
-    #                                             max_linesearch_steps=55,
-    #                                             verbose=True))
+if TRAIN_SLAB:
+    print(f'* Training the {model_name} model ...')
+    optimizer = optax.adam(optax.linear_schedule(1e-1, 1e-3, transition_steps=40, transition_begin=40))
+    # optimizer = optax.lbfgs(linesearch=optax.scale_by_zoom_linesearch( max_linesearch_steps=55, verbose=True))
     """optional: learning rate scheduler initialization"""
 
     # train loop
@@ -169,7 +170,7 @@ if TRAIN:
                                                                 dt_forcing  = dt_forcing,
                                                                 L_to_be_normalized = [])
     if SAVE:
-        eqx.tree_serialise_leaves(path_save+f'best_{model_name}.pt', bestmodel)
+        eqx.tree_serialise_leaves(path_save+f'best_RHS_{model_name}.pt', bestmodel)
         
     fig, ax = plt.subplots(1,1,figsize = (10,5), constrained_layout=True,dpi=100)
     epochs = np.arange(len(Train_loss))
@@ -187,10 +188,10 @@ if TRAIN:
     print(f'Final r = {bestmodel.dissipation_term.R}')
     print('done!')
 
-if True:
-    # Plotting the solution
-    """"""
-    best_RHS = eqx.tree_deserialise_leaves(path_save+'best_slab.pt',   # <- getting the saved PyTree 
+# Plotting the solution
+if False:
+    print('Plotting the solution')
+    best_RHS = eqx.tree_deserialise_leaves(path_save+'best_RHS_slab.pt',   # <- getting the saved PyTree 
                                                 myRHS                    # <- here the call is just to get the structure
                                                 )
     
@@ -198,78 +199,44 @@ if True:
     print(f'r = {best_RHS.dissipation_term.R}')
                                                 
     dynamic_model, static_model = my_partition(best_RHS)
-    n_test_data, norms = normalize_batch(test_data, 
-                                  L_to_be_normalized=[]) # <- here no need to normalize as there is no NN
-    
-    # compute trajectories
-    Nt = len(n_test_data['forcing'])
-    print(Nt)
-    Ntraj = Nt//(N_integration_steps_verif) -1
-    L_trajectories = []
-    for itraj in range(Ntraj):
-        start = itraj * N_integration_steps_verif
-        end = (itraj+1)*N_integration_steps_verif
-        end = end if end<Nt else Nt-1
-
-        X0 = n_test_data['forcing'][start,0:2,:,:]
-        # print(X0.shape)
-        my_forcing_for_this_traj = n_test_data['forcing'][start:end+1,2:4,:,:]
-        my_features_for_this_traj = n_test_data['features'][start:end+1,:,:,:]
-        mytraj = Integration_Euler(X0, 
-                                   my_forcing_for_this_traj, 
-                                   my_features_for_this_traj,
-                                   best_RHS, 
-                                   dt_Euler, 
-                                   dt_forcing,
-                                   N_integration_steps_verif,
-                                   norms)
-        L_trajectories.append(mytraj)
-  
-    xtime = np.arange(Ntrain+1, len(ds.time), 1.)*onehour/oneday
-    fig, ax = plt.subplots(1,1,figsize = (10,5), constrained_layout=True,dpi=100)
-    ax.plot(xtime, n_test_data['target'].mean(axis=(2,3))[:,0], c='k', label='true U')
-    for itraj in range(Ntraj):
-        start = itraj * N_integration_steps_verif
-        end = (itraj+1)*N_integration_steps_verif
-        end = end if end<Nt else Nt-1
-        # print(start, end)
-        one_window = np.arange(start,end+1)*dt_forcing/oneday
-        
-        t0 = (Ntrain)*dt_forcing/oneday
-        # print( one_window.shape, L_trajectories[itraj].mean(axis=(2,3))[:,0].shape)
-        # pprint.pprint(L_trajectories[itraj].mean(axis=(2,3))[:,0])
-        ax.plot(t0+ one_window, L_trajectories[itraj].mean(axis=(2,3))[:,0], c='b')
-    ax.set_xlabel('time (days)')
-    ax.set_ylabel('zonal current (m/s)')
-    ax.set_title('test_data')
-    ax.legend()
-    
+    n_test_data, norms_te = normalize_batch(test_data, 
+                                  L_to_be_normalized='') # <- here no need to normalize as there is no NN
+    n_train_data, norms_tr = normalize_batch(train_data, 
+                                  L_to_be_normalized='') # <- here no need to normalize as there is no NN
     
     # integrating 1 traj
-    X0 = n_test_data['forcing'][0,0:2,:,:]
-    my_forcing_for_this_traj = n_test_data['forcing'][:,2:4,:,:]
-    my_features_for_this_traj = n_test_data['features'][:,:,:,:]
-    mytraj = Integration_Euler(X0, 
-                                   my_forcing_for_this_traj, 
-                                   my_features_for_this_traj,
-                                   best_RHS, 
-                                   dt_Euler, 
-                                   dt_forcing,
-                                   Nt,
-                                   norms)
-    xtime = np.arange(Ntrain+1, len(ds.time), 1.)*onehour/oneday
-    fig, ax = plt.subplots(1,1,figsize = (10,5), constrained_layout=True,dpi=100)
-    ax.plot(xtime, n_test_data['target'].mean(axis=(2,3))[:,0], c='k', label='true U')
-    ax.plot(xtime, mytraj.mean(axis=(2,3))[:,0], c='b', label='estimated U')
-    ax.set_xlabel('time (days)')
-    ax.set_ylabel('zonal current (m/s)')
-    ax.set_title('test_data')
-    ax.legend()
-    
-    
-if True:
+    for name_data, data, norms in zip(['train','test'],[n_train_data, n_test_data],[norms_tr, norms_te]):
+        Nt = len(data['forcing'])
+        
+        X0 = data['forcing'][0,0:2,:,:]
+        my_forcing_for_this_traj = data['forcing'][:,2:4,:,:]
+        my_features_for_this_traj = data['features'][:,:,:,:]
+        mytraj = Integration_Euler(X0, 
+                                    my_forcing_for_this_traj, 
+                                    my_features_for_this_traj,
+                                    best_RHS, 
+                                    dt_Euler, 
+                                    dt_forcing,
+                                    Nt,
+                                    norms)
+        if name_data=='test':
+            xtime = np.arange(Ntrain, len(ds.time), 1.)*onehour/oneday
+        elif name_data=='train':
+            xtime = np.arange(0, Ntrain, 1.)*onehour/oneday
+        fig, ax = plt.subplots(1,1,figsize = (10,5), constrained_layout=True,dpi=100)
+        ax.plot(xtime, data['target'].mean(axis=(2,3))[:,0], c='k', label='true U')
+        ax.plot(xtime, mytraj.mean(axis=(2,3))[:,0], c='b', label='estimated U')
+        ax.set_xlabel('time (days)')
+        ax.set_ylabel('zonal current (m/s)')
+        ax.set_title(f'{name_data}_data')
+        ax.legend()
+        fig.savefig(path_save+f'traj_{name_data}.png')
+   
+ 
+# map of the cost function
+if False:
     print('* map of cost function for full train dataset')
-    # map of the cost function
+   
     n_train_data, norms = normalize_batch(train_data, 
                                   L_to_be_normalized=[])
     
@@ -290,54 +257,7 @@ if True:
     ax.set_xlabel('log(K0)')
     ax.set_ylabel('log(R)')
     ax.set_title('cost function map (train_data)')
-    fig.savefig(name_base_folder+'cost_function_map.png')
-    
-if True:
-    print('* testing my integration function')
-    # testing the integration with my function
-    #
-    # soluion is app. R = -10.5, K0=-11.0
-    
-    mymodel = eqx.tree_at( lambda t:t.dissipation_term.R, myRHS, -10.5)
-    mymodel = eqx.tree_at( lambda t:t.stress_term.K0, mymodel, -11.0)
-    
-    trained_model = eqx.tree_deserialise_leaves(path_save+'best_slab.pt',   # <- getting the saved PyTree 
-                                                myRHS                    # <- here the call is just to get the structure
-                                                )
-    
-    n_train_data, norms = normalize_batch(train_data, 
-                                  L_to_be_normalized=[])
-    
-    X0 = n_train_data['forcing'][0,0:2,:,:]
-    myforcing = n_train_data['forcing'][:,2:4,:,:]
-    traj = Integration_Euler(X0, 
-                             myforcing,
-                             n_train_data['features'],
-                             mymodel,
-                             dt_Euler,
-                             dt_forcing,
-                             Ntrain,
-                             norms)
-    
-    traj_2 = Integration_Euler(X0, 
-                             myforcing,
-                             n_train_data['features'],
-                             trained_model,
-                             dt_Euler,
-                             dt_forcing,
-                             Ntrain,
-                             norms)
-    
-    xtime = np.arange(0, Ntrain, 1)*dt_forcing/oneday
-    fig, ax = plt.subplots(1,1,figsize = (10,5), constrained_layout=True,dpi=100)
-    ax.plot(xtime, traj[:,0].mean(axis=(1,2)), c='b', label='slab U (by hand)')
-    ax.plot(xtime, traj_2[:,0].mean(axis=(1,2)), c='g', label='slab U (by train)')
-    ax.plot(xtime, n_train_data['target'][:,0].mean(axis=(1,2)), c='k', label='true U')
-    ax.plot()
-    ax.set_xlabel('time (days)')
-    ax.set_ylabel('zonal current (m/s)')
-    ax.set_title('slab, on train_data')
-    ax.legend()
+    fig.savefig(path_save+'cost_function_map.png')
     
     
     
@@ -349,16 +269,125 @@ if True:
 # slab model, with NN as dissipation 
 #   K0 is fixed and we find theta
 ##########################################
+model_name = 'NN'
+L_to_be_normalized = 'features'
 
+# Initialization
+my_RHS_slab = eqx.tree_deserialise_leaves(name_base_folder+'slab/best_RHS_slab.pt',
+                                                 RHS(Coriolis_term(fc = fc), 
+                                                     Stress_term(K0 = K0), 
+                                                     Dissipation_Rayleigh(R = R))                  
+                                                )
+myCoriolis = Coriolis_term(fc = fc)
+myStress = Stress_term(K0 = my_RHS_slab.stress_term.K0, to_train=True)
 
-# NN initialization
 key = jax.random.PRNGKey(SEED)
 key, subkey = jax.random.split(key, 2)
+myDissipation = Dissipation_CNN(subkey, len(features_names)+2, to_train=True)
+# myDissipation = eqx.tree_at( lambda t:t.layers[-1].bias, myDissipation, myDissipation.layers[-1].bias*0. + 1e-6)
+
+myRHS = RHS(myCoriolis, myStress, myDissipation)
+
+# replace the K0 value with the one from the slab (experiment 1 above)
+""""""
+
+# make test and train datasets
+train_data, test_data = data_maker(ds=ds,
+                                    test_ratio=test_ratio, 
+                                    features_names=features_names,
+                                    forcing_names=[],
+                                    dx=dx*distance_1deg_equator,
+                                    dy=dy*distance_1deg_equator,
+                                    mydtype=mydtype)
+train_iterator = batch_loader(data_set=train_data,
+                            batch_size=BATCH_SIZE)
+
+
+# add path to save figures according to model name
+path_save = name_base_folder+model_name+'/'
+os.system(f'mkdir -p {path_save}')
 
    
-if TRAIN:
-    """
-    """
+if TRAIN_NN:
+    print(f'* Training the {model_name} model ...')
+    optimizer = optax.adam(1e-7) # optax.linear_schedule(1e-3, 1e-3, transition_steps=40, transition_begin=40)
+
+    # train loop
+    lastmodel, bestmodel, Train_loss, Test_loss, opt_state_save = train(
+                                                                the_model   = myRHS,
+                                                                optim       = optimizer,
+                                                                iter_train_data = train_iterator,
+                                                                test_data   = test_data,
+                                                                maxstep     = MAX_STEP,
+                                                                print_every = 1,
+                                                                tol         = None, # 1e-6
+                                                                retol       = None, 
+                                                                N_integration_steps = N_integration_steps,
+                                                                dt          = dt_Euler,
+                                                                dt_forcing  = dt_forcing,
+                                                                L_to_be_normalized = L_to_be_normalized)
+    if SAVE:
+        eqx.tree_serialise_leaves(path_save+f'best_RHS_{model_name}.pt', bestmodel)
+        
+    fig, ax = plt.subplots(1,1,figsize = (10,5), constrained_layout=True,dpi=100)
+    epochs = np.arange(len(Train_loss))
+    epochs_test = np.arange(len(Test_loss))*1
+    ax.plot(epochs, Train_loss, label='train')
+    ax.plot(epochs_test, Test_loss, label='test')
+    ax.set_xlabel('epochs')
+    ax.set_ylabel('Loss')
+    ax.set_yscale('log')
+    ax.legend()
+    if SAVE:
+        fig.savefig(path_save+'Loss.png')
+    
+    print('done!')
+
+# plots a trajectory with the best model 
+if True:
+    # best_RHS = eqx.tree_deserialise_leaves(name_base_folder+'NN/best_RHS_NN.pt',
+    #                                              RHS(Coriolis_term(fc = fc), 
+    #                                                  Stress_term(K0 = K0), 
+    #                                                  Dissipation_CNN(subkey, len(features_names)+2))                  
+    #                                             )
+    
+    best_RHS = myRHS
+    
+    dynamic_model, static_model = my_partition(best_RHS)
+    n_test_data, norms_te = normalize_batch(test_data, 
+                                  L_to_be_normalized='features')
+    n_train_data, norms_tr = normalize_batch(train_data, 
+                                  L_to_be_normalized='features')
+    
+    # integrating 1 traj
+    for name_data, data, norms in zip(['train','test'],[n_train_data, n_test_data],[norms_tr, norms_te]):
+        Nt = len(data['forcing'])
+        
+        X0 = data['forcing'][0,0:2,:,:]
+        my_forcing_for_this_traj = data['forcing'][:,2:4,:,:]
+        my_features_for_this_traj = data['features'][:,:,:,:]
+        mytraj = Integration_Euler(X0, 
+                                    my_forcing_for_this_traj, 
+                                    my_features_for_this_traj,
+                                    best_RHS, 
+                                    dt_Euler, 
+                                    dt_forcing,
+                                    Nt,
+                                    norms)
+        if name_data=='test':
+            xtime = np.arange(Ntrain, len(ds.time), 1.)*onehour/oneday
+        elif name_data=='train':
+            xtime = np.arange(0, Ntrain, 1.)*onehour/oneday
+        fig, ax = plt.subplots(1,1,figsize = (10,5), constrained_layout=True,dpi=100)
+        ax.plot(xtime, data['target'].mean(axis=(2,3))[:,0], c='k', label='true U')
+        ax.plot(xtime, mytraj.mean(axis=(2,3))[:,0], c='b', label='estimated U')
+        ax.set_xlabel('time (days)')
+        ax.set_ylabel('zonal current (m/s)')
+        ax.set_title(f'{name_data}_data')
+        ax.set_ylim([-0.2,0.2])
+        ax.legend()
+        fig.savefig(path_save+f'traj_{name_data}.png')
+    
     
 #############
 # PLOTTING

@@ -27,6 +27,11 @@ def one_step_Euler(X0       : Float[Array, "2 Ny Nx"],
     OUTPUT:
         Current at next time step
     """ 
+    # jax.debug.print('features inputs (should be normed) {}',features.mean(axis=(1,2)))
+    # jax.debug.print('coriolis {}, stress {}, diss term {}',
+    #                 RHS.coriolis_term(X0)[0].mean(),
+    #                 RHS.stress_term(forcing)[0].mean(),
+    #                 RHS.dissipation_term(features)[0].mean())
     return X0 + dt*RHS(X0, forcing, features)
 
 

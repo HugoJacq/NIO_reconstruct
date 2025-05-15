@@ -76,13 +76,43 @@ def train(the_model          : eqx.Module,
         test_data           : dict,
         maxstep             : int = 500,
         print_every         : int = 10,
-        save_best_model     : bool = True,
         tol                 = None,
+        retol               : float = 0.001,
         N_integration_steps : int = 1, # default is offline mode
         dt                  : float = 60.,
         dt_forcing          : float = 3600.,
         L_to_be_normalized  : list = []
             ):
+    """
+    Train loop to estimate parameters from 'the_model'.
+    
+    INPUTS:
+        - the_model         : A model written in JAX, using equinox Modules
+        - optim             : optimizer from Optax
+        - iter_train_data   : a generator that loop through a dataset given a batch size
+        - test_data         : a test data set, independent of train data set
+        - maxstep           : number of max iteration
+        - print_every       : show train_loss, test_loss every 'print_every'
+        - tol               : threshold on max of gradients. If None, not stoping
+        - retol            : threshold for relavive improvment of cost function
+        - N_integration_steps: length of time integration (number of 'dt_forcing')
+                            N=1 is offline mode, N>1 is online mode.
+        - dt                : time step of model (inner loop)
+        - dt_forcing        : time step of forcing (model's outer loop)
+        - L_to_be_normalized: a list of term from ['forcing','target','features']
+    
+    OUTPUTS:
+        a tuple with:
+            - lastmodel     : the last iteration model
+            - bestmodel     : the best model (lowest test loss)
+            - Train_loss    : list of value of train loss
+            - Test_loss     : list of value of test loss
+            - opt_state_save : optimizer state for saving
+        
+    
+    
+    
+    """
     
     @eqx.filter_jit
     def make_step( model, train_batch, opt_state):
@@ -108,7 +138,7 @@ def train(the_model          : eqx.Module,
                                                                     norms)
                                           )
         new_dyn = eqx.apply_updates(model, updates)
-        jax.debug.print('New K0 {}, new R {}', new_dyn.stress_term.K0, new_dyn.dissipation_term.R)
+        # jax.debug.print('New K0 {}, new R {}', new_dyn.stress_term.K0, new_dyn.dissipation_term.R)
         return new_dyn, opt_state, loss_value, grads
         
     # =================
@@ -130,7 +160,7 @@ def train(the_model          : eqx.Module,
     # TRAIN LOOP
     # =================
     for step, batch_data in zip(range(maxstep), iter_train_data):    
-        print('')
+
         ####################################
         # NORMALIZATION AT BATCH (NN inputs)
         ####################################
@@ -149,10 +179,10 @@ def train(the_model          : eqx.Module,
             test_loss = evaluate(dynamic_model, 
                                  static_model, 
                                  test_data,
-                                 N_integration_steps,
-                                 dt,
-                                 dt_forcing, 
-                                 test_norms)
+                                 N_integration_steps=test_data['target'].shape[0],
+                                 dt=dt,
+                                 dt_forcing=dt_forcing, 
+                                 norms_features=test_norms)
             print(
                 f"{step=}, train_loss={train_loss.item()}, "    # train loss of current epoch (uses the old model)
                 f"test_loss={test_loss.item()}"                 # test loss of next epoch (uses the new model)
@@ -163,12 +193,11 @@ def train(the_model          : eqx.Module,
         ###################
         # SAVING BEST MODEL
         ###################
-        if save_best_model:
-            if test_loss<minLoss:
-                # keep the best model
-                minLoss = test_loss
-                bestdyn = dynamic_model 
-                opt_state_save = opt_state   
+        if test_loss<minLoss:
+            # keep the best model
+            minLoss = test_loss
+            bestdyn = dynamic_model 
+            opt_state_save = opt_state   
 
         ###################
         # Exit if converged
@@ -179,8 +208,13 @@ def train(the_model          : eqx.Module,
             maxgrad = jnp.amax(jnp.abs(jnp.asarray(leafs)))
             if maxgrad < tol:
                 CONVERGED = True
-                print(f' loop has converged with tol={tol}')
-            print(f' list of grad is : {leafs}')
+                print(f' loop has converged with max(grads) < tol={tol}')
+                print(f' list of grad is : {leafs}')
+        if retol is not None and step>1:
+            rel_decrease = (Train_loss[-1] - Train_loss[-2])/Train_loss[-2]
+            if rel_decrease < 0. and np.abs(rel_decrease)<retol:
+                CONVERGED = True
+                print(f'loop has converged with relative decrease of L = {rel_decrease} < retol={retol} ')
                 
         if CONVERGED or step==maxstep-1:        
             lastmodel = eqx.combine(dynamic_model, static_model)

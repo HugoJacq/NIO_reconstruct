@@ -5,6 +5,7 @@ import jax
 from jax import lax
 from copy import deepcopy
 from functools import partial
+import random
 
 def data_maker(ds               : xr.core.dataset.Dataset,
                 test_ratio      : float = 20., 
@@ -91,8 +92,8 @@ def features_maker(data             : xr.core.dataset.Dataset,
     
     
     
-@partial(jax.jit, static_argnames=['deep_copy'])
-def normalize_batch(batch_data, L_to_be_normalized=[], deep_copy=False):
+@partial(jax.jit, static_argnames=['L_to_be_normalized','deep_copy'])
+def normalize_batch(batch_data, L_to_be_normalized='', deep_copy=False):
     """ A normalizer of 'batch_data'
     
     normalized = (original - mean) / std
@@ -122,7 +123,7 @@ def normalize_batch(batch_data, L_to_be_normalized=[], deep_copy=False):
     
     
     for name in list(batch_data.keys()):
-        if name in L_to_be_normalized:
+        if name==L_to_be_normalized:
             mean = jnp.mean(batch_data[name],axis=(0,2,3))
             std = jnp.std(batch_data[name],axis=(0,2,3))
             new_data[name] = (batch_data[name]-mean[:,np.newaxis,np.newaxis])/std[:,np.newaxis,np.newaxis] 
@@ -169,12 +170,12 @@ def batch_loader(data_set   : dict,
             # if end > dataset_size:
             #     end = dataset_size
             
-            
+ 
 def block_shuffle(arr, block_size=2):
     """
     Shuffle a list of integers by blocks of specified size.
-    If there are extra elements that don't form a complete block,
-    they stay with their left neighbors (considered as one larger block).
+    if block_size is not a divider of len(arr), the remaining indices are
+    used to randomize the starting of the first block
     
     Parameters:
     arr (list or numpy.ndarray): The input array to be shuffled
@@ -182,35 +183,35 @@ def block_shuffle(arr, block_size=2):
     
     Returns:
     numpy.ndarray: The shuffled array
-    
-    Example:
-    >>> block_shuffle([1, 2, 3, 4, 5, 6], 2)
-    array([3, 4, 1, 2, 5, 6])  # This is just one possible result since the shuffle is random
-    >>> block_shuffle([1, 2, 3, 4, 5, 6, 7], 2)
-    array([3, 4, 5, 6, 7, 1, 2])  # Extra element 7 sticks with its left neighbors 5,6
+
     """
     # Convert to numpy array if it's a list
     arr = np.array(arr)
-    
-    # Create blocks with special handling for remainder
+
+    Nblocks = len(arr)//block_size
+    remainder = len(arr)%block_size
+    if remainder==0:
+        start = 0
+    else:
+        start = random.randint(0, remainder)
+
     blocks = []
-    i = 0
-    while i < len(arr):
-        if i + block_size <= len(arr):
-            # Complete block
-            blocks.append(arr[i:i+block_size])
-            i += block_size
-        else:
-            # Last incomplete block - includes all remaining elements
-            # This ensures extra elements stick with their left neighbors
-            blocks.append(arr[i:])
-            break
+    i = start
+    k = 0
+
+    while k < Nblocks:
+        blocks.append(arr[i:i+block_size])
+        i += block_size
+        k += 1
     
     # Convert to numpy array for easier manipulation
     blocks = np.array(blocks, dtype=object)
     # Shuffle the blocks
     blocks = np.random.permutation(blocks)
-    
+    # print('start indice', start)
+    # print('Nblocks',Nblocks)
+    # print(blocks)
     # Flatten the result
     result = np.array(np.concatenate(blocks), dtype=int)
-    return result
+    return result 
+
