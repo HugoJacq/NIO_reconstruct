@@ -48,21 +48,23 @@ from train_preprocessing import data_maker, batch_loader, normalize_batch
 from train_functions import train, my_partition, vmap_loss
 from time_integration import Integration_Euler
 from constants import oneday, onehour, distance_1deg_equator
-from models_definition import RHS, Dissipation_Rayleigh, Stress_term, Coriolis_term, Dissipation_CNN
+from models_definition import RHS, Dissipation_Rayleigh, Stress_term, Coriolis_term, Dissipation_CNN, Dissipation_MLP, get_number_of_param
 from configs import prepare_config
 
 #====================================================================================================
 # PARAMETERS
 #====================================================================================================
 
-TRAIN_SLAB      = False     # run the training and save best model
-TRAIN_NN        = False
-TRAINING_MODE   = 'offline'
-NN_MODEL_NAME   = 'CNN' # CNN
+# training the models
+TRAIN_SLAB      = True     # run the training and save best model
+TRAIN_NN        = True
+TRAINING_MODE   = 'online'
+NN_MODEL_NAME   = 'MLP'     # CNN MLP
+PLOT_THE_MODEL  = True      # plot a trajectory with model converged
 
+# Comparing models
 PLOTTING        = True      # plot figures that compares models
-PLOT_THE_MODEL  = False     # plot a trajectory with model converged
-COMPARE_TO_NN   = 'CNN'
+COMPARE_TO_NN   = 'MLP'
 
 # time steps
 dt_forcing  = 3600.         # time step of forcing (s)
@@ -105,6 +107,14 @@ fc = np.asarray(2*2*np.pi/86164*np.sin(ds.lat.values*np.pi/180))
 Ntests = TEST_RATIO*len(ds.time)//100 # how many instants used for test
 Ntrain = len(ds.time) - Ntests
 
+print('* ==================================================')
+print(' Global parameters:')
+print(f' - TRAIN_SLAB       = {TRAIN_SLAB}')
+print(f' - TRAIN_NN         = {TRAIN_NN}')
+print(f' - TRAINING_MODE    = {TRAINING_MODE}')
+print(f' - NN_MODEL_NAME    = {NN_MODEL_NAME}')
+print(f' - PLOT_THE_MODEL   = {PLOT_THE_MODEL}')
+print('* ==================================================\n')
 ##########################################
 # EXPERIMENT 1:
 #
@@ -142,6 +152,7 @@ os.system(f'mkdir -p {path_save}')
 
 if TRAIN_SLAB:
     print(f'* Training the {model_name} model ...')
+    print(f'    number of param = {get_number_of_param(myRHS)}')
 
     # train loop
     lastmodel, bestmodel, Train_loss, Test_loss, opt_state_save = train(
@@ -176,7 +187,7 @@ if TRAIN_SLAB:
 
 # Plotting the solution
 if PLOT_THE_MODEL:
-    print('Plotting the solution')
+    print(f'* Plotting a trajectory using {model_name}')
     best_RHS = eqx.tree_deserialise_leaves(path_save+'best_RHS_slab.pt',   # <- getting the saved PyTree 
                                                 myRHS                    # <- here the call is just to get the structure
                                                 )
@@ -258,24 +269,26 @@ OPTI, MAX_STEP, PRINT_EVERY, FEATURES_NAMES, FORCING_NAMES, BATCH_SIZE, L_TO_BE_
 N_integration_steps, N_integration_steps_verif = my_train_config
 
 # Initialization
+# replace the K0 value with the one from the slab (experiment 1 above)
 my_RHS_slab = eqx.tree_deserialise_leaves(name_base_folder+'slab/'+TRAINING_MODE+'/best_RHS_slab.pt',
                                                  RHS(Coriolis_term(fc = fc), 
                                                      Stress_term(K0 = K0), 
                                                      Dissipation_Rayleigh(R = R))                  
                                                 )
+K0_slab = my_RHS_slab.stress_term.K0
 myCoriolis = Coriolis_term(fc = fc)
-myStress = Stress_term(K0 = my_RHS_slab.stress_term.K0, to_train=True)
+myStress = Stress_term(K0 = K0_slab, to_train=True)
 
 key = jax.random.PRNGKey(SEED)
 key, subkey = jax.random.split(key, 2)
-myDissipation = Dissipation_CNN(subkey, len(FEATURES_NAMES)+2, to_train=True)
-# myDissipation = eqx.tree_at( lambda t:t.layers[-1].bias, myDissipation, myDissipation.layers[-1].bias*0. + 1e-6)
+if NN_MODEL_NAME=='CNN':
+    myDissipation = Dissipation_CNN(subkey, len(FEATURES_NAMES)+2, to_train=True)
+elif NN_MODEL_NAME=='MLP':
+    myDissipation = Dissipation_MLP(subkey, len(FEATURES_NAMES)+2, to_train=True)
+else:
+    raise Exception(f'NN_MODEL_NAME={NN_MODEL_NAME} is not recognized')
 
 myRHS = RHS(myCoriolis, myStress, myDissipation)
-
-# replace the K0 value with the one from the slab (experiment 1 above)
-""""""
-
 # make test and train datasets
 train_data, test_data = data_maker(ds=ds,
                                     test_ratio=TEST_RATIO, 
@@ -295,7 +308,7 @@ os.system(f'mkdir -p {path_save}')
    
 if TRAIN_NN:
     print(f'* Training the {model_name} model ...')
-
+    print(f'    number of param = {get_number_of_param(myRHS)}')
     # train loop
     lastmodel, bestmodel, Train_loss, Test_loss, opt_state_save = train(
                                                                 the_model   = myRHS,
@@ -326,10 +339,18 @@ if TRAIN_NN:
 
 # plots a trajectory with the best model 
 if PLOT_THE_MODEL:
-    best_RHS = eqx.tree_deserialise_leaves(name_base_folder+'NN/'+TRAINING_MODE+'/best_RHS_NN.pt',
+    print(f'* Plotting a trajectory using {model_name}')
+    
+    if NN_MODEL_NAME=='CNN':
+        myDissipation = Dissipation_CNN(subkey, len(FEATURES_NAMES)+2, to_train=True)
+    elif NN_MODEL_NAME=='MLP':
+        myDissipation = Dissipation_MLP(subkey, len(FEATURES_NAMES)+2, to_train=True)
+    else:
+        raise Exception(f'NN_MODEL_NAME={NN_MODEL_NAME} is not recognized')
+    best_RHS = eqx.tree_deserialise_leaves(name_base_folder+COMPARE_TO_NN+'/'+TRAINING_MODE+f'/best_RHS_{COMPARE_TO_NN}.pt',
                                                  RHS(Coriolis_term(fc = fc), 
-                                                     Stress_term(K0 = K0), 
-                                                     Dissipation_CNN(subkey, len(FEATURES_NAMES)+2))                  
+                                                    Stress_term(K0 = K0_slab), 
+                                                     myDissipation)                  
                                                 )
 
     dynamic_model, static_model = my_partition(best_RHS)
@@ -377,10 +398,16 @@ if PLOTTING:
     colors = ['b','g']
     
     # NN output
-    best_RHS_NN = eqx.tree_deserialise_leaves(name_base_folder+COMPARE_TO_NN+'/'+TRAINING_MODE+'/best_RHS_NN.pt',
+    if NN_MODEL_NAME=='CNN':
+        myDissipation = Dissipation_CNN(subkey, len(FEATURES_NAMES)+2, to_train=True)
+    elif NN_MODEL_NAME=='MLP':
+        myDissipation = Dissipation_MLP(subkey, len(FEATURES_NAMES)+2, to_train=True)
+    else:
+        raise Exception(f'NN_MODEL_NAME={NN_MODEL_NAME} is not recognized')
+    best_RHS_NN = eqx.tree_deserialise_leaves(name_base_folder+COMPARE_TO_NN+'/'+TRAINING_MODE+f'/best_RHS_{COMPARE_TO_NN}.pt',
                                                  RHS(Coriolis_term(fc = fc), 
                                                      Stress_term(K0 = K0), 
-                                                     Dissipation_CNN(subkey, len(FEATURES_NAMES)+2))                  
+                                                     myDissipation)                  
                                                 )
     dynamic_model, static_model = my_partition(best_RHS_NN)
     NN_test_data, NN_norms_te = normalize_batch(test_data, 

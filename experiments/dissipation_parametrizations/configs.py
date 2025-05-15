@@ -8,7 +8,7 @@ d_base_config = {
                 'PRINT_EVERY':1,            # print infos every 'PRINT_EVERY' epochs
                 'features_names':[],        # what features to use in the NN (U,V in by default)
                 'forcing_names':[],         # U,V,TAx,TAy already in by default
-                'BATCH_SIZE':-1,            # size of a batch (time), set to -1 for no batching
+                'BATCH_SIZE':300,            # size of a batch (time), set to -1 for no batching
                 'L_to_be_normalized':''},
         
         "CNN":{'optimizer':'adam',
@@ -17,7 +17,16 @@ d_base_config = {
                 'PRINT_EVERY':1,
                 'features_names':[],
                 'forcing_names':[],
-                'BATCH_SIZE':-1,
+                'BATCH_SIZE':300,
+                'L_to_be_normalized':'features'},
+        
+        "MLP":{'optimizer':'adam',
+                'linear_lr': (1e-5, 1e-6, 10, 10), # lr_start, lr_end, ntr, start_tr
+                'MAX_STEP':30,
+                'PRINT_EVERY':1,
+                'features_names':[],
+                'forcing_names':[],
+                'BATCH_SIZE':300,
                 'L_to_be_normalized':'features'}
             }
  

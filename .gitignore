@@ -728,3 +728,17 @@ experiments/dissipation_parametrizations/features/CNN/offline/traj_test.png
 experiments/dissipation_parametrizations/features/CNN/offline/traj_train.png
 experiments/dissipation_parametrizations/pngs/offline/test_set.png
 experiments/dissipation_parametrizations/pngs/offline/train_set.png
+experiments/dissipation_parametrizations/features/MLP/offline/best_RHS_MLP.pt
+experiments/dissipation_parametrizations/features/MLP/offline/Loss.png
+experiments/dissipation_parametrizations/features/MLP/offline/traj_test.png
+experiments/dissipation_parametrizations/features/MLP/offline/traj_train.png
+experiments/dissipation_parametrizations/features/MLP/online/best_RHS_MLP.pt
+experiments/dissipation_parametrizations/features/MLP/online/Loss.png
+experiments/dissipation_parametrizations/features/MLP/online/traj_test.png
+experiments/dissipation_parametrizations/features/MLP/online/traj_train.png
+experiments/dissipation_parametrizations/features/slab/online/best_RHS_slab.pt
+experiments/dissipation_parametrizations/features/slab/online/Loss.png
+experiments/dissipation_parametrizations/features/slab/online/traj_test.png
+experiments/dissipation_parametrizations/features/slab/online/traj_train.png
+experiments/dissipation_parametrizations/pngs/online/test_set.png
+experiments/dissipation_parametrizations/pngs/online/train_set.png
