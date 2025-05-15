@@ -93,11 +93,19 @@ path_save_png = f'./pngs/{TRAINING_MODE}/'
 name_base_folder = 'features'+''.join('_'+variable for variable in [])+'/'
 os.system(f'mkdir -p {name_base_folder}')
 
-filename = ['../../data_regrid/croco_1h_inst_surf_2005-01-01-2005-01-31_0.1deg_conservative.nc',
-            # '../../data_regrid/croco_1h_inst_surf_2005-02-01-2005-02-28_0.1deg_conservative.nc',
-            # '../../data_regrid/croco_1h_inst_surf_2005-03-01-2005-03-31_0.1deg_conservative.nc',
-            # "../../data_regrid/croco_1h_inst_surf_2005-04-01-2005-04-30_0.1deg_conservative.nc"
-            ]
+filename =  ['../../data_regrid/croco_1h_inst_surf_2005-01-01-2005-01-31_0.1deg_conservative.nc',
+            #   '../../data_regrid/croco_1h_inst_surf_2005-02-01-2005-02-28_0.1deg_conservative.nc',
+            #   '../../data_regrid/croco_1h_inst_surf_2005-03-01-2005-03-31_0.1deg_conservative.nc',
+            #   '../../data_regrid/croco_1h_inst_surf_2005-04-01-2005-04-30_0.1deg_conservative.nc',
+            #   '../../data_regrid/croco_1h_inst_surf_2005-05-01-2005-05-31_0.1deg_conservative.nc',
+            #   '../../data_regrid/croco_1h_inst_surf_2005-06-01-2005-06-30_0.1deg_conservative.nc',
+            #   '../../data_regrid/croco_1h_inst_surf_2005-07-01-2005-07-31_0.1deg_conservative.nc',
+            #   '../../data_regrid/croco_1h_inst_surf_2005-08-01-2005-08-31_0.1deg_conservative.nc',
+            #   '../../data_regrid/croco_1h_inst_surf_2005-09-01-2005-09-30_0.1deg_conservative.nc',
+            #   '../../data_regrid/croco_1h_inst_surf_2005-10-01-2005-10-31_0.1deg_conservative.nc',
+            #   '../../data_regrid/croco_1h_inst_surf_2005-11-01-2005-11-30_0.1deg_conservative.nc',
+            #   '../../data_regrid/croco_1h_inst_surf_2005-12-01-2005-12-31_0.1deg_conservative.nc'
+              ]
 
 # prepare data
 ds = xr.open_mfdataset(filename)

@@ -190,7 +190,6 @@ class Dissipation_MLP(eqx.Module):
 ###
 
 def get_number_of_param(model: eqx.Module):
-    
     filtered,_ = my_partition(model)
     leafs, _ = jtu.tree_flatten(filtered)
     S = 0
@@ -198,6 +197,3 @@ def get_number_of_param(model: eqx.Module):
         if eqx.is_array(leafs[k]):
             S = S+ leafs[k].size
     return S
-
-def get_number_of_param_RHS(modelRHS: eqx.Module):
-    return modelRHS.s
