@@ -58,7 +58,7 @@ from configs import prepare_config
 # training the models
 TRAIN_SLAB      = True     # run the training and save best model
 TRAIN_NN        = True
-TRAINING_MODE   = 'online'
+TRAINING_MODE   = 'offline'
 NN_MODEL_NAME   = 'MLP'     # CNN MLP
 PLOT_THE_MODEL  = True      # plot a trajectory with model converged
 
@@ -85,6 +85,22 @@ R           = -8.           # initial R
 SEED            = 5678        
 
 path_save_png = f'./pngs/{TRAINING_MODE}/' 
+
+"""
+TO DO:
+
+- Link physical term / NN term:
+    Last linear layer of NN term is initialized with a normal shape, with the std being very tricky to set.
+
+- With the first NN architectures, results are worse than slab model -> tune that ? hyperparameters ?
+
+- add the unsteak 2 layer for comparison ?
+
+- add RMSE value for each model in the comparison
+"""
+
+
+
 #====================================================================================================
 
 #====================================================================================================
@@ -490,7 +506,7 @@ if PLOTTING:
     ax[1].set_ylabel('stress N/m2')
     ax[1].legend()
     ax[1].set_ylim([-2.,2.])
-    fig.savefig(path_save_png+'train_set.png')
+    fig.savefig(path_save_png+f'train_slab_{NN_MODEL_NAME}.png')
     
     # test set
     xtime = np.arange(Ntrain, len(ds.time), 1.)*onehour/oneday
@@ -509,7 +525,7 @@ if PLOTTING:
     ax[1].set_ylim([-2.,2.])
     ax[1].legend()
     ax[1].legend()
-    fig.savefig(path_save_png+'test_set.png')
+    fig.savefig(path_save_png+f'test_set_slab_{NN_MODEL_NAME}.png')
   
     """Plot: trajectory reconstructed on train dataset (and next on test data set)
     

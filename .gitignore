@@ -742,3 +742,8 @@ experiments/dissipation_parametrizations/features/slab/online/traj_test.png
 experiments/dissipation_parametrizations/features/slab/online/traj_train.png
 experiments/dissipation_parametrizations/pngs/online/test_set.png
 experiments/dissipation_parametrizations/pngs/online/train_set.png
+experiments/dissipation_parametrizations/pngs/offline/test_set_slab_MLP.png
+experiments/dissipation_parametrizations/pngs/offline/train_set_slab_MLP.png
+experiments/dissipation_parametrizations/pngs/offline/train_slab_MLP.png
+experiments/dissipation_parametrizations/pngs/online/test_set_slab_MLP.png
+experiments/dissipation_parametrizations/pngs/online/train_set_slab_MLP.png

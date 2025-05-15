@@ -37,7 +37,9 @@ d_training_config = {
                     'N_integration_steps_verif':-1},
                         }
 
-
+"""
+Note: N_integration_steps and N_integration_steps_verif start at 2 because you need the initial solution AND at least time step
+"""
 
 
 
