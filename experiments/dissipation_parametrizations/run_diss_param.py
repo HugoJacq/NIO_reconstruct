@@ -58,9 +58,11 @@ from configs import prepare_config
 TRAIN_SLAB      = False     # run the training and save best model
 TRAIN_NN        = False
 TRAINING_MODE   = 'offline'
+NN_MODEL_NAME   = 'CNN' # CNN
 
 PLOTTING        = True      # plot figures that compares models
 PLOT_THE_MODEL  = False     # plot a trajectory with model converged
+COMPARE_TO_NN   = 'CNN'
 
 # time steps
 dt_forcing  = 3600.         # time step of forcing (s)
@@ -249,7 +251,7 @@ if False:
 # slab model, with NN as dissipation 
 #   K0 is fixed and we find theta
 ##########################################
-model_name = 'NN'
+model_name = NN_MODEL_NAME
 
 my_config, my_train_config = prepare_config(ds, model_name, TRAINING_MODE, TEST_RATIO)
 OPTI, MAX_STEP, PRINT_EVERY, FEATURES_NAMES, FORCING_NAMES, BATCH_SIZE, L_TO_BE_NORMALIZED = my_config
@@ -369,13 +371,13 @@ if PLOT_THE_MODEL:
 #############
 # PLOTTING
 #############
-    
+
 if PLOTTING:
     os.system(f'mkdir -p {path_save_png}')
     colors = ['b','g']
     
     # NN output
-    best_RHS_NN = eqx.tree_deserialise_leaves(name_base_folder+'NN/'+TRAINING_MODE+'/best_RHS_NN.pt',
+    best_RHS_NN = eqx.tree_deserialise_leaves(name_base_folder+COMPARE_TO_NN+'/'+TRAINING_MODE+'/best_RHS_NN.pt',
                                                  RHS(Coriolis_term(fc = fc), 
                                                      Stress_term(K0 = K0), 
                                                      Dissipation_CNN(subkey, len(FEATURES_NAMES)+2))                  
@@ -453,7 +455,7 @@ if PLOTTING:
     ax[1].set_ylabel('stress N/m2')
     ax[1].legend()
     ax[1].set_ylim([-2.,2.])
-    
+    fig.savefig(path_save_png+'train_set.png')
     
     # test set
     xtime = np.arange(Ntrain, len(ds.time), 1.)*onehour/oneday
@@ -472,85 +474,8 @@ if PLOTTING:
     ax[1].set_ylim([-2.,2.])
     ax[1].legend()
     ax[1].legend()
-    
-    
-    
-    
-    # for name_data, data, norms, (fig,ax), color in zip(['train','test'],[n_train_data, n_test_data],[norms_tr, norms_te],[(fig1,ax1),(fig2,ax2)], colors):
-    #     Nt = len(data['forcing'])
-        
-    #     X0 = data['forcing'][0,0:2,:,:]
-    #     my_forcing_for_this_traj = data['forcing'][:,2:4,:,:]
-    #     my_features_for_this_traj = data['features'][:,:,:,:]
-    #     mytraj = Integration_Euler(X0, 
-    #                                 my_forcing_for_this_traj, 
-    #                                 my_features_for_this_traj,
-    #                                 best_RHS_NN, 
-    #                                 dt_Euler, 
-    #                                 dt_forcing,
-    #                                 Nt,
-    #                                 norms)
-    #     if name_data=='test':
-    #         xtime = np.arange(Ntrain, len(ds.time), 1.)*onehour/oneday
-    #     elif name_data=='train':
-    #         xtime = np.arange(0, Ntrain, 1.)*onehour/oneday
-    #     # fig, ax = plt.subplots(1,1,figsize = (10,5), constrained_layout=True,dpi=100)
-    #     ax.plot(xtime, data['target'].mean(axis=(2,3))[:,0], c='k', label='true U')
-    #     ax.plot(xtime, mytraj.mean(axis=(2,3))[:,0], c=color, label='estimated U')
-    #     ax.set_xlabel('time (days)')
-    #     ax.set_ylabel('zonal current (m/s)')
-    #     ax.set_title(f'{model_name}: {name_data}_data')
-    #     ax.set_ylim([-0.2,0.2])
-    #     ax.legend()
-    #     # fig.savefig(path_save+f'traj_{name_data}.png')
-    
-    
-    # # slab output
-    # best_RHS_slab =  eqx.tree_deserialise_leaves(name_base_folder+'slab/'+TRAINING_MODE+'/best_RHS_slab.pt',   # <- getting the saved PyTree 
-    #                                             RHS(Coriolis_term(fc = fc), 
-    #                                                 Stress_term(K0 = K0), 
-    #                                                 Dissipation_Rayleigh(R = R))                    # <- here the call is just to get the structure
-    #                                             ) 
-    
-    
-                                                   
-    # dynamic_model, static_model = my_partition(best_RHS_slab)
-    # n_test_data, norms_te = normalize_batch(test_data, 
-    #                               L_to_be_normalized='') # <- here no need to normalize as there is no NN
-    # n_train_data, norms_tr = normalize_batch(train_data, 
-    #                               L_to_be_normalized='') # <- here no need to normalize as there is no NN
-    
-    # model_name = 'slab'
-    # for name_data, data, norms, (fig,ax), color in zip(['train','test'],[n_train_data, n_test_data],[norms_tr, norms_te],[(fig1,ax1),(fig2,ax2)], colors):
-    #     Nt = len(data['forcing'])
-        
-    #     X0 = data['forcing'][0,0:2,:,:]
-    #     my_forcing_for_this_traj = data['forcing'][:,2:4,:,:]
-    #     my_features_for_this_traj = data['features'][:,:,:,:]
-    #     mytraj = Integration_Euler(X0, 
-    #                                 my_forcing_for_this_traj, 
-    #                                 my_features_for_this_traj,
-    #                                 best_RHS_slab, 
-    #                                 dt_Euler, 
-    #                                 dt_forcing,
-    #                                 Nt,
-    #                                 norms)
-    #     if name_data=='test':
-    #         xtime = np.arange(Ntrain, len(ds.time), 1.)*onehour/oneday
-    #     elif name_data=='train':
-    #         xtime = np.arange(0, Ntrain, 1.)*onehour/oneday
-    #     # fig, ax = plt.subplots(1,1,figsize = (10,5), constrained_layout=True,dpi=100)
-    #     ax.plot(xtime, data['target'].mean(axis=(2,3))[:,0], c='k', label='true U')
-    #     ax.plot(xtime, mytraj.mean(axis=(2,3))[:,0], c=color, label='estimated U')
-    #     ax.set_xlabel('time (days)')
-    #     ax.set_ylabel('zonal current (m/s)')
-    #     ax.set_title(f'{model_name}: {name_data}_data')
-    #     ax.legend()
-    #     # fig.savefig(path_save+f'traj_{name_data}.png')
-    
-    # fig1.savefig(path_save_png+'trajectory_train.png')
-    # fig2.savefig(path_save_png+'trajectory_test.png')
-    
+    fig.savefig(path_save_png+'test_set.png')
+  
     """Plot: trajectory reconstructed on train dataset (and next on test data set)
     
         -> solution K0 and r

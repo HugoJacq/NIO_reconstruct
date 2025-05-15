@@ -11,7 +11,7 @@ d_base_config = {
                 'BATCH_SIZE':-1,            # size of a batch (time), set to -1 for no batching
                 'L_to_be_normalized':''},
         
-        "NN":{'optimizer':'adam',
+        "CNN":{'optimizer':'adam',
                 'linear_lr': (1e-4, 1e-6, 40, 40), # lr_start, lr_end, ntr, start_tr
                 'MAX_STEP':500,
                 'PRINT_EVERY':1,
