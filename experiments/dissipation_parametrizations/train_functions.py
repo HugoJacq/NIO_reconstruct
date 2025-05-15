@@ -1,3 +1,4 @@
+from tabnanny import verbose
 import jax
 import equinox as eqx
 import optax
@@ -81,7 +82,8 @@ def train(the_model          : eqx.Module,
         N_integration_steps : int = 1, # default is offline mode
         dt                  : float = 60.,
         dt_forcing          : float = 3600.,
-        L_to_be_normalized  : list = []
+        L_to_be_normalized  : list = [],
+        # verbose             : bool = False
             ):
     """
     Train loop to estimate parameters from 'the_model'.
@@ -210,11 +212,12 @@ def train(the_model          : eqx.Module,
                 CONVERGED = True
                 print(f' loop has converged with max(grads) < tol={tol}')
                 print(f' list of grad is : {leafs}')
+            print(f'    max of grad is {maxgrad}')
         if retol is not None and step>1:
             rel_decrease = (Train_loss[-1] - Train_loss[-2])/Train_loss[-2]
             if rel_decrease < 0. and np.abs(rel_decrease)<retol:
                 CONVERGED = True
-                print(f'loop has converged with relative decrease of L = {rel_decrease} < retol={retol} ')
+                print(f'loop has converged with relative decrease of L = {np.abs(rel_decrease)} < retol={retol} ')
                 
         if CONVERGED or step==maxstep-1:        
             lastmodel = eqx.combine(dynamic_model, static_model)

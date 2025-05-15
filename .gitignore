@@ -708,3 +708,6 @@ experiments/dissipation_parametrizations/features/NN/traj_test.png
 experiments/dissipation_parametrizations/features/NN/traj_train.png
 experiments/dissipation_parametrizations/features/slab/best_RHS_slab.pt
 experiments/dissipation_parametrizations/features/slab/cost_function_map.png
+experiments/dissipation_parametrizations/__pycache__/configs.cpython-311.pyc
+experiments/dissipation_parametrizations/features/slab/traj_test.png
+experiments/dissipation_parametrizations/features/slab/traj_train.png

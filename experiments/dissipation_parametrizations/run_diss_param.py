@@ -49,44 +49,44 @@ from train_functions import train, my_partition, vmap_loss
 from time_integration import Integration_Euler
 from constants import oneday, onehour, distance_1deg_equator
 from models_definition import RHS, Dissipation_Rayleigh, Stress_term, Coriolis_term, Dissipation_CNN
+from configs import prepare_config
+
 #====================================================================================================
 # PARAMETERS
 #====================================================================================================
 
-TRAIN_SLAB      = False      # run the training and save best model
-TRAIN_NN        = False
+
+TRAIN_SLAB      = False     # run the training and save best model
+TRAIN_NN        = True
+TRAINING_MODE   = 'offline'
+
 SAVE            = True      # save model and figures
 PLOTTING        = True      # plot figures
 
-MAX_STEP        = 10           # number of epochs
-PRINT_EVERY     = 10            # print infos every 'PRINT_EVERY' epochs
-SEED            = 5678          # for reproductibility
-features_names  = []            # what features to use in the NN (U,V in by default)
-forcing_names   = []            # U,V,TAx,TAy already in by default
 
-BATCH_SIZE      = 300          # size of a batch (time), set to -1 for no batching
-
-dt_Euler    = 60.           # secondes
-N_integration_steps = BATCH_SIZE         # 2 for offline, more for online
-N_integration_steps_verif = BATCH_SIZE  # number of time step to integrate during in use cases of the model
+# time steps
+dt_forcing  = 3600.         # time step of forcing (s)
+dt_Euler    = 60.           # time step of integration (s)
 
 # Defining data
-test_ratio  = 20            # % of hours for test (over the data)
-mydtype     = 'float'       # type of data
+TEST_RATIO  = 20            # % of hours for test (over the data)
+mydtype     = 'float'       # type of data, float or float32
 Nsize       = 128           # size of the domain, in nx ny
-dt_forcing  = 3600.         # time step of forcing
 dx          = 0.1           # X data resolution in ° 
 dy          = 0.1           # Y data resolution in ° 
 
-
+# initial guess for slab
 K0          = -8.           # initial K0
 R           = -8.           # initial R
+
+# for NN reproductibility
+SEED            = 5678             
 #====================================================================================================
 
 #====================================================================================================
 
 # create folder for each set of features
-name_base_folder = 'features'+''.join('_'+variable for variable in features_names)+'/'
+name_base_folder = 'features'+''.join('_'+variable for variable in [])+'/'
 os.system(f'mkdir -p {name_base_folder}')
 
 filename = ['../../data_regrid/croco_1h_inst_surf_2005-01-01-2005-01-31_0.1deg_conservative.nc',
@@ -100,25 +100,8 @@ ds = xr.open_mfdataset(filename)
 ds = ds.isel(lon=slice(-Nsize-1,-1),lat=slice(-Nsize-1,-1)) # <- this could be centered on a physical location
 ds = ds.rename({'oceTAUX':'TAx', 'oceTAUY':'TAy'})
 fc = np.asarray(2*2*np.pi/86164*np.sin(ds.lat.values*np.pi/180))
-Ntests = test_ratio*len(ds.time)//100 # how many instants used for test
+Ntests = TEST_RATIO*len(ds.time)//100 # how many instants used for test
 Ntrain = len(ds.time) - Ntests
-
-# warnings
-if BATCH_SIZE<0:
-    BATCH_SIZE = len(ds.time) - Ntests 
-    if N_integration_steps <0:
-        N_integration_steps = BATCH_SIZE
-    if N_integration_steps_verif<0:
-        N_integration_steps_verif = BATCH_SIZE
-if N_integration_steps > BATCH_SIZE and BATCH_SIZE>0:
-    print(f'You have chosen to do online training but the number of integration step ({N_integration_steps}) is greater than the batch_size ({BATCH_SIZE})')
-    print(f'N_integration_steps has been reduced to the batch size value ({BATCH_SIZE})')
-    N_integration_steps = BATCH_SIZE
-if N_integration_steps<0:
-    print(f'N_integration_steps is < 0, N_integration_steps is set to = BATCH_SIZE ({BATCH_SIZE})')
-    N_integration_steps = BATCH_SIZE
-if BATCH_SIZE%N_integration_steps!=0:
-    raise Exception(f'N_integration_steps is not a divider of BATCH_SIZE: {N_integration_steps}%{BATCH_SIZE}={BATCH_SIZE%N_integration_steps}, try again')
 
 ##########################################
 # EXPERIMENT 1:
@@ -128,6 +111,11 @@ if BATCH_SIZE%N_integration_steps!=0:
 ##########################################
 model_name = 'slab'
 
+my_config, my_train_config = prepare_config(ds, model_name, TRAINING_MODE, TEST_RATIO)
+OPTI, MAX_STEP, PRINT_EVERY, FEATURES_NAMES, FORCING_NAMES, BATCH_SIZE, L_TO_BE_NORMALIZED = my_config
+N_integration_steps, N_integration_steps_verif = my_train_config
+
+
 # Initialization
 myCoriolis = Coriolis_term(fc = fc)
 myStress = Stress_term(K0 = K0, to_train=True)
@@ -136,9 +124,9 @@ myRHS = RHS(myCoriolis, myStress, myDissipation)
 
 # make test and train datasets
 train_data, test_data = data_maker(ds=ds,
-                                    test_ratio=test_ratio, 
-                                    features_names=[],
-                                    forcing_names=[],
+                                    test_ratio=TEST_RATIO, 
+                                    features_names=FEATURES_NAMES,
+                                    forcing_names=FORCING_NAMES,
                                     dx=dx*distance_1deg_equator,
                                     dy=dy*distance_1deg_equator,
                                     mydtype=mydtype)
@@ -152,25 +140,22 @@ os.system(f'mkdir -p {path_save}')
 
 if TRAIN_SLAB:
     print(f'* Training the {model_name} model ...')
-    optimizer = optax.adam(optax.linear_schedule(1e-1, 1e-3, transition_steps=40, transition_begin=40))
-    # optimizer = optax.lbfgs(linesearch=optax.scale_by_zoom_linesearch( max_linesearch_steps=55, verbose=True))
-    """optional: learning rate scheduler initialization"""
 
     # train loop
     lastmodel, bestmodel, Train_loss, Test_loss, opt_state_save = train(
                                                                 the_model   = myRHS,
-                                                                optim       = optimizer,
+                                                                optim       = OPTI,
                                                                 iter_train_data = train_iterator,
                                                                 test_data   = test_data,
                                                                 maxstep     = MAX_STEP,
-                                                                print_every = 1,
+                                                                print_every = PRINT_EVERY,
                                                                 tol         = 1e-6,
                                                                 N_integration_steps = N_integration_steps,
                                                                 dt          = dt_Euler,
                                                                 dt_forcing  = dt_forcing,
-                                                                L_to_be_normalized = [])
-    if SAVE:
-        eqx.tree_serialise_leaves(path_save+f'best_RHS_{model_name}.pt', bestmodel)
+                                                                L_to_be_normalized = L_TO_BE_NORMALIZED)
+    # save the model
+    eqx.tree_serialise_leaves(path_save+f'best_RHS_{model_name}.pt', bestmodel)
         
     fig, ax = plt.subplots(1,1,figsize = (10,5), constrained_layout=True,dpi=100)
     epochs = np.arange(len(Train_loss))
@@ -181,8 +166,7 @@ if TRAIN_SLAB:
     ax.set_ylabel('Loss')
     ax.set_yscale('log')
     ax.legend()
-    if SAVE:
-        fig.savefig(path_save+'Loss.png')
+    fig.savefig(path_save+'Loss.png')
     
     print(f'Final K0 = {bestmodel.stress_term.K0}')
     print(f'Final r = {bestmodel.dissipation_term.R}')
@@ -232,7 +216,6 @@ if False:
         ax.legend()
         fig.savefig(path_save+f'traj_{name_data}.png')
    
- 
 # map of the cost function
 if False:
     print('* map of cost function for full train dataset')
@@ -259,10 +242,7 @@ if False:
     ax.set_title('cost function map (train_data)')
     fig.savefig(path_save+'cost_function_map.png')
     
-    
-    
-    
-    
+
 ##########################################
 # EXPERIMENT 2:
 #
@@ -270,7 +250,10 @@ if False:
 #   K0 is fixed and we find theta
 ##########################################
 model_name = 'NN'
-L_to_be_normalized = 'features'
+
+my_config, my_train_config = prepare_config(ds, model_name, TRAINING_MODE, TEST_RATIO)
+OPTI, MAX_STEP, PRINT_EVERY, FEATURES_NAMES, FORCING_NAMES, BATCH_SIZE, L_TO_BE_NORMALIZED = my_config
+N_integration_steps, N_integration_steps_verif = my_train_config
 
 # Initialization
 my_RHS_slab = eqx.tree_deserialise_leaves(name_base_folder+'slab/best_RHS_slab.pt',
@@ -283,7 +266,7 @@ myStress = Stress_term(K0 = my_RHS_slab.stress_term.K0, to_train=True)
 
 key = jax.random.PRNGKey(SEED)
 key, subkey = jax.random.split(key, 2)
-myDissipation = Dissipation_CNN(subkey, len(features_names)+2, to_train=True)
+myDissipation = Dissipation_CNN(subkey, len(FEATURES_NAMES)+2, to_train=True)
 # myDissipation = eqx.tree_at( lambda t:t.layers[-1].bias, myDissipation, myDissipation.layers[-1].bias*0. + 1e-6)
 
 myRHS = RHS(myCoriolis, myStress, myDissipation)
@@ -293,9 +276,9 @@ myRHS = RHS(myCoriolis, myStress, myDissipation)
 
 # make test and train datasets
 train_data, test_data = data_maker(ds=ds,
-                                    test_ratio=test_ratio, 
-                                    features_names=features_names,
-                                    forcing_names=[],
+                                    test_ratio=TEST_RATIO, 
+                                    features_names=FEATURES_NAMES,
+                                    forcing_names=FORCING_NAMES,
                                     dx=dx*distance_1deg_equator,
                                     dy=dy*distance_1deg_equator,
                                     mydtype=mydtype)
@@ -320,14 +303,12 @@ if TRAIN_NN:
                                                                 test_data   = test_data,
                                                                 maxstep     = MAX_STEP,
                                                                 print_every = 1,
-                                                                tol         = None, # 1e-6
-                                                                retol       = None, 
                                                                 N_integration_steps = N_integration_steps,
                                                                 dt          = dt_Euler,
                                                                 dt_forcing  = dt_forcing,
-                                                                L_to_be_normalized = L_to_be_normalized)
-    if SAVE:
-        eqx.tree_serialise_leaves(path_save+f'best_RHS_{model_name}.pt', bestmodel)
+                                                                L_to_be_normalized = L_TO_BE_NORMALIZED)
+    # save the model
+    eqx.tree_serialise_leaves(path_save+f'best_RHS_{model_name}.pt', bestmodel)
         
     fig, ax = plt.subplots(1,1,figsize = (10,5), constrained_layout=True,dpi=100)
     epochs = np.arange(len(Train_loss))
@@ -338,13 +319,12 @@ if TRAIN_NN:
     ax.set_ylabel('Loss')
     ax.set_yscale('log')
     ax.legend()
-    if SAVE:
-        fig.savefig(path_save+'Loss.png')
+    fig.savefig(path_save+'Loss.png')
     
     print('done!')
 
 # plots a trajectory with the best model 
-if True:
+if False:
     # best_RHS = eqx.tree_deserialise_leaves(name_base_folder+'NN/best_RHS_NN.pt',
     #                                              RHS(Coriolis_term(fc = fc), 
     #                                                  Stress_term(K0 = K0), 
