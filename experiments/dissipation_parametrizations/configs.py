@@ -3,6 +3,7 @@ import optax
 
 d_base_config = {
         "slab":{'optimizer':'adam',         # lbfgs
+                'linear_lr': (1e-1, 1e-3, 40, 40), # lr_start, lr_end, ntr, start_tr
                 'MAX_STEP':100,             # number of epochs
                 'PRINT_EVERY':1,            # print infos every 'PRINT_EVERY' epochs
                 'features_names':[],        # what features to use in the NN (U,V in by default)
@@ -11,8 +12,9 @@ d_base_config = {
                 'L_to_be_normalized':''},
         
         "NN":{'optimizer':'adam',
+                'linear_lr': (1e-4, 1e-6, 40, 40), # lr_start, lr_end, ntr, start_tr
                 'MAX_STEP':500,
-                'PRINT_EVERY':10,
+                'PRINT_EVERY':1,
                 'features_names':[],
                 'forcing_names':[],
                 'BATCH_SIZE':-1,
@@ -27,13 +29,20 @@ d_training_config = {
                         }
 
 
+
+
+
+
+
+
+
+
+
+
 def get_config(name_model, mode):
     
     if d_base_config[name_model]['optimizer']=='adam':
-        if name_model=='slab':
-            lr_start, lr_end, ntr, start_tr = 1e-1, 1e-3, 40, 40
-        elif name_model=='NN':
-            lr_start, lr_end, ntr, start_tr = 1e-3, 1e-6, 40, 40
+        lr_start, lr_end, ntr, start_tr = d_base_config[name_model]['linear_lr']
         OPTI = optax.adam(optax.linear_schedule(lr_start, lr_end, transition_steps=ntr, transition_begin=start_tr))
     elif d_base_config[name_model]['optimizer']=='lbfgs':
         OPTI = optax.lbfgs(linesearch=optax.scale_by_zoom_linesearch( max_linesearch_steps=55, verbose=True))

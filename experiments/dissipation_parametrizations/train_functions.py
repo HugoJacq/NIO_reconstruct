@@ -204,20 +204,27 @@ def train(the_model          : eqx.Module,
         ###################
         # Exit if converged
         ###################
+        
+        grads_array_only = eqx.filter(grads, eqx.is_array, replace=0.)
+        maxgrad = optax.tree_utils.tree_max(jtu.tree_map(jnp.abs, grads_array_only))
+        print(f'    max of grad is {maxgrad}')
+        
         if tol is not None:
-            leafs, _ = jtu.tree_flatten(grads, is_leaf=eqx.is_array)
-            # print(f' list of grad is : {leafs}')
-            maxgrad = jnp.amax(jnp.abs(jnp.asarray(leafs)))
+            # leafs, _ = jtu.tree_flatten(grads, is_leaf=eqx.is_array)
+            # maxgrad = jnp.amax(jnp.abs(jnp.asarray(leafs)))
+            # print(f'    max of grad is {maxgrad}')
+             # print(f' list of grad is : {leafs}')
+
             if maxgrad < tol:
                 CONVERGED = True
-                print(f' loop has converged with max(grads) < tol={tol}')
-                print(f' list of grad is : {leafs}')
-            print(f'    max of grad is {maxgrad}')
+                print(f' loop has converged with max(grads)={maxgrad} < tol={tol}')
+                # print(f' list of grad is : {leafs}')
+        
         if retol is not None and step>1:
             rel_decrease = (Train_loss[-1] - Train_loss[-2])/Train_loss[-2]
             if rel_decrease < 0. and np.abs(rel_decrease)<retol:
                 CONVERGED = True
-                print(f'loop has converged with relative decrease of L = {np.abs(rel_decrease)} < retol={retol} ')
+                print(f'    loop has converged with relative decrease of L = {np.abs(rel_decrease)} < retol={retol} ')
                 
         if CONVERGED or step==maxstep-1:        
             lastmodel = eqx.combine(dynamic_model, static_model)

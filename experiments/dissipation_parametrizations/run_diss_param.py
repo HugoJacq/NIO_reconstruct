@@ -55,9 +55,8 @@ from configs import prepare_config
 # PARAMETERS
 #====================================================================================================
 
-
 TRAIN_SLAB      = False     # run the training and save best model
-TRAIN_NN        = True
+TRAIN_NN        = False
 TRAINING_MODE   = 'offline'
 
 SAVE            = True      # save model and figures
@@ -135,7 +134,7 @@ train_iterator = batch_loader(data_set=train_data,
 
 
 # add path to save figures according to model name
-path_save = name_base_folder+model_name+'/'
+path_save = name_base_folder+model_name+'/'+TRAINING_MODE+'/'
 os.system(f'mkdir -p {path_save}')
 
 if TRAIN_SLAB:
@@ -173,8 +172,9 @@ if TRAIN_SLAB:
     print('done!')
 
 # Plotting the solution
-if False:
+if True:
     print('Plotting the solution')
+    print(path_save)
     best_RHS = eqx.tree_deserialise_leaves(path_save+'best_RHS_slab.pt',   # <- getting the saved PyTree 
                                                 myRHS                    # <- here the call is just to get the structure
                                                 )
@@ -212,7 +212,7 @@ if False:
         ax.plot(xtime, mytraj.mean(axis=(2,3))[:,0], c='b', label='estimated U')
         ax.set_xlabel('time (days)')
         ax.set_ylabel('zonal current (m/s)')
-        ax.set_title(f'{name_data}_data')
+        ax.set_title(f'{model_name}: {name_data}_data')
         ax.legend()
         fig.savefig(path_save+f'traj_{name_data}.png')
    
@@ -256,7 +256,7 @@ OPTI, MAX_STEP, PRINT_EVERY, FEATURES_NAMES, FORCING_NAMES, BATCH_SIZE, L_TO_BE_
 N_integration_steps, N_integration_steps_verif = my_train_config
 
 # Initialization
-my_RHS_slab = eqx.tree_deserialise_leaves(name_base_folder+'slab/best_RHS_slab.pt',
+my_RHS_slab = eqx.tree_deserialise_leaves(name_base_folder+'slab/'+TRAINING_MODE+'/best_RHS_slab.pt',
                                                  RHS(Coriolis_term(fc = fc), 
                                                      Stress_term(K0 = K0), 
                                                      Dissipation_Rayleigh(R = R))                  
@@ -287,22 +287,22 @@ train_iterator = batch_loader(data_set=train_data,
 
 
 # add path to save figures according to model name
-path_save = name_base_folder+model_name+'/'
+path_save = name_base_folder+model_name+'/'+TRAINING_MODE+'/'
 os.system(f'mkdir -p {path_save}')
 
    
 if TRAIN_NN:
     print(f'* Training the {model_name} model ...')
-    optimizer = optax.adam(1e-7) # optax.linear_schedule(1e-3, 1e-3, transition_steps=40, transition_begin=40)
 
     # train loop
     lastmodel, bestmodel, Train_loss, Test_loss, opt_state_save = train(
                                                                 the_model   = myRHS,
-                                                                optim       = optimizer,
+                                                                optim       = OPTI,
                                                                 iter_train_data = train_iterator,
                                                                 test_data   = test_data,
                                                                 maxstep     = MAX_STEP,
-                                                                print_every = 1,
+                                                                print_every = PRINT_EVERY,
+                                                                retol       = 0.0001,
                                                                 N_integration_steps = N_integration_steps,
                                                                 dt          = dt_Euler,
                                                                 dt_forcing  = dt_forcing,
@@ -324,15 +324,13 @@ if TRAIN_NN:
     print('done!')
 
 # plots a trajectory with the best model 
-if False:
-    # best_RHS = eqx.tree_deserialise_leaves(name_base_folder+'NN/best_RHS_NN.pt',
-    #                                              RHS(Coriolis_term(fc = fc), 
-    #                                                  Stress_term(K0 = K0), 
-    #                                                  Dissipation_CNN(subkey, len(features_names)+2))                  
-    #                                             )
-    
-    best_RHS = myRHS
-    
+if True:
+    best_RHS = eqx.tree_deserialise_leaves(name_base_folder+'NN/'+TRAINING_MODE+'/best_RHS_NN.pt',
+                                                 RHS(Coriolis_term(fc = fc), 
+                                                     Stress_term(K0 = K0), 
+                                                     Dissipation_CNN(subkey, len(FEATURES_NAMES)+2))                  
+                                                )
+
     dynamic_model, static_model = my_partition(best_RHS)
     n_test_data, norms_te = normalize_batch(test_data, 
                                   L_to_be_normalized='features')
@@ -363,7 +361,7 @@ if False:
         ax.plot(xtime, mytraj.mean(axis=(2,3))[:,0], c='b', label='estimated U')
         ax.set_xlabel('time (days)')
         ax.set_ylabel('zonal current (m/s)')
-        ax.set_title(f'{name_data}_data')
+        ax.set_title(f'{model_name}: {name_data}_data')
         ax.set_ylim([-0.2,0.2])
         ax.legend()
         fig.savefig(path_save+f'traj_{name_data}.png')

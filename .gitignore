@@ -711,3 +711,12 @@ experiments/dissipation_parametrizations/features/slab/cost_function_map.png
 experiments/dissipation_parametrizations/__pycache__/configs.cpython-311.pyc
 experiments/dissipation_parametrizations/features/slab/traj_test.png
 experiments/dissipation_parametrizations/features/slab/traj_train.png
+experiments/dissipation_parametrizations/features/NN/offline/best_RHS_NN.pt
+experiments/dissipation_parametrizations/features/NN/offline/Loss.png
+experiments/dissipation_parametrizations/features/NN/offline/traj_test.png
+experiments/dissipation_parametrizations/features/NN/offline/traj_train.png
+experiments/dissipation_parametrizations/features/slab/offline/best_RHS_slab.pt
+experiments/dissipation_parametrizations/features/slab/offline/cost_function_map.png
+experiments/dissipation_parametrizations/features/slab/offline/Loss.png
+experiments/dissipation_parametrizations/features/slab/offline/traj_test.png
+experiments/dissipation_parametrizations/features/slab/offline/traj_train.png
