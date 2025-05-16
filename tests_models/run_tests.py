@@ -73,7 +73,7 @@ FILTER_AT_FC        = False      # minimize filtered ageo current with obs if m
 IDEALIZED_RUN       = False       # try the model on a step wind stress
 
 # Switches
-L_model_to_test             = ['junsteak_kt_2D'] # L_all
+L_model_to_test             = ['junsteak'] #'junsteak_kt_2D_adv'] # L_all
 
 # PLOT
 dpi=200
@@ -90,6 +90,8 @@ point_loc = [-50., 40.]
 point_loc = [-46., 40.] # wind gust from early january 2018
 point_loc = [-55., 37.5] # february 13th
 point_loc = [-47.4,34.6] # march 8th 0300, t0=60 t1=100
+point_loc = [-49.,39.] # march 8th 0300, t0=60 t1=100, centered on an eddy
+
 # 2D
 R = 5. # 5.0 
 LON_bounds = [point_loc[0]-R,point_loc[0]+R]
@@ -220,6 +222,8 @@ if __name__ == "__main__":
             t7 = clock.time()
             mymodel, _ = var_dfx.scipy_lbfgs_wrapper(mymodel, maxiter, verbose=True)   
             print(' time, minimize',clock.time()-t7)
+            # save the model
+            eqx.tree_serialise_leaves('./saved_outputs/'+f'best_{model_name}.pt', mymodel)
         
         if PLOT_TRAJ:
             if model_name in L_1D_models:
