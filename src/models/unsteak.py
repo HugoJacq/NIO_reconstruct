@@ -714,9 +714,11 @@ class junsteak_kt_2D_adv(eqx.Module):
     use_difx : bool
     k_base : str
     
+    alpha : jnp.ndarray
+    
     def __init__(self, pk, dTK, forcing, Nl, call_args=(0.0,oneday,60.), extra_args = {'AD_mode':'F',
                                                                                     'use_difx':False,
-                                                                                    'k_base':'gauss'}):
+                                                                                    'k_base':'gauss'}, alpha=jnp.ones(1)):
         self.t0, self.t1, self.dt = call_args
         
         self.pk = pk
@@ -740,6 +742,8 @@ class junsteak_kt_2D_adv(eqx.Module):
         self.AD_mode = extra_args['AD_mode']
         self.use_difx = extra_args['use_difx']
         self.k_base = extra_args['k_base']
+        
+        self.alpha = jnp.asarray(alpha)
         
     @eqx.filter_jit            
     def __call__(self, save_traj_at = None):
@@ -933,7 +937,7 @@ class junsteak_kt_2D_adv(eqx.Module):
         # here we add advection term. 
         # This is the only difference with junsteak_kt_2D !
         # (beside interpolating the new fields gradUg at current timestep obviously)
-        alpha = jnp.asarray([1.,0.])[:, np.newaxis, np.newaxis] # what layers to add adv
+        alpha = self.alpha[:, np.newaxis, np.newaxis] # what layers to add adv
         if True:
             d_U = d_U - ( U*alpha*gradUgnow[0] + V*alpha*gradUgnow[1] )
             d_V = d_V - ( U*alpha*gradVgnow[0] + V*alpha*gradVgnow[1] )

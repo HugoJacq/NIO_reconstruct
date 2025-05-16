@@ -421,7 +421,7 @@ def model_instanciation(model_name, forcing, args_model, call_args, extra_args):
         
     elif model_name=='jslab_kt_2D':
         pk = jnp.asarray([-11., -10.])   
-        NdT = len(np.arange(t0, t1,dTK)) # int((t1-t0)//dTK) 
+        NdT = len(np.arange(t0, t1, dTK)) # int((t1-t0)//dTK) 
         pk = kt_ini(pk, NdT)
         model = classic_slab.jslab_kt_2D(pk, dTK, forcing, call_args, extra_args)
         

@@ -1076,8 +1076,6 @@ class jslab_kt_2D_adv(eqx.Module):
         Kt = jnp.dot(M,K)
         
         # compute gradient of geostrophy
-        print(self.dx, self.dy)
-        
         gradUgt, gradVgt = compute_hgrad(self.Ug, self.dx, self.dy), compute_hgrad(self.Vg, self.dx, self.dy)
         
         args = self.fc, Kt, self.TAx, self.TAy, gradUgt, gradVgt, nsubsteps

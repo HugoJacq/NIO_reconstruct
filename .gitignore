@@ -750,3 +750,13 @@ experiments/dissipation_parametrizations/pngs/online/train_set_slab_MLP.png
 tests_models/saved_outputs/best_junsteak_kt_2D.pt
 tests_models/saved_outputs/best_junsteak.pt
 tests_models/saved_outputs/junsteak_kt_2D_-49.0E_39.0N.nc
+experiments/effect_of_advection/__pycache__/functions.cpython-311.pyc
+experiments/effect_of_advection/saved_models/best_jslab_kt_2D_adv.pt
+experiments/effect_of_advection/saved_models/best_jslab_kt_2D.pt
+experiments/effect_of_advection/saved_models/best_junsteak_kt_2D_adv.pt
+experiments/effect_of_advection/saved_models/best_junsteak_kt_2D.pt
+experiments/effect_of_advection/saved_models/best_myunsteak_kt_2D_adv2l.pt
+experiments/effect_of_advection/saved_outputs/jslab_kt_2D_-49.0E_39.0N.nc
+experiments/effect_of_advection/saved_outputs/jslab_kt_2D_adv_-49.0E_39.0N.nc
+experiments/effect_of_advection/saved_outputs/junsteak_kt_2D_-49.0E_39.0N.nc
+experiments/effect_of_advection/saved_outputs/junsteak_kt_2D_adv_-49.0E_39.0N.nc
