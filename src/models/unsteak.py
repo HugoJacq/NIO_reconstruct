@@ -930,8 +930,12 @@ class junsteak_kt_2D_adv(eqx.Module):
             #jax.debug.print("d_U, Coriolis, stress, damping: {}, {}, {}, {}", d_U[1,5,5], fc[5]*V[0,5,5], Ktnow[0]*TAxnow[5,5], - Ktnow[1]*(U[0,5,5]))
         # jax.lax.cond(it<=2, cond_print, lambda:None)
         
+        # here we add advection term. 
+        # This is the only difference with junsteak_kt_2D !
+        # (beside interpolating the new fields gradUg at current timestep obviously)
+        alpha = jnp.asarray([1.,0.])[:, np.newaxis, np.newaxis] # what layers to add adv
         if True:
-            d_U = d_U - ( U*gradUgnow[0] + V*gradUgnow[1] )
-            d_V = d_V - ( U*gradVgnow[0] + V*gradVgnow[1] )
-        
+            d_U = d_U - ( U*alpha*gradUgnow[0] + V*alpha*gradUgnow[1] )
+            d_V = d_V - ( U*alpha*gradVgnow[0] + V*alpha*gradVgnow[1] )
+
         return d_U, d_V
