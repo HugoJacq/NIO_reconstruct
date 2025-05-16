@@ -747,3 +747,6 @@ experiments/dissipation_parametrizations/pngs/offline/train_set_slab_MLP.png
 experiments/dissipation_parametrizations/pngs/offline/train_slab_MLP.png
 experiments/dissipation_parametrizations/pngs/online/test_set_slab_MLP.png
 experiments/dissipation_parametrizations/pngs/online/train_set_slab_MLP.png
+tests_models/saved_outputs/best_junsteak_kt_2D.pt
+tests_models/saved_outputs/best_junsteak.pt
+tests_models/saved_outputs/junsteak_kt_2D_-49.0E_39.0N.nc

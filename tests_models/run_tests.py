@@ -73,7 +73,7 @@ FILTER_AT_FC        = False      # minimize filtered ageo current with obs if m
 IDEALIZED_RUN       = False       # try the model on a step wind stress
 
 # Switches
-L_model_to_test             = ['junsteak'] #'junsteak_kt_2D_adv'] # L_all
+L_model_to_test             = ['junsteak_kt_2D'] #'junsteak_kt_2D_adv'] # L_all
 
 # PLOT
 dpi=200
@@ -224,6 +224,10 @@ if __name__ == "__main__":
             print(' time, minimize',clock.time()-t7)
             # save the model
             eqx.tree_serialise_leaves('./saved_outputs/'+f'best_{model_name}.pt', mymodel)
+        else:
+            # open the saved model
+            mymodel = eqx.tree_deserialise_leaves('./saved_outputs/'+f'best_{model_name}.pt', mymodel)
+
         
         if PLOT_TRAJ:
             if model_name in L_1D_models:
