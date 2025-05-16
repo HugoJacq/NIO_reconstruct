@@ -760,3 +760,15 @@ experiments/effect_of_advection/saved_outputs/jslab_kt_2D_-49.0E_39.0N.nc
 experiments/effect_of_advection/saved_outputs/jslab_kt_2D_adv_-49.0E_39.0N.nc
 experiments/effect_of_advection/saved_outputs/junsteak_kt_2D_-49.0E_39.0N.nc
 experiments/effect_of_advection/saved_outputs/junsteak_kt_2D_adv_-49.0E_39.0N.nc
+experiments/effect_of_advection/saved_models/slab_kt_2D_adv.pt
+experiments/effect_of_advection/saved_models/slab_kt_2D.pt
+experiments/effect_of_advection/saved_models/unsteak_kt_2D_adv1l.pt
+experiments/effect_of_advection/saved_models/unsteak_kt_2D_adv2l.pt
+experiments/effect_of_advection/saved_models/unsteak_kt_2D.pt
+experiments/effect_of_advection/saved_outputs/slab_kt_2D_-49.0E_39.0N.nc
+experiments/effect_of_advection/saved_outputs/slab_kt_2D_adv_-49.0E_39.0N.nc
+experiments/effect_of_advection/saved_outputs/unsteak_kt_2D_-49.0E_39.0N.nc
+experiments/effect_of_advection/saved_outputs/unsteak_kt_2D_adv1l_-49.0E_39.0N.nc
+experiments/effect_of_advection/saved_outputs/unsteak_kt_2D_adv2l_-49.0E_39.0N.nc
+experiments/effect_of_advection/pngs/reconstruction_slab_-49.5E_39.5N.png
+experiments/effect_of_advection/pngs/reconstruction_unsteak_-49.5E_39.5N.png

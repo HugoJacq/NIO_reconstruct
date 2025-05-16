@@ -56,9 +56,9 @@ t1                  = 100*oneday    # end day
 dt                  = 60.           # timestep of the model (s) 
 
 # What to test
-MINIMIZE            = True      # Does the model converges to a solution ?
+MINIMIZE            = False      # Does the model converges to a solution ?
 maxiter             = 100        # if MINIMIZE: max number of iteration
-SAVE_AS_NC          = True      # for 2D models
+SAVE_AS_NC          = False      # for 2D models
 
 # PLOT
 dpi=200
@@ -95,17 +95,6 @@ name_regrid = ['croco_1h_inst_surf_2005-01-01-2005-01-31_0.1deg_conservative.nc'
               'croco_1h_inst_surf_2005-11-01-2005-11-30_0.1deg_conservative.nc',
               'croco_1h_inst_surf_2005-12-01-2005-12-31_0.1deg_conservative.nc']
 #name_regrid = ['croco_1h_inst_surf_2006-02-01-2006-02-28_0.1deg_conservative.nc']
-
-path_papa = '../data_PAPA_2018/'
-name_papa = ['cur50n145w_hr.nc',
-              'd50n145w_hr.nc',
-              'lw50n145w_hr.nc',
-              'rad50n145w_hr.nc',
-              's50n145w_hr.nc',
-              'sss50n145w_hr.nc',
-              'sst50n145w_hr.nc',
-              't50n145w_hr.nc',
-              'w50n145w_hr.nc']
 
 # Observations
 period_obs          = oneday #86400      # s, how many second between observations  
@@ -151,8 +140,8 @@ if __name__ == "__main__":
     pk = jnp.asarray([-11., -10.])   
     NdT = len(np.arange(t0, t1, dTK)) # int((t1-t0)//dTK) 
     pk = kt_ini(pk, NdT)
-    # dict_models['myslab_kt_2D'] = classic_slab.jslab_kt_2D(pk, dTK, myforcing, call_args, extra_args)
-    # dict_models['myslab_kt_2D_adv'] = classic_slab.jslab_kt_2D_adv(pk, dTK, myforcing, call_args, extra_args)
+    dict_models['slab_kt_2D'] = classic_slab.jslab_kt_2D(pk, dTK, myforcing, call_args, extra_args)
+    dict_models['slab_kt_2D_adv'] = classic_slab.jslab_kt_2D_adv(pk, dTK, myforcing, call_args, extra_args)
     
     # initialize unsteak models
     if Nl==1:
@@ -161,9 +150,9 @@ if __name__ == "__main__":
         pk = jnp.asarray([-15.,-10., -10., -10.]) 
     NdT = len(np.arange(t0, t1,dTK)) # int((t1-t0)//dTK) 
     pk = kt_ini(pk, NdT)
-    # dict_models['myunsteak_kt_2D'] = unsteak.junsteak_kt_2D(pk, dTK, myforcing, Nl, call_args, extra_args)   
-    dict_models['myunsteak_kt_2D_adv2l'] = unsteak.junsteak_kt_2D_adv(pk, dTK, myforcing, Nl, call_args, extra_args, alpha=[1.,1.]) 
-    dict_models['myunsteak_kt_2D_adv1l'] = unsteak.junsteak_kt_2D_adv(pk, dTK, myforcing, Nl, call_args, extra_args, alpha=[1.,0.])    
+    dict_models['unsteak_kt_2D'] = unsteak.junsteak_kt_2D(pk, dTK, myforcing, Nl, call_args, extra_args)   
+    dict_models['unsteak_kt_2D_adv2l'] = unsteak.junsteak_kt_2D_adv(pk, dTK, myforcing, Nl, call_args, extra_args, alpha=[1.,1.]) 
+    dict_models['unsteak_kt_2D_adv1l'] = unsteak.junsteak_kt_2D_adv(pk, dTK, myforcing, Nl, call_args, extra_args, alpha=[1.,0.])    
     
     # list_models = [myslab_kt_2D, myslab_kt_2D_adv, myunsteak_kt_2D, myunsteak_kt_2D_adv2l, myunsteak_kt_2D_adv1l]
     ################################################
@@ -180,7 +169,7 @@ if __name__ == "__main__":
             t2 = clock.time()
             var = inv.Variational(mymodel, myobservation)
             mymodel, _ = var.scipy_lbfgs_wrapper(mymodel, maxiter, verbose=True)   
-            eqx.tree_serialise_leaves(path_save_models+f'best_{model_name}.pt', mymodel)
+            eqx.tree_serialise_leaves(path_save_models+f'{model_name}.pt', mymodel)
             print(f'        time, minimize {model_name} = {clock.time()-t2}')
         print(f'time, minimize all = {clock.time()-tstart}')
 
@@ -190,12 +179,13 @@ if __name__ == "__main__":
     # Load back the models with their parameters
     #   and save the reconstructed currents as .nc
     ################################################  
-    for model_name, mymodel in dict_models.items():
-        model_name = type(mymodel).__name__
-        dict_models[model_name] = eqx.tree_deserialise_leaves(path_save_models+f'best_{model_name}.pt', mymodel)
+    
     
     if SAVE_AS_NC:
         print('* saving each model outputs')
+        for model_name, mymodel in dict_models.items():
+            dict_models[model_name] = eqx.tree_deserialise_leaves(path_save_models+f'{model_name}.pt', mymodel)
+        
         for model_name, mymodel in dict_models.items():
             # model_name = type(model).__name__
             name_save = model_name+'_'+namesave_loc
@@ -206,18 +196,121 @@ if __name__ == "__main__":
     #
     # Load .nc datasets for analysis, then plots
     ################################################
+    location = [-49.5,39.5]
+    
+    datas = {"slab_kt_2D":xr.open_mfdataset(path_save_output+"slab_kt_2D_-49.0E_39.0N.nc"),
+             "slab_kt_2D_adv":xr.open_mfdataset(path_save_output+"slab_kt_2D_adv_-49.0E_39.0N.nc"),
+             "unsteak_kt_2D":xr.open_mfdataset(path_save_output+"unsteak_kt_2D_-49.0E_39.0N.nc"),
+             "unsteak_kt_2D_adv2l":xr.open_mfdataset(path_save_output+"unsteak_kt_2D_adv2l_-49.0E_39.0N.nc"),
+             "unsteak_kt_2D_adv1l":xr.open_mfdataset(path_save_output+"unsteak_kt_2D_adv1l_-49.0E_39.0N.nc")}
+    
+    colors = {"slab_kt_2D":'b',
+             "slab_kt_2D_adv":'g',
+             "unsteak_kt_2D":'orange',
+             "unsteak_kt_2D_adv2l":'r',
+             "unsteak_kt_2D_adv1l":'pink'}
+    
+    ls = {"slab_kt_2D":'-',
+             "slab_kt_2D_adv":'--',
+             "unsteak_kt_2D":'-',
+             "unsteak_kt_2D_adv2l":'--',
+             "unsteak_kt_2D_adv1l":'--'}
+    
+    print('* Plotting ...')
+    print(f'     saving at: {path_save_png}')
+    
+    
+    # reconstruction at point_loc ----------------
+    dir = 0 # 0=U, 1=V
+    fc = myforcing.fc.mean()
+    step_obs = int(period_obs//dt_forcing)
+   
+    L_slab = ['slab_kt_2D','slab_kt_2D_adv']
+    L_unsteak = ['unsteak_kt_2D','unsteak_kt_2D_adv2l','unsteak_kt_2D_adv1l']
+    meta_L = {'slab':L_slab, 'unsteak':L_unsteak}
+    
+    for metaname, L_models in meta_L.items():
+        fig, ax = plt.subplots(2,1,figsize = (10,10),constrained_layout=True,dpi=dpi)
+        for model_name in L_models:
+            data = datas[model_name]
+            Ua = data.Ca.sel(current=dir).sel(lon=location[0],lat=location[1],method='nearest')    
+            xtime = np.arange(t0, t1, dt_forcing) / oneday  
+            ax[0].plot(xtime, Ua, label=model_name, c=colors[model_name], ls=ls[model_name])
+        
+        truth = data.C.sel(lon=location[0],lat=location[1],method='nearest').values
+        truth_NIO = tools.my_fc_filter(dt_forcing, truth[0]+1j*truth[1], fc)
+        
+        ax[0].plot(xtime, truth[0], c='k', label='truth',alpha=0.5)
+        ax[0].plot(xtime, truth_NIO[0], c='k', label='truth_NIO',alpha=1)
+        ax[0].scatter(xtime[::step_obs], truth[0][::step_obs], marker='o',c='r',label='obs')
+        ax[0].set_ylabel('zonal current (m/s)')
+        ax[0].set_title(f'{metaname}: location is {location}')
+        ax[0].legend(loc='lower right')
+        ax[0].grid()
+        ax[0].set_ylim([-0.6,0.6])
+        ax[1].plot(xtime, myforcing.data.oceTAUX.sel(lon=location[0],lat=location[1],method='nearest')  , c='g', label=r'$\tau_x$')
+        ax[1].plot(xtime, myforcing.data.oceTAUY.sel(lon=location[0],lat=location[1],method='nearest')  , c='orange', label=r'$\tau_y$')
+        ax[1].legend()
+        ax[1].set_ylabel('wind stress (N/m2)')
+        ax[1].set_xlabel('time (days)')
+        ax[1].grid()
+        ax[1].set_ylim([-3,3])
+        fig.savefig(path_save_png+f'reconstruction_{metaname}_{location[0]}E_{location[1]}N.png')
+
+
+    # Scores RMSE -------------------------------------
+    print('* Scores ...')
+    print('')
+    print(f'-> at location {location}')
+    print(f'    RMSE')
+    for model_name, data in datas.items():
+        Ca = data.Ca.sel(lon=location[0],lat=location[1],method='nearest').values
+        C = data.C.sel(lon=location[0],lat=location[1],method='nearest').values
+        value = tools.score_RMSE(Ca, C)
+        print(f'    -> model : {model_name}, {value}')
+        
+    print(f'    RMSE for truth filtered at fc')
+    for model_name, data in datas.items():
+        Ca = data.Ca.sel(lon=location[0],lat=location[1],method='nearest').values  
+        C = data.C.sel(lon=location[0],lat=location[1],method='nearest').values
+        C_nio = tools.my_fc_filter(dt_forcing, C[0]+1j*C[1], fc)
+        value = tools.score_RMSE(Ca, C_nio)
+        print(f'    -> model : {model_name}, {value}')
+    
+    print('')
+    print(f'-> over the domain')
+    print(f'    RMSE')
+    for model_name, data in datas.items():
+        Ca = data.Ca.values
+        C = data.C.values
+        value = tools.score_RMSE(Ca, C)
+        print(f'    -> model : {model_name}, {value}')
+        
+    print(f'    RMSE for truth filtered at fc')
+    for model_name, data in datas.items():
+        Ca = data.Ca.values  
+        C = data.C.values
+        # nested vmap for x and y dimensions
+        C_nio = jax.vmap(jax.vmap(tools.my_fc_filter, 
+                                    in_axes=(None, 1, None), 
+                                    out_axes=1
+                                    ),
+                                in_axes=(None, 2, None), 
+                                out_axes=2)(dt_forcing, jnp.asarray(C[0]+1j*C[1]), fc)
+        value = tools.score_RMSE(Ca, C_nio)
+        print(f'    -> model : {model_name}, {value}')
     
     
     
-    datas = {"slab_kt_2D":xr.open_mfdataset(path_save_output+"jslab_kt_2D_-49.0E_39.0N.nc"),
-             "slab_kt_2D_adv":xr.open_mfdataset(path_save_output+"jslab_kt_2D_adv_-49.0E_39.0N.nc"),
-             "junsteak_kt_2D":xr.open_mfdataset(path_save_output+"junsteak_kt_2D_-49.0E_39.0N.nc"),
-             "slab_kt_2D_adv":xr.open_mfdataset(path_save_output+"jslab_kt_2D_adv_-49.0E_39.0N.nc"),
-             "junsteak_kt_2D_adv":xr.open_mfdataset(path_save_output+"junsteak_kt_2D_adv_-49.0E_39.0N.nc")}
+    # Scores PSD -------------------------------------
     
     
     
     
+    
+    
+    
+    plt.show()
     
     
     

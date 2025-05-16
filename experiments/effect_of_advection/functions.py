@@ -7,6 +7,7 @@ import sys
 sys.path.insert(0, '../../src')
 import os
 import xarray as xr
+from datetime import datetime
 
 import tools
 import models.classic_slab as classic_slab
@@ -21,8 +22,10 @@ def save_output_as_nc(mymodel, forcing2D, LON_bounds, LAT_bounds, name_save, whe
     
     # getting data
     Ua,Va = mymodel(save_traj_at=mymodel.dt_forcing)
+    nl=1
     if type(mymodel).__name__ in L_nlayers_models:
         Ua, Va = Ua[:,0], Va[:,0]
+        nl = mymodel.nl
     U = forcing2D.data.U
     V = forcing2D.data.V
     Ug = forcing2D.data.Ug
@@ -32,7 +35,11 @@ def save_output_as_nc(mymodel, forcing2D, LON_bounds, LAT_bounds, name_save, whe
     x = np.arange(LON_bounds[0],LON_bounds[1], 0.1)
     y = np.arange(LAT_bounds[0],LAT_bounds[1], 0.1)  
     
-    #time = np.arange(t0,t1,forcing2D.dt_forcing)
+    
+    Ca = np.stack([Ua, Va])
+    Cg = np.stack([Ug, Vg])
+    C = np.stack([U,V])
+    
     
     """
     TO BE ADDED
@@ -49,20 +56,44 @@ def save_output_as_nc(mymodel, forcing2D, LON_bounds, LAT_bounds, name_save, whe
     os.system('mkdir -p ' + where_to_save)
     
     # making the dataset
-    ds = xr.Dataset({"Ua": (["time", "lat", "lon"], np.asarray(Ua)),
-                     "Ug": (["time", "lat", "lon"], Ug.data),
-                     "Uat": (["time", "lat", "lon"], np.asarray(Ua)+Ug.values),
-                     "Ut": (["time", "lat", "lon"], (U+Ug).data),
+    # ds = xr.Dataset({"Ua": (["time", "lat", "lon"], np.asarray(Ua)),
+    #                  "Ug": (["time", "lat", "lon"], Ug.data),
+    #                  "Uat": (["time", "lat", "lon"], np.asarray(Ua)+Ug.values),
+    #                  "Ut": (["time", "lat", "lon"], (U+Ug).data),
+    #                 },
+    #                 coords={
+    #                     "lon": (["lon"], x),
+    #                     "lat": (["lat"], y),
+    #                     "time": forcing2D.data.time,
+    #                         },
+    #                 attrs={
+    #                     "made_from":"save_output_as_nc",
+    #                     "model_used":type(mymodel).__name__
+    #                 }
+
+    #                 )
+    
+    ds = xr.Dataset({"Ca": (['current',"time", "lat", "lon"], Ca),
+                     "Cg": (['current',"time", "lat", "lon"], Cg),
+                     "C": (['current',"time", "lat", "lon"], C),
                     },
                     coords={
+                        'current': (['current'],[0,1]),
                         "lon": (["lon"], x),
                         "lat": (["lat"], y),
                         "time": forcing2D.data.time,
                             },
                     attrs={
                         "made_from":"save_output_as_nc",
-                        "model_used":type(mymodel).__name__
-                    }
-
-                    )
+                        "model_used":type(mymodel).__name__,
+                        "origin_of_data":"Croco_regrided",
+                        "pk_vector":np.asarray(mymodel.pk),
+                        'nl':nl,
+                        't0':mymodel.t0,
+                        "t1":mymodel.t1,
+                        "dt":mymodel.dt,
+                        "file_creation":datetime.today().strftime('%Y-%m-%d %H:%M:%S'),
+                    })
+    
+    
     ds.to_netcdf(where_to_save + name_save + '.nc')
