@@ -25,7 +25,10 @@ import os
 import xarray as xr
 sys.path.insert(0, '../../src')
 os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false" # for jax
+
 import jax
+jax.config.update('jax_platform_name', 'cpu')
+jax.config.update("jax_enable_x64", True)
 import jax.numpy as jnp
 import equinox as eqx
 
@@ -65,6 +68,10 @@ dpi=200
 path_save_png = './pngs/'
 path_save_models = './saved_models/'
 path_save_output = './saved_outputs/'
+
+PLOT_TRAJ = False
+PLOT_RMSE = False
+PLOT_DIAGFREQ = True
 
 # =================================
 # Forcing, OSSE and observations
@@ -221,94 +228,126 @@ if __name__ == "__main__":
     
     
     # reconstruction at point_loc ----------------
-    dir = 0 # 0=U, 1=V
-    fc = myforcing.fc.mean()
-    step_obs = int(period_obs//dt_forcing)
-   
-    L_slab = ['slab_kt_2D','slab_kt_2D_adv']
-    L_unsteak = ['unsteak_kt_2D','unsteak_kt_2D_adv2l','unsteak_kt_2D_adv1l']
-    meta_L = {'slab':L_slab, 'unsteak':L_unsteak}
+    if PLOT_TRAJ:
+        dir = 0 # 0=U, 1=V
+        fc = myforcing.fc.mean()
+        step_obs = int(period_obs//dt_forcing)
     
-    for metaname, L_models in meta_L.items():
-        fig, ax = plt.subplots(2,1,figsize = (10,10),constrained_layout=True,dpi=dpi)
-        for model_name in L_models:
-            data = datas[model_name]
-            Ua = data.Ca.sel(current=dir).sel(lon=location[0],lat=location[1],method='nearest')    
-            xtime = np.arange(t0, t1, dt_forcing) / oneday  
-            ax[0].plot(xtime, Ua, label=model_name, c=colors[model_name], ls=ls[model_name])
+        L_slab = ['slab_kt_2D','slab_kt_2D_adv']
+        L_unsteak = ['unsteak_kt_2D','unsteak_kt_2D_adv2l','unsteak_kt_2D_adv1l']
+        meta_L = {'slab':L_slab, 'unsteak':L_unsteak}
         
-        truth = data.C.sel(lon=location[0],lat=location[1],method='nearest').values
-        truth_NIO = tools.my_fc_filter(dt_forcing, truth[0]+1j*truth[1], fc)
-        
-        ax[0].plot(xtime, truth[0], c='k', label='truth',alpha=0.5)
-        ax[0].plot(xtime, truth_NIO[0], c='k', label='truth_NIO',alpha=1)
-        ax[0].scatter(xtime[::step_obs], truth[0][::step_obs], marker='o',c='r',label='obs')
-        ax[0].set_ylabel('zonal current (m/s)')
-        ax[0].set_title(f'{metaname}: location is {location}')
-        ax[0].legend(loc='lower right')
-        ax[0].grid()
-        ax[0].set_ylim([-0.6,0.6])
-        ax[1].plot(xtime, myforcing.data.oceTAUX.sel(lon=location[0],lat=location[1],method='nearest')  , c='g', label=r'$\tau_x$')
-        ax[1].plot(xtime, myforcing.data.oceTAUY.sel(lon=location[0],lat=location[1],method='nearest')  , c='orange', label=r'$\tau_y$')
-        ax[1].legend()
-        ax[1].set_ylabel('wind stress (N/m2)')
-        ax[1].set_xlabel('time (days)')
-        ax[1].grid()
-        ax[1].set_ylim([-3,3])
-        fig.savefig(path_save_png+f'reconstruction_{metaname}_{location[0]}E_{location[1]}N.png')
+        for metaname, L_models in meta_L.items():
+            fig, ax = plt.subplots(2,1,figsize = (10,10),constrained_layout=True,dpi=dpi)
+            for model_name in L_models:
+                data = datas[model_name]
+                Ua = data.Ca.sel(current=dir).sel(lon=location[0],lat=location[1],method='nearest')    
+                xtime = np.arange(t0, t1, dt_forcing) / oneday  
+                ax[0].plot(xtime, Ua, label=model_name, c=colors[model_name], ls=ls[model_name])
+            
+            truth = data.C.sel(lon=location[0],lat=location[1],method='nearest').values
+            truth_NIO = tools.my_fc_filter(dt_forcing, truth[0]+1j*truth[1], fc)
+            
+            ax[0].plot(xtime, truth[0], c='k', label='truth',alpha=0.5)
+            ax[0].plot(xtime, truth_NIO[0], c='k', label='truth_NIO',alpha=1)
+            ax[0].scatter(xtime[::step_obs], truth[0][::step_obs], marker='o',c='r',label='obs')
+            ax[0].set_ylabel('zonal current (m/s)')
+            ax[0].set_title(f'{metaname}: location is {location}')
+            ax[0].legend(loc='lower right')
+            ax[0].grid()
+            ax[0].set_ylim([-0.6,0.6])
+            ax[1].plot(xtime, myforcing.data.oceTAUX.sel(lon=location[0],lat=location[1],method='nearest')  , c='g', label=r'$\tau_x$')
+            ax[1].plot(xtime, myforcing.data.oceTAUY.sel(lon=location[0],lat=location[1],method='nearest')  , c='orange', label=r'$\tau_y$')
+            ax[1].legend()
+            ax[1].set_ylabel('wind stress (N/m2)')
+            ax[1].set_xlabel('time (days)')
+            ax[1].grid()
+            ax[1].set_ylim([-3,3])
+            fig.savefig(path_save_png+f'reconstruction_{metaname}_{location[0]}E_{location[1]}N.png')
 
 
     # Scores RMSE -------------------------------------
-    print('* Scores ...')
-    print('')
-    print(f'-> at location {location}')
-    print(f'    RMSE')
-    for model_name, data in datas.items():
-        Ca = data.Ca.sel(lon=location[0],lat=location[1],method='nearest').values
-        C = data.C.sel(lon=location[0],lat=location[1],method='nearest').values
-        value = tools.score_RMSE(Ca, C)
-        print(f'    -> model : {model_name}, {value}')
+    if PLOT_RMSE:
+        print('* Scores RMSE')
+        print('')
+        print(f'-> at location {location}')
+        print(f'    RMSE')
+        for model_name, data in datas.items():
+            Ca = data.Ca.sel(lon=location[0],lat=location[1],method='nearest').values
+            C = data.C.sel(lon=location[0],lat=location[1],method='nearest').values
+            value = tools.score_RMSE(Ca, C)
+            print(f'    -> model : {model_name}, {value}')
+            
+        print(f'    RMSE for truth filtered at fc')
+        for model_name, data in datas.items():
+            Ca = data.Ca.sel(lon=location[0],lat=location[1],method='nearest').values  
+            C = data.C.sel(lon=location[0],lat=location[1],method='nearest').values
+            C_nio = tools.my_fc_filter(dt_forcing, C[0]+1j*C[1], fc)
+            value = tools.score_RMSE(Ca, C_nio)
+            print(f'    -> model : {model_name}, {value}')
         
-    print(f'    RMSE for truth filtered at fc')
-    for model_name, data in datas.items():
-        Ca = data.Ca.sel(lon=location[0],lat=location[1],method='nearest').values  
-        C = data.C.sel(lon=location[0],lat=location[1],method='nearest').values
-        C_nio = tools.my_fc_filter(dt_forcing, C[0]+1j*C[1], fc)
-        value = tools.score_RMSE(Ca, C_nio)
-        print(f'    -> model : {model_name}, {value}')
-    
-    print('')
-    print(f'-> over the domain')
-    print(f'    RMSE')
-    for model_name, data in datas.items():
-        Ca = data.Ca.values
-        C = data.C.values
-        value = tools.score_RMSE(Ca, C)
-        print(f'    -> model : {model_name}, {value}')
-        
-    print(f'    RMSE for truth filtered at fc')
-    for model_name, data in datas.items():
-        Ca = data.Ca.values  
-        C = data.C.values
-        # nested vmap for x and y dimensions
-        C_nio = jax.vmap(jax.vmap(tools.my_fc_filter, 
-                                    in_axes=(None, 1, None), 
-                                    out_axes=1
-                                    ),
-                                in_axes=(None, 2, None), 
-                                out_axes=2)(dt_forcing, jnp.asarray(C[0]+1j*C[1]), fc)
-        value = tools.score_RMSE(Ca, C_nio)
-        print(f'    -> model : {model_name}, {value}')
+        print('')
+        print(f'-> over the domain')
+        print(f'    RMSE')
+        for model_name, data in datas.items():
+            Ca = data.Ca.values
+            C = data.C.values
+            value = tools.score_RMSE(Ca, C)
+            print(f'    -> model : {model_name}, {value}')
+            
+        print(f'    RMSE for truth filtered at fc')
+        for model_name, data in datas.items():
+            Ca = data.Ca.values  
+            C = data.C.values
+            # nested vmap for x and y dimensions
+            C_nio = jax.vmap(jax.vmap(tools.my_fc_filter, 
+                                        in_axes=(None, 1, None), 
+                                        out_axes=1
+                                        ),
+                                    in_axes=(None, 2, None), 
+                                    out_axes=2)(dt_forcing, jnp.asarray(C[0]+1j*C[1]), fc)
+            value = tools.score_RMSE(Ca, C_nio)
+            print(f'    -> model : {model_name}, {value}')
     
     
     
     # Scores PSD -------------------------------------
-    
-    
-    
-    
-    
-    
+    if PLOT_DIAGFREQ:
+        print('* Scores PSD')
+        NORM_FREQ = False
+        skip = 1
+        nf = 700
+        
+        
+        for model_name, data in datas.items():
+            print('     working on', model_name)
+            Ca = data.Ca.values.astype('complex128')
+            truth = data.C.values.astype('complex128')
+            ff, CWr, ACWr, CWe, ACWe = tools.j_rotary_spectra_2D(1., Ca[0], Ca[1], truth[0], truth[1], skip=skip, nf=nf)
+
+            if NORM_FREQ:
+                mean_fc = 2*2*np.pi/86164*np.sin(point_loc[1]*np.pi/180)*onehour/(2*np.pi)
+                xtxt = r'f/$f_c$'
+            else:
+                mean_fc = 1
+                xtxt = 'h-1'
+            
+            fig, axs = plt.subplots(2,1,figsize=(7,6), gridspec_kw={'height_ratios': [4, 1.5]})
+            axs[0].loglog(ff/mean_fc,CWr, c='k', label='reference')
+            axs[0].loglog(ff/mean_fc,CWe, c='b', label='error (model - truth)')
+            #axs[0].axis([2e-3,2e-1, 1e-4,2e0])
+            axs[0].grid('on', which='both')
+            axs[1].set_xlabel(xtxt)
+            axs[0].legend()
+            axs[0].set_ylabel('Clockwise PSD (m2/s2)')
+            axs[0].title.set_text(model_name) # +f', RMSE={np.round(RMSE,5)}'
+
+            axs[1].semilogx(ff/mean_fc,(1-CWe/CWr)*100, c='b', label='Reconstruction Score')
+            #axs[1].axis([2e-3,2e-1,0,100])
+            axs[1].set_ylim([0,100])
+            axs[1].grid('on', which='both')
+            axs[1].set_ylabel('Scores (%)')
+            fig.savefig(path_save_png + model_name + '_diagfreq.png')
     
     plt.show()
     

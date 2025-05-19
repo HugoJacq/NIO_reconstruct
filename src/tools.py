@@ -15,6 +15,10 @@ from joblib import Parallel
 import tqdm
 from dask.callbacks import Callback
 import jax.numpy as jnp
+import jax.scipy as jsp
+import jax
+from jax import lax
+from functools import partial
 
 from constants import rho
 
@@ -264,16 +268,14 @@ def rotary_spectra(dt,Ua,Va,U,V):
 	
 	return ff, Pr2, Pr1, Pe2, Pe1
 
-def rotary_spectra_2D(dt, Ua, Va, U, V):
+def rotary_spectra_2D(dt, Ua, Va, U, V, skip=1, nf=100):
 	"""
 	'rotary_spectra' applied on x, y and time dimensions of arrays
 	"""
 	nt, ny, nx = Ua.shape
-	skip=10
 	count=0
-	nf = 400
 	ensit = np.arange(0,nt-nf,int(nf/2))
-	
+
 	for i in range(nx)[::skip]:
 		for j in range(ny)[::skip]:
 			for it in ensit:
@@ -289,6 +291,8 @@ def rotary_spectra_2D(dt, Ua, Va, U, V):
 					MPe1 += Pe1
 					MPe2 += Pe2 
 				count += 1
+    
+	print(count)
 	MPr1 /= count
 	MPr2 /= count
 	MPe1 /= count
@@ -296,7 +300,127 @@ def rotary_spectra_2D(dt, Ua, Va, U, V):
     
 	return ff, MPr2, MPr1, MPe2, MPe1
 
-def print_memory_array(ds,namevar):
+@partial( jax.jit, static_argnames=['dx','tap','detrend'])
+def j_psd1d(hh		: jnp.ndarray, 
+            dx		: float = 1.,
+            tap		: float = 0.05,
+            detrend	: bool	= True):
+	"""
+	JAX version of psd1d
+
+	Note: 
+ 		- JAX cannot do dynamic shaped arrays, this is why I use jnp.where
+		- matches psd1d with error of 1e-17 (float64)
+ 	"""
+	hh=hh-jnp.mean(hh)
+	nx=jnp.shape(hh)[0]
+
+	# detrend 
+	hh = lax.select(detrend, jsp.signal.detrend(hh), hh)
+  
+	# tap
+	def fn_tap(hh):
+		ntaper = jnp.astype(tap*nx +0.5, int)  
+		indices = jnp.arange(nx)
+		taper = jnp.ones(nx)
+		# start tap
+		start_cos = jnp.cos(jnp.arange(nx)/(ntaper-1.)*jnp.pi/2+3*jnp.pi/2)
+		taper = jnp.where( indices<ntaper, start_cos, taper)
+		# end tap
+		end_cos = jnp.cos(-jnp.arange(-nx+1,1)/(ntaper-1.)*jnp.pi/2+3*jnp.pi/2)
+		taper = jnp.where( indices>nx-ntaper, end_cos, taper)
+		hh=hh*taper
+		return hh
+	hh = lax.cond( tap>0., 	# condition
+               fn_tap, 		# if true
+               lambda x:x,	# if false, do nothing
+               hh)
+
+	ss=jnp.fft.fft(hh)
+	ff=jnp.arange(1,nx/2-1)/(nx*dx)
+
+	PSD=2*dx/(nx)*jnp.abs(ss[1:int(nx/2-1)])**2
+	return ff, PSD
+
+@partial( jax.jit, static_argnames=['dt'])
+def j_rotary_spectra(dt, Ua, Va, U, V):
+	"""
+	Computes the clockwise and counter clockwise spectra
+	INPUT:
+		- Ua,Va : estimated currents (1D)
+		- U,V : True currents (1D)
+	OUTPUT:
+		- frequency array
+		- tuple of 4 (Pr2,Pr1,Pe2,Pe1):
+			- counter clockwise and clockwise spectra of truth
+			- counter clockwise and clockwise spectra of estimate
+
+	Note : jax version, max diff is arround 1e-16 vs 'rotary_spectra'
+	""" 
+	ff, Pr1 = j_psd1d(U+1j*V,dx=dt, detrend=True, tap=0.2)
+	ff, Pr2 = j_psd1d(U-1j*V,dx=dt, detrend=True, tap=0.2)	
+	ff, Pe1 = j_psd1d((Ua-U) +1j* (Va-V) ,dx=dt, detrend=True, tap=0.2)
+	ff, Pe2 = j_psd1d((Ua-U) -1j* (Va-V) ,dx=dt, detrend=True, tap=0.2)
+	return ff, Pr2, Pr1, Pe2, Pe1
+
+@partial( jax.jit, static_argnames=['dt','skip','nf'])
+def j_rotary_spectra_2D(dt, Ua, Va, U, V, skip=1, nf=100):
+	"""
+	'rotary_spectra' applied on x, y and time dimensions of arrays
+ 
+	Note: jax version. Speed up of x17 on a 960x100x100 array using CPU compared to original version with default settings
+			for smaller arrays (or big 'skip' and/or 'nf'), use the numpy version as its more efficient (no need to compile)
+	"""
+	
+	def fn_for_time_scan(carry, it): # <- inner loop
+		MPr2, MPr1, MPe2, MPe1, count, currents, j, i = carry
+		Ua, Va, U, V = currents
+		Ua_slice = lax.dynamic_slice(Ua, (it,j,i), (nf,1,1))[:,0,0]
+		Va_slice = lax.dynamic_slice(Va, (it,j,i), (nf,1,1))[:,0,0]
+		U_slice = lax.dynamic_slice(U, (it,j,i), (nf,1,1))[:,0,0]
+		V_slice = lax.dynamic_slice(V, (it,j,i), (nf,1,1))[:,0,0] 
+ 
+		_, Pr2, Pr1, Pe2, Pe1 = j_rotary_spectra(dt, Ua_slice, Va_slice, U_slice, V_slice)
+		MPr1 += Pr1
+		MPr2 += Pr2 
+		MPe1 += Pe1
+		MPe2 += Pe2 
+		count += 1.
+		carry = MPr2, MPr1, MPe2, MPe1, count, currents, j, i
+		return carry, None
+
+	def fn_for_y_scan(carry, j): # <- mid loop
+		MPr2, MPr1, MPe2, MPe1, count, _, _, i = carry
+		carry = MPr2, MPr1, MPe2, MPe1, count, currents, j, i
+		carry, _ = lax.scan(fn_for_time_scan, carry, xs=ensit)
+		return carry, None
+
+	def fn_for_x_scan(carry, i): # <- outer loop
+		MPr2, MPr1, MPe2, MPe1, count, _, j, _ = carry
+		carry = MPr2, MPr1, MPe2, MPe1, count, currents, j, i
+		carry, _ = lax.scan(fn_for_y_scan, carry, xs=ensy)
+		return carry, None
+
+	# initialization
+	nt, ny, nx = Ua.shape
+	ensit = np.arange(0,nt-nf,int(nf/2)) 
+	ensy = np.arange(0,ny,skip)
+	ensx = np.arange(0,nx,skip)
+	count = 0.
+	ff, Pr2, Pr1, Pe2, Pe1 = j_rotary_spectra(dt, Ua[0:0+nf,0,0], Va[0:0+nf,0,0], U[0:0+nf,0,0], V[0:0+nf,0,0])
+	currents = Ua, Va, U, V #Ua[:,0,0], Va[:,0,0], U[:,0,0], V[:,0,0]
+	carry = Pr2*0., Pr1*0., Pe2*0., Pe1*0., count, currents, 0, 0
+
+	# outer loop
+	carry, _ = lax.scan(fn_for_x_scan, carry, xs=ensx)
+	
+ 
+	MPr2, MPr1, MPe2, MPe1, count, _, _, _ = carry
+	MPr2, MPr1, MPe2, MPe1 = MPr2/count, MPr1/count, MPe2/count, MPe1/count
+    
+	return ff, MPr2, MPr1, MPe2, MPe1
+
+def print_memory_array(ds, namevar):
     """
     print in terminal the amount of memory used by a dask array
     """ 
