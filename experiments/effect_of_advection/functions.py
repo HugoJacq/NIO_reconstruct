@@ -36,9 +36,9 @@ def save_output_as_nc(mymodel, forcing2D, LON_bounds, LAT_bounds, name_save, whe
     y = np.arange(LAT_bounds[0],LAT_bounds[1], 0.1)  
     
     
-    Ca = np.stack([Ua, Va])
-    Cg = np.stack([Ug, Vg])
-    C = np.stack([U,V])
+    Ca = np.stack([Ua, Va],axis=1)
+    Cg = np.stack([Ug, Vg],axis=1)
+    C = np.stack([U,V],axis=1)
     
     
     """
@@ -73,9 +73,9 @@ def save_output_as_nc(mymodel, forcing2D, LON_bounds, LAT_bounds, name_save, whe
 
     #                 )
     
-    ds = xr.Dataset({"Ca": (['current',"time", "lat", "lon"], Ca),
-                     "Cg": (['current',"time", "lat", "lon"], Cg),
-                     "C": (['current',"time", "lat", "lon"], C),
+    ds = xr.Dataset({"Ca": (["time", 'current', "lat", "lon"], Ca),
+                     "Cg": (["time", 'current', "lat", "lon"], Cg),
+                     "C": (["time", 'current', "lat", "lon"], C),
                     },
                     coords={
                         'current': (['current'],[0,1]),

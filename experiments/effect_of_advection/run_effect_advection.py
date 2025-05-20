@@ -27,7 +27,7 @@ sys.path.insert(0, '../../src')
 os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false" # for jax
 
 import jax
-jax.config.update('jax_platform_name', 'cpu')
+# jax.config.update('jax_platform_name', 'cpu')
 jax.config.update("jax_enable_x64", True)
 import jax.numpy as jnp
 import equinox as eqx
@@ -54,14 +54,12 @@ extra_args = {'AD_mode':'F',        # forward mode for AD (for diffrax' diffeqso
             'k_base':'gauss'}       # base of K transform. 'gauss' or 'id'
 
 # run parameters
-t0                  = 60*oneday    # start day 
-t1                  = 100*oneday    # end day
 dt                  = 60.           # timestep of the model (s) 
 
 # What to test
-MINIMIZE            = False      # Does the model converges to a solution ?
+MINIMIZE            = True      # Does the model converges to a solution ?
 maxiter             = 100        # if MINIMIZE: max number of iteration
-SAVE_AS_NC          = False      # for 2D models
+SAVE_AS_NC          = True      # for 2D models
 
 # PLOT
 dpi=200
@@ -69,15 +67,19 @@ path_save_png = './pngs/'
 path_save_models = './saved_models/'
 path_save_output = './saved_outputs/'
 
-PLOT_TRAJ = False
-PLOT_RMSE = False
+PLOT_TRAJ = True
+PLOT_RMSE = True
 PLOT_DIAGFREQ = True
 
 # =================================
 # Forcing, OSSE and observations
 # =================================
 # 1D
-point_loc = [-49.,39.] # march 8th 0300, t0=60 t1=100, centered on an eddy
+point_loc = [-49.,39.]  # march 8th 0300, t0=60 t1=100, centered on an eddy
+point_loc = [-65.,35.]  # april 15th, t0=90, t1=130.
+t0        = 90*oneday   # start day 
+t1        = 130*oneday  # end day
+
 
 # 2D
 R = 5. # 5.0 
@@ -109,8 +111,11 @@ period_obs          = oneday #86400      # s, how many second between observati
 # ============================================================
 # END PARAMETERS
 # ============================================================
-namesave_loc = str(point_loc[0])+'E_'+str(point_loc[1])+'N'
-namesave_loc_area = str(point_loc[0])+'E_'+str(point_loc[1])+'N_R'+str(R)
+namesave_loc = f'ts{int(t0/oneday)}_te{int(t1/oneday)}_{point_loc[0]}E_{point_loc[1]}N'
+namesave_loc_area = f'ts{int(t0/oneday)}_te{int(t1/oneday)}_R{R}_{point_loc[0]}E_{point_loc[1]}N'
+path_save_png = path_save_png +'/'+namesave_loc_area
+path_save_models = path_save_models + '/'+namesave_loc_area+'/'
+path_save_output = path_save_output + '/'+namesave_loc_area+'/'
 os.system('mkdir -p '+path_save_png)
 os.system('mkdir -p '+path_save_models)
 os.system('mkdir -p '+path_save_output)
@@ -275,7 +280,7 @@ if __name__ == "__main__":
         for model_name, data in datas.items():
             Ca = data.Ca.sel(lon=location[0],lat=location[1],method='nearest').values
             C = data.C.sel(lon=location[0],lat=location[1],method='nearest').values
-            value = tools.score_RMSE(Ca, C)
+            value = tools.score_RMSE((Ca[:,0],Ca[:,1]), (C[:,0],C[:,1]))
             print(f'    -> model : {model_name}, {value}')
             
         print(f'    RMSE for truth filtered at fc')
@@ -283,7 +288,7 @@ if __name__ == "__main__":
             Ca = data.Ca.sel(lon=location[0],lat=location[1],method='nearest').values  
             C = data.C.sel(lon=location[0],lat=location[1],method='nearest').values
             C_nio = tools.my_fc_filter(dt_forcing, C[0]+1j*C[1], fc)
-            value = tools.score_RMSE(Ca, C_nio)
+            value = tools.score_RMSE((Ca[:,0],Ca[:,1]), (C_nio[:,0],C_nio[:,1]))
             print(f'    -> model : {model_name}, {value}')
         
         print('')
@@ -292,7 +297,7 @@ if __name__ == "__main__":
         for model_name, data in datas.items():
             Ca = data.Ca.values
             C = data.C.values
-            value = tools.score_RMSE(Ca, C)
+            value = tools.score_RMSE((Ca[:,0],Ca[:,1]), (C[:,0],C[:,1]))
             print(f'    -> model : {model_name}, {value}')
             
         print(f'    RMSE for truth filtered at fc')
@@ -306,7 +311,7 @@ if __name__ == "__main__":
                                         ),
                                     in_axes=(None, 2, None), 
                                     out_axes=2)(dt_forcing, jnp.asarray(C[0]+1j*C[1]), fc)
-            value = tools.score_RMSE(Ca, C_nio)
+            value = tools.score_RMSE((Ca[:,0],Ca[:,1]), (C_nio[:,0],C_nio[:,1]))
             print(f'    -> model : {model_name}, {value}')
     
     
@@ -323,7 +328,7 @@ if __name__ == "__main__":
             print('     working on', model_name)
             Ca = data.Ca.values.astype('complex128')
             truth = data.C.values.astype('complex128')
-            ff, CWr, ACWr, CWe, ACWe = tools.j_rotary_spectra_2D(1., Ca[0], Ca[1], truth[0], truth[1], skip=skip, nf=nf)
+            ff, CWr, ACWr, CWe, ACWe = tools.j_rotary_spectra_2D(1., Ca[:,0], Ca[:,1], truth[:,0], truth[:,1], skip=skip, nf=nf)
 
             if NORM_FREQ:
                 mean_fc = 2*2*np.pi/86164*np.sin(point_loc[1]*np.pi/180)*onehour/(2*np.pi)
