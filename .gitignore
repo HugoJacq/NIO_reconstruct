@@ -801,3 +801,17 @@ experiments/effect_of_advection/saved_outputs/ts60_te100_R5.0_-49.0E_39.0N/slab_
 experiments/effect_of_advection/saved_outputs/ts60_te100_R5.0_-49.0E_39.0N/unsteak_kt_2D_-49.0E_39.0N.nc
 experiments/effect_of_advection/saved_outputs/ts60_te100_R5.0_-49.0E_39.0N/unsteak_kt_2D_adv1l_-49.0E_39.0N.nc
 experiments/effect_of_advection/saved_outputs/ts60_te100_R5.0_-49.0E_39.0N/unsteak_kt_2D_adv2l_-49.0E_39.0N.nc
+experiments/effect_of_advection/pngs/ts90_te130_R5.0_-65.0E_35.0N/reconstruction_slab_-65.0E_35.0N.png
+experiments/effect_of_advection/pngs/ts90_te130_R5.0_-65.0E_35.0N/reconstruction_slab_-67.0E_38.0N.png
+experiments/effect_of_advection/pngs/ts90_te130_R5.0_-65.0E_35.0N/reconstruction_unsteak_-65.0E_35.0N.png
+experiments/effect_of_advection/pngs/ts90_te130_R5.0_-65.0E_35.0N/reconstruction_unsteak_-67.0E_38.0N.png
+experiments/effect_of_advection/saved_models/ts90_te130_R5.0_-65.0E_35.0N/slab_kt_2D_adv.pt
+experiments/effect_of_advection/saved_models/ts90_te130_R5.0_-65.0E_35.0N/slab_kt_2D.pt
+experiments/effect_of_advection/saved_models/ts90_te130_R5.0_-65.0E_35.0N/unsteak_kt_2D_adv1l.pt
+experiments/effect_of_advection/saved_models/ts90_te130_R5.0_-65.0E_35.0N/unsteak_kt_2D_adv2l.pt
+experiments/effect_of_advection/saved_models/ts90_te130_R5.0_-65.0E_35.0N/unsteak_kt_2D.pt
+experiments/effect_of_advection/saved_outputs/ts90_te130_R5.0_-65.0E_35.0N/slab_kt_2D_adv_ts90_te130_R5.0_-65.0E_35.0N.nc
+experiments/effect_of_advection/saved_outputs/ts90_te130_R5.0_-65.0E_35.0N/slab_kt_2D_ts90_te130_R5.0_-65.0E_35.0N.nc
+experiments/effect_of_advection/saved_outputs/ts90_te130_R5.0_-65.0E_35.0N/unsteak_kt_2D_adv1l_ts90_te130_R5.0_-65.0E_35.0N.nc
+experiments/effect_of_advection/saved_outputs/ts90_te130_R5.0_-65.0E_35.0N/unsteak_kt_2D_adv2l_ts90_te130_R5.0_-65.0E_35.0N.nc
+experiments/effect_of_advection/saved_outputs/ts90_te130_R5.0_-65.0E_35.0N/unsteak_kt_2D_ts90_te130_R5.0_-65.0E_35.0N.nc

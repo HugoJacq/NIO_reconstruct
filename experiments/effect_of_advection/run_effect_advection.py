@@ -57,9 +57,9 @@ extra_args = {'AD_mode':'F',        # forward mode for AD (for diffrax' diffeqso
 dt                  = 60.           # timestep of the model (s) 
 
 # What to test
-MINIMIZE            = True      # Does the model converges to a solution ?
-maxiter             = 100        # if MINIMIZE: max number of iteration
-SAVE_AS_NC          = True      # for 2D models
+MINIMIZE            = False     # Does the model converges to a solution ?
+maxiter             = 100       # if MINIMIZE: max number of iteration
+SAVE_AS_NC          = False      
 
 # PLOT
 dpi=200
@@ -75,11 +75,10 @@ PLOT_DIAGFREQ = True
 # Forcing, OSSE and observations
 # =================================
 # 1D
-point_loc = [-49.,39.]  # march 8th 0300, t0=60 t1=100, centered on an eddy
+point_loc = [-49.,39.]  # march 8th 0300, t0=60,65 t1=100,75, centered on an eddy
 point_loc = [-65.,35.]  # april 15th, t0=90, t1=130.
-t0        = 90*oneday   # start day 
-t1        = 130*oneday  # end day
-
+t0, t0_plot = 90*oneday, 90*oneday   # start day 
+t1, t1_plot = 130*oneday, 130*oneday  # end day
 
 # 2D
 R = 5. # 5.0 
@@ -113,9 +112,9 @@ period_obs          = oneday #86400      # s, how many second between observati
 # ============================================================
 namesave_loc = f'ts{int(t0/oneday)}_te{int(t1/oneday)}_{point_loc[0]}E_{point_loc[1]}N'
 namesave_loc_area = f'ts{int(t0/oneday)}_te{int(t1/oneday)}_R{R}_{point_loc[0]}E_{point_loc[1]}N'
-path_save_png = path_save_png +'/'+namesave_loc_area
-path_save_models = path_save_models + '/'+namesave_loc_area+'/'
-path_save_output = path_save_output + '/'+namesave_loc_area+'/'
+path_save_png = path_save_png + namesave_loc_area+'/'
+path_save_models = path_save_models +namesave_loc_area+'/'
+path_save_output = path_save_output +namesave_loc_area+'/'
 os.system('mkdir -p '+path_save_png)
 os.system('mkdir -p '+path_save_models)
 os.system('mkdir -p '+path_save_output)
@@ -200,21 +199,23 @@ if __name__ == "__main__":
         
         for model_name, mymodel in dict_models.items():
             # model_name = type(model).__name__
-            name_save = model_name+'_'+namesave_loc
+            name_save = model_name+'_'+namesave_loc_area
             save_output_as_nc(mymodel, myforcing, LON_bounds, LAT_bounds, name_save, path_save_output)
-
+        print('     done !')
     ################################################
     # STEP 3:
     #
     # Load .nc datasets for analysis, then plots
     ################################################
     location = [-49.5,39.5]
+    location = [-67.,38.]
     
-    datas = {"slab_kt_2D":xr.open_mfdataset(path_save_output+"slab_kt_2D_-49.0E_39.0N.nc"),
-             "slab_kt_2D_adv":xr.open_mfdataset(path_save_output+"slab_kt_2D_adv_-49.0E_39.0N.nc"),
-             "unsteak_kt_2D":xr.open_mfdataset(path_save_output+"unsteak_kt_2D_-49.0E_39.0N.nc"),
-             "unsteak_kt_2D_adv2l":xr.open_mfdataset(path_save_output+"unsteak_kt_2D_adv2l_-49.0E_39.0N.nc"),
-             "unsteak_kt_2D_adv1l":xr.open_mfdataset(path_save_output+"unsteak_kt_2D_adv1l_-49.0E_39.0N.nc")}
+    
+    datas = {"slab_kt_2D":xr.open_mfdataset(path_save_output+f"slab_kt_2D_{namesave_loc_area}.nc"),
+             "slab_kt_2D_adv":xr.open_mfdataset(path_save_output+f"slab_kt_2D_adv_{namesave_loc_area}.nc"),
+             "unsteak_kt_2D":xr.open_mfdataset(path_save_output+f"unsteak_kt_2D_{namesave_loc_area}.nc"),
+             "unsteak_kt_2D_adv2l":xr.open_mfdataset(path_save_output+f"unsteak_kt_2D_adv2l_{namesave_loc_area}.nc"),
+             "unsteak_kt_2D_adv1l":xr.open_mfdataset(path_save_output+f"unsteak_kt_2D_adv1l_{namesave_loc_area}.nc")}
     
     colors = {"slab_kt_2D":'b',
              "slab_kt_2D_adv":'g',
@@ -251,16 +252,17 @@ if __name__ == "__main__":
                 ax[0].plot(xtime, Ua, label=model_name, c=colors[model_name], ls=ls[model_name])
             
             truth = data.C.sel(lon=location[0],lat=location[1],method='nearest').values
-            truth_NIO = tools.my_fc_filter(dt_forcing, truth[0]+1j*truth[1], fc)
+            truth_NIO = tools.my_fc_filter(dt_forcing, truth[:,0]+1j*truth[:,1], fc)
             
-            ax[0].plot(xtime, truth[0], c='k', label='truth',alpha=0.5)
+            ax[0].plot(xtime, truth[:,0], c='k', label='truth',alpha=0.5)
             ax[0].plot(xtime, truth_NIO[0], c='k', label='truth_NIO',alpha=1)
-            ax[0].scatter(xtime[::step_obs], truth[0][::step_obs], marker='o',c='r',label='obs')
+            ax[0].scatter(xtime[::step_obs], truth[::step_obs,0], marker='o',c='r',label='obs')
             ax[0].set_ylabel('zonal current (m/s)')
             ax[0].set_title(f'{metaname}: location is {location}')
             ax[0].legend(loc='lower right')
             ax[0].grid()
             ax[0].set_ylim([-0.6,0.6])
+            ax[0].set_xlim([t0_plot/oneday, t1_plot/oneday])
             ax[1].plot(xtime, myforcing.data.oceTAUX.sel(lon=location[0],lat=location[1],method='nearest')  , c='g', label=r'$\tau_x$')
             ax[1].plot(xtime, myforcing.data.oceTAUY.sel(lon=location[0],lat=location[1],method='nearest')  , c='orange', label=r'$\tau_y$')
             ax[1].legend()
@@ -268,6 +270,7 @@ if __name__ == "__main__":
             ax[1].set_xlabel('time (days)')
             ax[1].grid()
             ax[1].set_ylim([-3,3])
+            ax[1].set_xlim([t0_plot/oneday, t1_plot/oneday])
             fig.savefig(path_save_png+f'reconstruction_{metaname}_{location[0]}E_{location[1]}N.png')
 
 
