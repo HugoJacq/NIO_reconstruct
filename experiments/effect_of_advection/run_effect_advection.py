@@ -59,7 +59,7 @@ dt                  = 60.           # timestep of the model (s)
 # What to test
 MINIMIZE            = False     # Does the model converges to a solution ?
 maxiter             = 100       # if MINIMIZE: max number of iteration
-SAVE_AS_NC          = False      
+SAVE_AS_NC          = True      
 
 # PLOT
 dpi=200
@@ -67,18 +67,22 @@ path_save_png = './pngs/'
 path_save_models = './saved_models/'
 path_save_output = './saved_outputs/'
 
-PLOT_TRAJ = True
-PLOT_RMSE = True
-PLOT_DIAGFREQ = True
+PLOT_TRAJ = False
+PLOT_RMSE = False
+PLOT_DIAGFREQ = False
+PLOT_SNAPSHOT = True
 
 # =================================
 # Forcing, OSSE and observations
 # =================================
 # 1D
 point_loc = [-49.,39.]  # march 8th 0300, t0=60,65 t1=100,75, centered on an eddy
-point_loc = [-65.,35.]  # april 15th, t0=90, t1=130.
-t0, t0_plot = 90*oneday, 90*oneday   # start day 
-t1, t1_plot = 130*oneday, 130*oneday  # end day
+t0, t0_plot = 60*oneday, 65*oneday   # start day 
+t1, t1_plot = 100*oneday, 75*oneday  # end day
+
+# point_loc = [-60.,37.]  # february 26th t0=50 ,t1=30
+# t0, t0_plot = 50*oneday, 50*oneday   # start day 
+# t1, t1_plot = 80*oneday, 80*oneday  # end day
 
 # 2D
 R = 5. # 5.0 
@@ -208,7 +212,7 @@ if __name__ == "__main__":
     # Load .nc datasets for analysis, then plots
     ################################################
     location = [-49.5,39.5]
-    location = [-67.,38.]
+    # location = [-67.,38.]
     
     
     datas = {"slab_kt_2D":xr.open_mfdataset(path_save_output+f"slab_kt_2D_{namesave_loc_area}.nc"),
@@ -272,8 +276,7 @@ if __name__ == "__main__":
             ax[1].set_ylim([-3,3])
             ax[1].set_xlim([t0_plot/oneday, t1_plot/oneday])
             fig.savefig(path_save_png+f'reconstruction_{metaname}_{location[0]}E_{location[1]}N.png')
-
-
+            
     # Scores RMSE -------------------------------------
     if PLOT_RMSE:
         print('* Scores RMSE')
@@ -316,9 +319,7 @@ if __name__ == "__main__":
                                     out_axes=2)(dt_forcing, jnp.asarray(C[0]+1j*C[1]), fc)
             value = tools.score_RMSE((Ca[:,0],Ca[:,1]), (C_nio[:,0],C_nio[:,1]))
             print(f'    -> model : {model_name}, {value}')
-    
-    
-    
+        
     # Scores PSD -------------------------------------
     if PLOT_DIAGFREQ:
         print('* Scores PSD')
@@ -357,6 +358,84 @@ if __name__ == "__main__":
             axs[1].set_ylabel('Scores (%)')
             fig.savefig(path_save_png + model_name + '_diagfreq.png')
     
+    # 2D snapshots -----------------------------------
+    if PLOT_SNAPSHOT:
+        cmap = 'seismic'
+        vmin, vmax = -0.5, 0.5
+        indt = 150
+        dir = 0         # 0=U, 1=V
+        
+        # comparing slabs
+        fig, ax = plt.subplots(1,2,figsize = (6,4),constrained_layout=True,dpi=dpi)
+        # -> no adv
+        data = datas['slab_kt_2D']
+        U = data.C.isel(time=indt, current=dir)
+        Ug = data.Cg.isel(time=indt, current=dir)
+        Ua = data.Ca.isel(time=indt,current=dir)
+        lon = data.lon
+        lat = data.lat
+        ax[0].pcolormesh(lon, lat, Ua, cmap=cmap, vmin=vmin, vmax=vmax)
+        ax[0].set_ylabel('lat')
+        ax[0].set_title('slab')
+        # -> adv
+        Ua = datas['slab_kt_2D_adv'].Ca.isel(time=indt,current=dir)
+        ax[1].pcolormesh(lon, lat, Ua, cmap=cmap, vmin=vmin, vmax=vmax)
+        ax[1].set_title('slab + adv')
+        for axe in ax:
+            axe.set_xlabel('lon')
+            axe.set_aspect(1.)
+        fig.suptitle(f'slab at t={np.round(t0/oneday+indt*dt_forcing/oneday,2)}/365, U ageo')
+        fig.savefig(path_save_png+f'snapshot_slab_it{indt}_dir{dir}.png')
+        
+        # comparings unsteak
+        fig, ax = plt.subplots(1,2,figsize = (6,4),constrained_layout=True,dpi=dpi)
+        # -> no adv
+        data = datas['unsteak_kt_2D']
+        Ua = data.Ca.isel(time=indt,current=dir)
+        lon = data.lon
+        lat = data.lat
+        ax[0].pcolormesh(lon, lat, Ua, cmap=cmap, vmin=vmin, vmax=vmax)
+        ax[0].set_ylabel('lat')
+        ax[0].set_title('unsteak')
+        # -> adv
+        Ua = datas['unsteak_kt_2D_adv2l'].Ca.isel(time=indt,current=dir)
+        ax[1].pcolormesh(lon, lat, Ua, cmap=cmap, vmin=vmin, vmax=vmax)
+        ax[1].set_title('unsteak + adv2l')
+        for axe in ax:
+            axe.set_xlabel('lon')
+            axe.set_aspect(1.)
+        fig.suptitle(f'slab at t={np.round(t0/oneday+indt*dt_forcing/oneday,2)}/365, U ageo')
+        fig.savefig(path_save_png+f'snapshot_unsteak_it{indt}_dir{dir}.png')
+        
+        
+        
+        # truth ageo and geo       
+        fig, ax = plt.subplots(2,1,figsize = (4,7),constrained_layout=True,dpi=dpi)
+        im = ax[0].pcolormesh(lon, lat, U, cmap=cmap, vmin=vmin, vmax=vmax)
+        plt.colorbar(im, ax=ax[0], aspect=50, pad=0.05)
+        im = ax[1].pcolormesh(lon, lat, Ug, cmap=cmap, vmin=vmin, vmax=vmax)
+        plt.colorbar(im, ax=ax[1], aspect=50, pad=0.05)
+        for axe in ax:
+            axe.set_xlabel('lon')
+            axe.set_aspect(1.)
+        fig.suptitle(f'truth')
+        fig.savefig(path_save_png+f'snapshot_truth_it{indt}_dir{dir}.png')
+        
+        # fig = plt.figure(figsize=(3, 6), dpi=dpi, constrained_layout=True)
+        # gs = fig.add_gridspec(2, 2, width_ratios=[20, 1])
+        # ax0 = fig.add_subplot(gs[0, 0])
+        # ax1 = fig.add_subplot(gs[1, 0])
+        # ax = [ax0, ax1]
+        # cbar_ax = fig.add_subplot(gs[:, 1])
+        # ax[1].pcolormesh(lon, lat, Ug, cmap=cmap, vmin=vmin, vmax=vmax)
+        # im = ax[0].pcolormesh(lon, lat, U, cmap=cmap, vmin=vmin, vmax=vmax)
+        # for axe in ax:
+        #     axe.set_xlabel('lon')
+        #     axe.set_aspect(1.)
+        # fig.colorbar(im, cax=cbar_ax)
+        # fig.suptitle(f'truth')
+        # fig.savefig(path_save_png+f'snapshot_truth_it{indt}_dir{dir}.png')
+        
     plt.show()
     
     
