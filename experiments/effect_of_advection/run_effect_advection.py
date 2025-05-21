@@ -70,8 +70,8 @@ path_save_output = './saved_outputs/'
 
 PLOT_TRAJ = False
 PLOT_RMSE = False
-PLOT_DIAGFREQ = False
-PLOT_SNAPSHOT = True
+PLOT_DIAGFREQ = True
+PLOT_SNAPSHOT = False
 
 # =================================
 # Forcing, OSSE and observations
@@ -361,6 +361,8 @@ if __name__ == "__main__":
             truth = data.C.values.astype('complex128')
             ff, CWr, ACWr, CWe, ACWe = tools.j_rotary_spectra_2D(1., Ca[:,0], Ca[:,1], truth[:,0], truth[:,1], skip=skip, nf=nf)
 
+            ff, CWr_a, ACWr_a, _, _ = tools.j_rotary_spectra_2D(1., Ca[:,0], Ca[:,1], Ca[:,0], Ca[:,1], skip=skip, nf=nf)
+
             if NORM_FREQ:
                 mean_fc = 2*2*np.pi/86164*np.sin(point_loc[1]*np.pi/180)*onehour/(2*np.pi)
                 xtxt = r'f/$f_c$'
@@ -370,12 +372,14 @@ if __name__ == "__main__":
             
             fig, axs = plt.subplots(2,1,figsize=(7,6), gridspec_kw={'height_ratios': [4, 1.5]})
             axs[0].loglog(ff/mean_fc,CWr, c='k', label='reference')
+            axs[0].loglog(ff/mean_fc, CWr_a, c='g', label='model')
             axs[0].loglog(ff/mean_fc,CWe, c='b', label='error (model - truth)')
             #axs[0].axis([2e-3,2e-1, 1e-4,2e0])
             axs[0].grid('on', which='both')
             axs[1].set_xlabel(xtxt)
             axs[0].legend()
             axs[0].set_ylabel('Clockwise PSD (m2/s2)')
+            axs[0].set_ylim([1e-5,2.])
             axs[0].title.set_text(model_name) # +f', RMSE={np.round(RMSE,5)}'
 
             axs[1].semilogx(ff/mean_fc,(1-CWe/CWr)*100, c='b', label='Reconstruction Score')
@@ -384,6 +388,8 @@ if __name__ == "__main__":
             axs[1].grid('on', which='both')
             axs[1].set_ylabel('Scores (%)')
             fig.savefig(path_save_png + model_name + '_diagfreq.png')
+            
+            
     
     # 2D snapshots -----------------------------------
     if PLOT_SNAPSHOT:
