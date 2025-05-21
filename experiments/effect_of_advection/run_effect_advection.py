@@ -42,6 +42,7 @@ from constants import *
 from Listes_models import *
 
 from functions import save_output_as_nc
+from constants import distance_1deg_equator
 # ============================================================
 # PARAMETERS
 # ============================================================
@@ -59,7 +60,7 @@ dt                  = 60.           # timestep of the model (s)
 # What to test
 MINIMIZE            = False     # Does the model converges to a solution ?
 maxiter             = 100       # if MINIMIZE: max number of iteration
-SAVE_AS_NC          = True      
+SAVE_AS_NC          = False      
 
 # PLOT
 dpi=200
@@ -67,7 +68,7 @@ path_save_png = './pngs/'
 path_save_models = './saved_models/'
 path_save_output = './saved_outputs/'
 
-PLOT_TRAJ = False
+PLOT_TRAJ = True
 PLOT_RMSE = False
 PLOT_DIAGFREQ = False
 PLOT_SNAPSHOT = True
@@ -75,14 +76,38 @@ PLOT_SNAPSHOT = True
 # =================================
 # Forcing, OSSE and observations
 # =================================
-# 1D
-point_loc = [-49.,39.]  # march 8th 0300, t0=60,65 t1=100,75, centered on an eddy
-t0, t0_plot = 60*oneday, 65*oneday   # start day 
-t1, t1_plot = 100*oneday, 75*oneday  # end day
+# point_loc = [-49.,39.]  # march 8th 0300, t0=60,65 t1=100,75, centered on an eddy
+# t0, t0_plot = 60*oneday, 65*oneday   # start day 
+# t1, t1_plot = 100*oneday, 75*oneday  # end day
 
 # point_loc = [-60.,37.]  # february 26th t0=50 ,t1=30
 # t0, t0_plot = 50*oneday, 50*oneday   # start day 
 # t1, t1_plot = 80*oneday, 80*oneday  # end day
+
+point_loc = [-46.5,40.]  # feb 1rst, t0=32 t1=72, centered on a cyclonic eddy
+t0, t0_plot = 60*oneday, 65*oneday   # start day 
+t1, t1_plot = 100*oneday, 75*oneday  # end day
+
+"""
+cyclone:
+    point_loc = [-49.,39.]  # march 8th 0300, t0=60,65 t1=100,75, centered on an eddy
+    t0, t0_plot = 60*oneday, 65*oneday   # start day 
+    t1, t1_plot = 100*oneday, 75*oneday  # end day
+    indt = 239
+    location = [-49.5,39.5]
+    
+    point_loc = [-46.5,40.]  # feb 23rd, t0=32 t1=72, centered on a cyclonic eddy
+    t0, t0_plot = 32*oneday, 32*oneday   # start day 
+    t1, t1_plot = 72*oneday, 72*oneday  # end day
+    indt = 523
+    location = [-49.,39.]
+    
+    
+anticyclone: ?
+
+    
+"""
+
 
 # 2D
 R = 5. # 5.0 
@@ -181,11 +206,11 @@ if __name__ == "__main__":
         for model_name, mymodel in dict_models.items():
             # model_name = type(mymodel).__name__
             print(f'\n     working on {model_name}..')
-            t2 = clock.time()
+            myt2 = clock.time()
             var = inv.Variational(mymodel, myobservation)
             mymodel, _ = var.scipy_lbfgs_wrapper(mymodel, maxiter, verbose=True)   
             eqx.tree_serialise_leaves(path_save_models+f'{model_name}.pt', mymodel)
-            print(f'        time, minimize {model_name} = {clock.time()-t2}')
+            print(f'        time, minimize {model_name} = {clock.time()-myt2}')
         print(f'time, minimize all = {clock.time()-tstart}')
 
     ################################################
@@ -213,6 +238,7 @@ if __name__ == "__main__":
     ################################################
     location = [-49.5,39.5]
     # location = [-67.,38.]
+    location = [-49.,39.]
     
     
     datas = {"slab_kt_2D":xr.open_mfdataset(path_save_output+f"slab_kt_2D_{namesave_loc_area}.nc"),
@@ -242,13 +268,14 @@ if __name__ == "__main__":
         dir = 0 # 0=U, 1=V
         fc = myforcing.fc.mean()
         step_obs = int(period_obs//dt_forcing)
-    
+        figsize = (5,5)
+        lfontsize = 7
         L_slab = ['slab_kt_2D','slab_kt_2D_adv']
         L_unsteak = ['unsteak_kt_2D','unsteak_kt_2D_adv2l','unsteak_kt_2D_adv1l']
         meta_L = {'slab':L_slab, 'unsteak':L_unsteak}
         
         for metaname, L_models in meta_L.items():
-            fig, ax = plt.subplots(2,1,figsize = (10,10),constrained_layout=True,dpi=dpi)
+            fig, ax = plt.subplots(2,1,figsize = figsize,constrained_layout=True, dpi=dpi, gridspec_kw={'height_ratios': [3, 1]})
             for model_name in L_models:
                 data = datas[model_name]
                 Ua = data.Ca.sel(current=dir).sel(lon=location[0],lat=location[1],method='nearest')    
@@ -263,13 +290,13 @@ if __name__ == "__main__":
             ax[0].scatter(xtime[::step_obs], truth[::step_obs,0], marker='o',c='r',label='obs')
             ax[0].set_ylabel('zonal current (m/s)')
             ax[0].set_title(f'{metaname}: location is {location}')
-            ax[0].legend(loc='lower right')
+            ax[0].legend(loc='lower right', fontsize=lfontsize)
             ax[0].grid()
             ax[0].set_ylim([-0.6,0.6])
             ax[0].set_xlim([t0_plot/oneday, t1_plot/oneday])
             ax[1].plot(xtime, myforcing.data.oceTAUX.sel(lon=location[0],lat=location[1],method='nearest')  , c='g', label=r'$\tau_x$')
             ax[1].plot(xtime, myforcing.data.oceTAUY.sel(lon=location[0],lat=location[1],method='nearest')  , c='orange', label=r'$\tau_y$')
-            ax[1].legend()
+            ax[1].legend(fontsize=lfontsize)
             ax[1].set_ylabel('wind stress (N/m2)')
             ax[1].set_xlabel('time (days)')
             ax[1].grid()
@@ -362,15 +389,16 @@ if __name__ == "__main__":
     if PLOT_SNAPSHOT:
         cmap = 'seismic'
         vmin, vmax = -0.5, 0.5
-        indt = 150
+        indt = 523
         dir = 0         # 0=U, 1=V
         
         # comparing slabs
-        fig, ax = plt.subplots(1,2,figsize = (6,4),constrained_layout=True,dpi=dpi)
+        fig, ax = plt.subplots(1,2,figsize = (6.5,4),constrained_layout=True,dpi=dpi)
         # -> no adv
         data = datas['slab_kt_2D']
         U = data.C.isel(time=indt, current=dir)
-        Ug = data.Cg.isel(time=indt, current=dir)
+        Ug = data.Cg.isel(time=indt, current=0)
+        Vg = data.Cg.isel(time=indt, current=1)
         Ua = data.Ca.isel(time=indt,current=dir)
         lon = data.lon
         lat = data.lat
@@ -388,7 +416,7 @@ if __name__ == "__main__":
         fig.savefig(path_save_png+f'snapshot_slab_it{indt}_dir{dir}.png')
         
         # comparings unsteak
-        fig, ax = plt.subplots(1,2,figsize = (6,4),constrained_layout=True,dpi=dpi)
+        fig, ax = plt.subplots(1,2,figsize = (6.5,4),constrained_layout=True,dpi=dpi)
         # -> no adv
         data = datas['unsteak_kt_2D']
         Ua = data.Ca.isel(time=indt,current=dir)
@@ -406,35 +434,22 @@ if __name__ == "__main__":
             axe.set_aspect(1.)
         fig.suptitle(f'slab at t={np.round(t0/oneday+indt*dt_forcing/oneday,2)}/365, U ageo')
         fig.savefig(path_save_png+f'snapshot_unsteak_it{indt}_dir{dir}.png')
-        
-        
-        
-        # truth ageo and geo       
+
+        # truth ageo and geo    
+        dx = 0.1*distance_1deg_equator
+        dy = dx
+        rot = np.gradient(Vg, dx, axis=-1) - np.gradient(Ug, dy, axis=0)
         fig, ax = plt.subplots(2,1,figsize = (4,7),constrained_layout=True,dpi=dpi)
         im = ax[0].pcolormesh(lon, lat, U, cmap=cmap, vmin=vmin, vmax=vmax)
         plt.colorbar(im, ax=ax[0], aspect=50, pad=0.05)
-        im = ax[1].pcolormesh(lon, lat, Ug, cmap=cmap, vmin=vmin, vmax=vmax)
+        im = ax[1].pcolormesh(lon, lat, rot, cmap=cmap, vmin=-6e-5, vmax=6e-5) # , vmin=vmin, vmax=vmax
         plt.colorbar(im, ax=ax[1], aspect=50, pad=0.05)
         for axe in ax:
             axe.set_xlabel('lon')
             axe.set_aspect(1.)
         fig.suptitle(f'truth')
         fig.savefig(path_save_png+f'snapshot_truth_it{indt}_dir{dir}.png')
-        
-        # fig = plt.figure(figsize=(3, 6), dpi=dpi, constrained_layout=True)
-        # gs = fig.add_gridspec(2, 2, width_ratios=[20, 1])
-        # ax0 = fig.add_subplot(gs[0, 0])
-        # ax1 = fig.add_subplot(gs[1, 0])
-        # ax = [ax0, ax1]
-        # cbar_ax = fig.add_subplot(gs[:, 1])
-        # ax[1].pcolormesh(lon, lat, Ug, cmap=cmap, vmin=vmin, vmax=vmax)
-        # im = ax[0].pcolormesh(lon, lat, U, cmap=cmap, vmin=vmin, vmax=vmax)
-        # for axe in ax:
-        #     axe.set_xlabel('lon')
-        #     axe.set_aspect(1.)
-        # fig.colorbar(im, cax=cbar_ax)
-        # fig.suptitle(f'truth')
-        # fig.savefig(path_save_png+f'snapshot_truth_it{indt}_dir{dir}.png')
+
         
     plt.show()
     
