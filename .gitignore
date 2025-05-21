@@ -876,3 +876,6 @@ experiments/effect_of_advection/pngs/ts60_te100_R5.0_-46.5E_40.0N/reconstruction
 experiments/effect_of_advection/pngs/ts60_te100_R5.0_-46.5E_40.0N/snapshot_slab_it523_dir0.png
 experiments/effect_of_advection/pngs/ts60_te100_R5.0_-46.5E_40.0N/snapshot_truth_it523_dir0.png
 experiments/effect_of_advection/pngs/ts60_te100_R5.0_-46.5E_40.0N/snapshot_unsteak_it523_dir0.png
+experiments/effect_of_advection/pngs/ts60_te100_R5.0_-49.0E_39.0N/snapshot_slab_it523_dir0.png
+experiments/effect_of_advection/pngs/ts60_te100_R5.0_-49.0E_39.0N/snapshot_truth_it523_dir0.png
+experiments/effect_of_advection/pngs/ts60_te100_R5.0_-49.0E_39.0N/snapshot_unsteak_it523_dir0.png

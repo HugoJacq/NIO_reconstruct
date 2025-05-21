@@ -68,7 +68,7 @@ path_save_png = './pngs/'
 path_save_models = './saved_models/'
 path_save_output = './saved_outputs/'
 
-PLOT_TRAJ = True
+PLOT_TRAJ = False
 PLOT_RMSE = False
 PLOT_DIAGFREQ = False
 PLOT_SNAPSHOT = True
@@ -76,17 +76,20 @@ PLOT_SNAPSHOT = True
 # =================================
 # Forcing, OSSE and observations
 # =================================
-# point_loc = [-49.,39.]  # march 8th 0300, t0=60,65 t1=100,75, centered on an eddy
-# t0, t0_plot = 60*oneday, 65*oneday   # start day 
-# t1, t1_plot = 100*oneday, 75*oneday  # end day
+point_loc = [-49.,39.]  # march 8th 0300, t0=60,65 t1=100,75, centered on an eddy
+t0, t0_plot = 60*oneday, 65*oneday   # start day 
+t1, t1_plot = 100*oneday, 75*oneday  # end day
+location_to_plot = [-49.5,39.5]
 
 # point_loc = [-60.,37.]  # february 26th t0=50 ,t1=30
 # t0, t0_plot = 50*oneday, 50*oneday   # start day 
 # t1, t1_plot = 80*oneday, 80*oneday  # end day
+# location_to_plot = [-67.,38.]
 
-point_loc = [-46.5,40.]  # feb 1rst, t0=32 t1=72, centered on a cyclonic eddy
-t0, t0_plot = 60*oneday, 65*oneday   # start day 
-t1, t1_plot = 100*oneday, 75*oneday  # end day
+# point_loc = [-46.5,40.]  # feb 1rst, t0=32 t1=72, centered on a cyclonic eddy
+# t0, t0_plot = 60*oneday, 65*oneday   # start day 
+# t1, t1_plot = 100*oneday, 75*oneday  # end day
+# location_to_plot = [-49.,39.]
 
 """
 cyclone:
@@ -236,10 +239,7 @@ if __name__ == "__main__":
     #
     # Load .nc datasets for analysis, then plots
     ################################################
-    location = [-49.5,39.5]
-    # location = [-67.,38.]
-    location = [-49.,39.]
-    
+    location = location_to_plot
     
     datas = {"slab_kt_2D":xr.open_mfdataset(path_save_output+f"slab_kt_2D_{namesave_loc_area}.nc"),
              "slab_kt_2D_adv":xr.open_mfdataset(path_save_output+f"slab_kt_2D_adv_{namesave_loc_area}.nc"),
@@ -320,8 +320,8 @@ if __name__ == "__main__":
         for model_name, data in datas.items():
             Ca = data.Ca.sel(lon=location[0],lat=location[1],method='nearest').values  
             C = data.C.sel(lon=location[0],lat=location[1],method='nearest').values
-            C_nio = tools.my_fc_filter(dt_forcing, C[0]+1j*C[1], fc)
-            value = tools.score_RMSE((Ca[:,0],Ca[:,1]), (C_nio[:,0],C_nio[:,1]))
+            C_nio = tools.my_fc_filter(dt_forcing, C[:,0]+1j*C[:,1], fc)
+            value = tools.score_RMSE((Ca[:,0],Ca[:,1]), (C_nio[0],C_nio[1]))
             print(f'    -> model : {model_name}, {value}')
         
         print('')
@@ -343,8 +343,8 @@ if __name__ == "__main__":
                                         out_axes=1
                                         ),
                                     in_axes=(None, 2, None), 
-                                    out_axes=2)(dt_forcing, jnp.asarray(C[0]+1j*C[1]), fc)
-            value = tools.score_RMSE((Ca[:,0],Ca[:,1]), (C_nio[:,0],C_nio[:,1]))
+                                    out_axes=2)(dt_forcing, jnp.asarray(C[:,0]+1j*C[:,1]), fc)
+            value = tools.score_RMSE((Ca[:,0],Ca[:,1]), (C_nio[0],C_nio[1]))
             print(f'    -> model : {model_name}, {value}')
         
     # Scores PSD -------------------------------------
@@ -387,9 +387,9 @@ if __name__ == "__main__":
     
     # 2D snapshots -----------------------------------
     if PLOT_SNAPSHOT:
-        cmap = 'seismic'
+        cmap = 'BrBG_r'
         vmin, vmax = -0.5, 0.5
-        indt = 523
+        indt = 239 # 523
         dir = 0         # 0=U, 1=V
         
         # comparing slabs
@@ -442,7 +442,7 @@ if __name__ == "__main__":
         fig, ax = plt.subplots(2,1,figsize = (4,7),constrained_layout=True,dpi=dpi)
         im = ax[0].pcolormesh(lon, lat, U, cmap=cmap, vmin=vmin, vmax=vmax)
         plt.colorbar(im, ax=ax[0], aspect=50, pad=0.05)
-        im = ax[1].pcolormesh(lon, lat, rot, cmap=cmap, vmin=-6e-5, vmax=6e-5) # , vmin=vmin, vmax=vmax
+        im = ax[1].pcolormesh(lon, lat, rot, cmap='seismic', vmin=-6e-5, vmax=6e-5) # , vmin=vmin, vmax=vmax
         plt.colorbar(im, ax=ax[1], aspect=50, pad=0.05)
         for axe in ax:
             axe.set_xlabel('lon')
@@ -452,17 +452,3 @@ if __name__ == "__main__":
 
         
     plt.show()
-    
-    
-    
-"""Plot: 
-
-- when plotting a trajectory, plot the stress also
-- plot of Ug on the area, shouldnt change too much on 10 days! -> help locate the eddy of interest.
-
-- plot trajectories of reconstructed current for each model at the center of the eddy (or on the side ?)
-- plot RMSE of this trajectory, plot mean RMSE over the XY patch
-- plot spectra and score over the XY patch
-
-
-"""
