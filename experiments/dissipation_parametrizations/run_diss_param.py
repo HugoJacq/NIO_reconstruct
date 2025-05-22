@@ -44,27 +44,29 @@ os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false" # for jax
 jax.config.update("jax_enable_x64", True)
 
 # my imports
-from train_preprocessing import data_maker, batch_loader, normalize_batch
+from train_preprocessing import data_maker, batch_loader, normalize_batch, get_dataset_subset
 from train_functions import train, my_partition, vmap_loss
 from time_integration import Integration_Euler
 from constants import oneday, onehour, distance_1deg_equator
-from models_definition import RHS, Dissipation_Rayleigh, Stress_term, Coriolis_term, Dissipation_CNN, Dissipation_MLP, get_number_of_param
+from models_definition import *
 from configs import prepare_config
 
 #====================================================================================================
 # PARAMETERS
 #====================================================================================================
 
+# => see configs.py for configuration specific parameters
+
 # training the models
-TRAIN_SLAB      = True     # run the training and save best model
-TRAIN_NN        = True
-TRAINING_MODE   = 'offline'
-NN_MODEL_NAME   = 'MLP'     # CNN MLP
-PLOT_THE_MODEL  = True      # plot a trajectory with model converged
+TRAIN_SLAB      = False     # run the training and save best model
+TRAIN_NN        = False
+TRAINING_MODE   = 'online'
+NN_MODEL_NAME   = 'MLP_linear'     # CNN MLP MLP_linear
+PLOT_THE_MODEL  = False      # plot a trajectory with model converged
 
 # Comparing models
 PLOTTING        = True      # plot figures that compares models
-COMPARE_TO_NN   = 'MLP'
+COMPARE_TO_NN   = 'CNN'
 
 # time steps
 dt_forcing  = 3600.         # time step of forcing (s)
@@ -110,17 +112,17 @@ name_base_folder = 'features'+''.join('_'+variable for variable in [])+'/'
 os.system(f'mkdir -p {name_base_folder}')
 
 filename =  ['../../data_regrid/croco_1h_inst_surf_2005-01-01-2005-01-31_0.1deg_conservative.nc',
-            #   '../../data_regrid/croco_1h_inst_surf_2005-02-01-2005-02-28_0.1deg_conservative.nc',
-            #   '../../data_regrid/croco_1h_inst_surf_2005-03-01-2005-03-31_0.1deg_conservative.nc',
-            #   '../../data_regrid/croco_1h_inst_surf_2005-04-01-2005-04-30_0.1deg_conservative.nc',
-            #   '../../data_regrid/croco_1h_inst_surf_2005-05-01-2005-05-31_0.1deg_conservative.nc',
-            #   '../../data_regrid/croco_1h_inst_surf_2005-06-01-2005-06-30_0.1deg_conservative.nc',
-            #   '../../data_regrid/croco_1h_inst_surf_2005-07-01-2005-07-31_0.1deg_conservative.nc',
-            #   '../../data_regrid/croco_1h_inst_surf_2005-08-01-2005-08-31_0.1deg_conservative.nc',
-            #   '../../data_regrid/croco_1h_inst_surf_2005-09-01-2005-09-30_0.1deg_conservative.nc',
-            #   '../../data_regrid/croco_1h_inst_surf_2005-10-01-2005-10-31_0.1deg_conservative.nc',
-            #   '../../data_regrid/croco_1h_inst_surf_2005-11-01-2005-11-30_0.1deg_conservative.nc',
-            #   '../../data_regrid/croco_1h_inst_surf_2005-12-01-2005-12-31_0.1deg_conservative.nc'
+              '../../data_regrid/croco_1h_inst_surf_2005-02-01-2005-02-28_0.1deg_conservative.nc',
+              '../../data_regrid/croco_1h_inst_surf_2005-03-01-2005-03-31_0.1deg_conservative.nc',
+              '../../data_regrid/croco_1h_inst_surf_2005-04-01-2005-04-30_0.1deg_conservative.nc',
+              '../../data_regrid/croco_1h_inst_surf_2005-05-01-2005-05-31_0.1deg_conservative.nc',
+              '../../data_regrid/croco_1h_inst_surf_2005-06-01-2005-06-30_0.1deg_conservative.nc',
+              '../../data_regrid/croco_1h_inst_surf_2005-07-01-2005-07-31_0.1deg_conservative.nc',
+              '../../data_regrid/croco_1h_inst_surf_2005-08-01-2005-08-31_0.1deg_conservative.nc',
+              '../../data_regrid/croco_1h_inst_surf_2005-09-01-2005-09-30_0.1deg_conservative.nc',
+              '../../data_regrid/croco_1h_inst_surf_2005-10-01-2005-10-31_0.1deg_conservative.nc',
+              '../../data_regrid/croco_1h_inst_surf_2005-11-01-2005-11-30_0.1deg_conservative.nc',
+              '../../data_regrid/croco_1h_inst_surf_2005-12-01-2005-12-31_0.1deg_conservative.nc'
               ]
 
 # prepare data
@@ -369,6 +371,8 @@ if PLOT_THE_MODEL:
         myDissipation = Dissipation_CNN(subkey, len(FEATURES_NAMES)+2, to_train=True)
     elif NN_MODEL_NAME=='MLP':
         myDissipation = Dissipation_MLP(subkey, len(FEATURES_NAMES)+2, to_train=True)
+    elif NN_MODEL_NAME=='MLP_linear':
+        myDissipation = Dissipation_MLP_linear(subkey, len(FEATURES_NAMES)+2, to_train=True)
     else:
         raise Exception(f'NN_MODEL_NAME={NN_MODEL_NAME} is not recognized')
     best_RHS = eqx.tree_deserialise_leaves(name_base_folder+COMPARE_TO_NN+'/'+TRAINING_MODE+f'/best_RHS_{COMPARE_TO_NN}.pt',
@@ -379,9 +383,9 @@ if PLOT_THE_MODEL:
 
     dynamic_model, static_model = my_partition(best_RHS)
     n_test_data, norms_te = normalize_batch(test_data, 
-                                  L_to_be_normalized='features')
+                                  L_to_be_normalized=L_TO_BE_NORMALIZED)
     n_train_data, norms_tr = normalize_batch(train_data, 
-                                  L_to_be_normalized='features')
+                                  L_to_be_normalized=L_TO_BE_NORMALIZED)
     
     # integrating 1 traj
     for name_data, data, norms in zip(['train','test'],[n_train_data, n_test_data],[norms_tr, norms_te]):
@@ -418,10 +422,18 @@ if PLOT_THE_MODEL:
 #############
 
 if PLOTTING:
+    print('* Plotting ....')
     os.system(f'mkdir -p {path_save_png}')
     colors = ['b','g']
     
+    t0 = 0
+    t1 = 31*24
+    
+    
+    ###########
     # NN output
+    ###########
+    print('     -> computing trajectory using NN model')
     if NN_MODEL_NAME=='CNN':
         myDissipation = Dissipation_CNN(subkey, len(FEATURES_NAMES)+2, to_train=True)
     elif NN_MODEL_NAME=='MLP':
@@ -433,12 +445,28 @@ if PLOTTING:
                                                      Stress_term(K0 = K0), 
                                                      myDissipation)                  
                                                 )
-    dynamic_model, static_model = my_partition(best_RHS_NN)
-    NN_test_data, NN_norms_te = normalize_batch(test_data, 
-                                  L_to_be_normalized='features')
-    NN_train_data, NN_norms_tr = normalize_batch(train_data, 
-                                  L_to_be_normalized='features')
     
+    # here we get a subset as for long integration (= long rollout)
+    #   the data doesnt fit in memory
+    data_train_plot = get_dataset_subset(data_set=train_data,
+                                        t0 = t0,
+                                        t1 = t1)
+    data_test_plot = get_dataset_subset(data_set=test_data,
+                                        t0 = t0,
+                                        t1 = t1)
+        
+    # NN_test_data, NN_norms_te = normalize_batch(test_data, 
+    #                               L_to_be_normalized=L_TO_BE_NORMALIZED)
+    # NN_train_data, NN_norms_tr = normalize_batch(train_data, 
+    #                               L_to_be_normalized=L_TO_BE_NORMALIZED)
+    
+    NN_train_data, NN_norms_tr = normalize_batch(data_train_plot, 
+                                  L_to_be_normalized=L_TO_BE_NORMALIZED)
+    NN_test_data, NN_norms_te = normalize_batch(data_test_plot, 
+                                  L_to_be_normalized=L_TO_BE_NORMALIZED)
+    
+    
+
     traj_NN_train = Integration_Euler(NN_train_data['forcing'][0,0:2,:,:], 
                                     NN_train_data['forcing'][:,2:4,:,:], 
                                     NN_train_data['features'],
@@ -454,10 +482,25 @@ if PLOTTING:
                                     dt_Euler, 
                                     dt_forcing,
                                     NN_test_data['forcing'].shape[0],
-                                    NN_norms_te)
+                                    NN_norms_te) # time, current, ny, nx
     
+   
     
+    dCdt_NN_train = np.gradient(traj_NN_train, 3600., axis=0)
+    dCdt_NN_test = np.gradient(traj_NN_test, 3600., axis=0)
+    coriolis_NN_train = jax.vmap(best_RHS_NN.coriolis_term)(traj_NN_train)
+    coriolis_NN_test = jax.vmap(best_RHS_NN.coriolis_term)(traj_NN_test)
+    stress_NN_train = jax.vmap(best_RHS_NN.stress_term)(NN_train_data['forcing'][:,2:4,:,:])
+    stress_NN_test = jax.vmap(best_RHS_NN.stress_term)(NN_test_data['forcing'][:,2:4,:,:])
+    normed_traj_NN_train = (traj_NN_train - NN_norms_tr['features']['mean'][np.newaxis,0:2,np.newaxis,np.newaxis])/NN_norms_tr['features']['std'][np.newaxis,0:2,np.newaxis,np.newaxis]
+    diss_NN_train = jax.vmap(best_RHS_NN.dissipation_term)(normed_traj_NN_train)
+    normed_traj_NN_test = (traj_NN_test - NN_norms_te['features']['mean'][np.newaxis,:,np.newaxis,np.newaxis])/NN_norms_te['features']['std'][np.newaxis,:,np.newaxis,np.newaxis]
+    diss_NN_test = jax.vmap(best_RHS_NN.dissipation_term)(normed_traj_NN_test)
+    
+    #############
     # slab output
+    #############
+    print('     -> computing trajectory using slab model')
     best_RHS_slab =  eqx.tree_deserialise_leaves(name_base_folder+'slab/'+TRAINING_MODE+'/best_RHS_slab.pt',   # <- getting the saved PyTree 
                                                 RHS(Coriolis_term(fc = fc), 
                                                     Stress_term(K0 = K0), 
@@ -465,12 +508,27 @@ if PLOTTING:
                                                 ) 
     
     
-                                                   
-    dynamic_model, static_model = my_partition(best_RHS_slab)
-    slab_test_data, slab_norms_te = normalize_batch(test_data, 
+    
+    # here we get a subset as for long integration (= long rollout)
+    #   the data doesnt fit in memory
+    data_train_plot = get_dataset_subset(data_set=train_data,
+                                        t0 = t0,
+                                        t1 = t1)
+    data_test_plot = get_dataset_subset(data_set=test_data,
+                                        t0 = t0,
+                                        t1 = t1)
+        
+    # slab_test_data, slab_norms_te = normalize_batch(test_data, 
+    #                               L_to_be_normalized='') # <- here no need to normalize as there is no NN
+    # slab_train_data, slab_norms_tr = normalize_batch(train_data, 
+    #                               L_to_be_normalized='') # <- here no need to normalize as there is no NN
+    
+    
+    slab_train_data, slab_norms_tr = normalize_batch(data_train_plot, 
                                   L_to_be_normalized='') # <- here no need to normalize as there is no NN
-    slab_train_data, slab_norms_tr = normalize_batch(train_data, 
+    slab_test_data, slab_norms_te = normalize_batch(data_test_plot, 
                                   L_to_be_normalized='') # <- here no need to normalize as there is no NN
+    
     
     traj_slab_train = Integration_Euler(slab_train_data['forcing'][0,0:2,:,:], 
                                     slab_train_data['forcing'][:,2:4,:,:], 
@@ -489,43 +547,122 @@ if PLOTTING:
                                     slab_test_data['forcing'].shape[0],
                                     slab_norms_te)
     
+    dCdt_slab_train = np.gradient(traj_slab_train, 3600., axis=0)
+    dCdt_slab_test = np.gradient(traj_slab_test, 3600., axis=0)
+    coriolis_slab_train = jax.vmap(best_RHS_slab.coriolis_term)(traj_slab_train)
+    coriolis_slab_test = jax.vmap(best_RHS_slab.coriolis_term)(traj_slab_test)
+    stress_slab_train = jax.vmap(best_RHS_slab.stress_term)(slab_train_data['forcing'][:,2:4,:,:])
+    stress_slab_test = jax.vmap(best_RHS_slab.stress_term)(slab_test_data['forcing'][:,2:4,:,:])
+    diss_slab_train = jax.vmap(best_RHS_slab.dissipation_term)(traj_slab_train)
+    diss_slab_test = jax.vmap(best_RHS_slab.dissipation_term)(traj_slab_test)
     
-    # train set
-    xtime = np.arange(0, Ntrain, 1.)*onehour/oneday
+    # true budget (at K0 fixed)
+    coriolis_true_train = jax.vmap(best_RHS_slab.coriolis_term)(slab_train_data['forcing'][:,0:2,:,:])
+    coriolis_true_test = jax.vmap(best_RHS_slab.coriolis_term)(slab_test_data['forcing'][:,0:2,:,:])
+    stress_true_train = stress_slab_train # and = stress_NN_train
+    stress_true_test = stress_slab_test # and = stress_NN_test
+    dCdt_train = np.gradient(slab_train_data['forcing'][:,0:2,:,:], 3600., axis=0)
+    dCdt_test = np.gradient(slab_test_data['forcing'][:,0:2,:,:], 3600., axis=0)
+    diss_true_train = dCdt_train - coriolis_true_train - stress_true_train
+    diss_true_test = dCdt_test - coriolis_true_test - stress_true_test
+    
+    
+    # trajectory on train set
+    # xtime = np.arange(0, Ntrain, 1.)*onehour/oneday
+    xtime_train = np.arange(t0,t1,1)*onehour/oneday
     fig, ax = plt.subplots(2,1,figsize = (10,10), constrained_layout=True,dpi=100)
-    ax[0].plot(xtime, slab_train_data['target'].mean(axis=(2,3))[:,0], c='k', label='true U')
-    ax[0].plot(xtime, traj_slab_train.mean(axis=(2,3))[:,0], c='b', label='estimated U (slab)')
-    ax[0].plot(xtime, traj_NN_train.mean(axis=(2,3))[:,0], c='g', label='estimated U (NN)')
+    ax[0].plot(xtime_train, slab_train_data['target'].mean(axis=(2,3))[:,0], c='k', label='true U')
+    ax[0].plot(xtime_train, traj_slab_train.mean(axis=(2,3))[:,0], c='b', label='estimated U (slab)')
+    ax[0].plot(xtime_train, traj_NN_train.mean(axis=(2,3))[:,0], c='g', label=f'estimated U ({COMPARE_TO_NN})')
     ax[0].set_ylabel('zonal current (m/s)')
     ax[0].set_title(f'train_data')
     ax[0].set_ylim([-0.2,0.2])
     ax[0].legend()
-    ax[1].plot(xtime, slab_train_data['forcing'].mean(axis=(2,3))[:,2], c='b', label='TAx')
-    ax[1].plot(xtime, slab_train_data['forcing'].mean(axis=(2,3))[:,3], c='orange', label='TAy')
+    ax[1].plot(xtime_train, slab_train_data['forcing'].mean(axis=(2,3))[:,2], c='b', label='TAx')
+    ax[1].plot(xtime_train, slab_train_data['forcing'].mean(axis=(2,3))[:,3], c='orange', label='TAy')
     ax[1].set_xlabel('time (days)')
     ax[1].set_ylabel('stress N/m2')
     ax[1].legend()
     ax[1].set_ylim([-2.,2.])
-    fig.savefig(path_save_png+f'train_slab_{NN_MODEL_NAME}.png')
+    fig.savefig(path_save_png+f'train_slab_{COMPARE_TO_NN}.png')
     
-    # test set
-    xtime = np.arange(Ntrain, len(ds.time), 1.)*onehour/oneday
+    # trajectory on test set
+    # xtime = np.arange(Ntrain, len(ds.time), 1.)*onehour/oneday
+    xtime_test = np.arange(Ntrain+t0,Ntrain+t1,1)*onehour/oneday
     fig, ax = plt.subplots(2,1,figsize = (10,10), constrained_layout=True,dpi=100)
-    ax[0].plot(xtime, slab_test_data['target'].mean(axis=(2,3))[:,0], c='k', label='true U')
-    ax[0].plot(xtime, traj_slab_test.mean(axis=(2,3))[:,0], c='b', label='estimated U (slab)')
-    ax[0].plot(xtime, traj_NN_test.mean(axis=(2,3))[:,0], c='g', label='estimated U (NN)')
+    ax[0].plot(xtime_test, slab_test_data['target'].mean(axis=(2,3))[:,0], c='k', label='true U')
+    ax[0].plot(xtime_test, traj_slab_test.mean(axis=(2,3))[:,0], c='b', label='estimated U (slab)')
+    ax[0].plot(xtime_test, traj_NN_test.mean(axis=(2,3))[:,0], c='g', label=f'estimated U ({COMPARE_TO_NN})')
     ax[0].set_ylabel('zonal current (m/s)')
     ax[0].set_title(f'test_data')
     ax[0].set_ylim([-0.2,0.2])
     ax[0].legend()
-    ax[1].plot(xtime, slab_test_data['forcing'].mean(axis=(2,3))[:,2], c='b', label='TAx')
-    ax[1].plot(xtime, slab_test_data['forcing'].mean(axis=(2,3))[:,3], c='orange', label='TAy')
+    ax[1].plot(xtime_test, slab_test_data['forcing'].mean(axis=(2,3))[:,2], c='b', label='TAx')
+    ax[1].plot(xtime_test, slab_test_data['forcing'].mean(axis=(2,3))[:,3], c='orange', label='TAy')
     ax[1].set_xlabel('time (days)')
     ax[1].set_ylabel('stress N/m2')
     ax[1].set_ylim([-2.,2.])
     ax[1].legend()
     ax[1].legend()
-    fig.savefig(path_save_png+f'test_set_slab_{NN_MODEL_NAME}.png')
+    fig.savefig(path_save_png+f'test_set_slab_{COMPARE_TO_NN}.png')
+  
+    # budget on train set
+    fig, ax = plt.subplots(3,1,figsize = (10,10), constrained_layout=True,dpi=100)
+    # -> slab
+    ax[0].plot(xtime_train, coriolis_slab_train.mean(axis=(2,3))[:,0], c='orange')
+    ax[0].plot(xtime_train, stress_slab_train.mean(axis=(2,3))[:,0], c='green')
+    ax[0].plot(xtime_train, diss_slab_train.mean(axis=(2,3))[:,0], c='b')
+    ax[0].plot(xtime_train, dCdt_slab_train.mean(axis=(2,3))[:,0], c='k')
+    ax[0].set_title('slab')
+    # -> NN
+    ax[1].plot(xtime_train, coriolis_NN_train.mean(axis=(2,3))[:,0], c='orange')
+    ax[1].plot(xtime_train, stress_NN_train.mean(axis=(2,3))[:,0], c='green')
+    ax[1].plot(xtime_train, diss_NN_train.mean(axis=(2,3))[:,0], c='b')
+    ax[1].plot(xtime_train, dCdt_NN_train.mean(axis=(2,3))[:,0], c='k')
+    ax[1].set_title(f'NN ({COMPARE_TO_NN})')
+    # -> truth
+    ax[2].plot(xtime_train, coriolis_true_train.mean(axis=(2,3))[:,0], c='orange', label='Coriolis')
+    ax[2].plot(xtime_train, stress_true_train.mean(axis=(2,3))[:,0], c='green', label='Stress')
+    ax[2].plot(xtime_train, diss_true_train.mean(axis=(2,3))[:,0], c='b', label='Diss')
+    ax[2].plot(xtime_train, dCdt_train.mean(axis=(2,3))[:,0], c='k', label='dCdt')
+    ax[2].set_title('truth')
+    ax[2].set_xlabel('time (days)')
+    ax[2].legend()
+    for axe in ax:
+        axe.set_ylabel(r'$m.s^{-2}$')
+        axe.set_ylim([-2e-5,2e-5])
+    fig.suptitle('U budget train set')
+    fig.savefig(path_save_png+f'train_set_U_budget_slab_{COMPARE_TO_NN}.png')
+    
+    
+    # budget on test set
+    fig, ax = plt.subplots(3,1,figsize = (10,10), constrained_layout=True,dpi=100)
+    # -> slab
+    ax[0].plot(xtime_test, coriolis_slab_test.mean(axis=(2,3))[:,0], c='orange')
+    ax[0].plot(xtime_test, stress_slab_test.mean(axis=(2,3))[:,0], c='green')
+    ax[0].plot(xtime_test, diss_slab_test.mean(axis=(2,3))[:,0], c='b')
+    ax[0].plot(xtime_test, dCdt_slab_test.mean(axis=(2,3))[:,0], c='k')
+    ax[0].set_title('slab')
+    # -> NN
+    ax[1].plot(xtime_test, coriolis_NN_test.mean(axis=(2,3))[:,0], c='orange')
+    ax[1].plot(xtime_test, stress_NN_test.mean(axis=(2,3))[:,0], c='green')
+    ax[1].plot(xtime_test, diss_NN_test.mean(axis=(2,3))[:,0], c='b')
+    ax[1].plot(xtime_test, dCdt_NN_test.mean(axis=(2,3))[:,0], c='k')
+    ax[1].set_title(f'NN ({COMPARE_TO_NN})')
+    # -> truth
+    ax[2].plot(xtime_test, coriolis_true_test.mean(axis=(2,3))[:,0], c='orange', label='Coriolis')
+    ax[2].plot(xtime_test, stress_true_test.mean(axis=(2,3))[:,0], c='green', label='Stress')
+    ax[2].plot(xtime_test, diss_true_test.mean(axis=(2,3))[:,0], c='b', label='Diss')
+    ax[2].plot(xtime_test, dCdt_test.mean(axis=(2,3))[:,0], c='k', label='dCdt')
+    ax[2].set_title('truth')
+    ax[2].set_xlabel('time (days)')
+    ax[2].legend()
+    for axe in ax:
+        axe.set_ylabel(r'$m.s^{-2}$')
+        axe.set_ylim([-2e-5,2e-5])
+    fig.suptitle('U budget test set')
+    fig.savefig(path_save_png+f'test_set_U_budget_slab_{NN_MODEL_NAME}.png')
+    
   
     """Plot: trajectory reconstructed on train dataset (and next on test data set)
     

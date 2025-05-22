@@ -12,8 +12,8 @@ d_base_config = {
                 'L_to_be_normalized':''},
         
         "CNN":{'optimizer':'adam',
-                'linear_lr': (1e-4, 1e-6, 40, 40), # lr_start, lr_end, ntr, start_tr
-                'MAX_STEP':500,
+                'linear_lr': (1e-4, 1e-6, 20, 50), # lr_start, lr_end, ntr, start_tr
+                'MAX_STEP':200,
                 'PRINT_EVERY':1,
                 'features_names':[],
                 'forcing_names':[],
@@ -22,12 +22,20 @@ d_base_config = {
         
         "MLP":{'optimizer':'adam',
                 'linear_lr': (1e-5, 1e-6, 10, 10), # lr_start, lr_end, ntr, start_tr
-                'MAX_STEP':30,
+                'MAX_STEP':200,
                 'PRINT_EVERY':1,
                 'features_names':[],
                 'forcing_names':[],
                 'BATCH_SIZE':300,
-                'L_to_be_normalized':'features'}
+                'L_to_be_normalized':'features'},
+        "MLP_linear":{'optimizer':'adam',
+                'linear_lr': (1e-5, 1e-6, 10, 10), # lr_start, lr_end, ntr, start_tr
+                'MAX_STEP':200,
+                'PRINT_EVERY':1,
+                'features_names':[],
+                'forcing_names':[],
+                'BATCH_SIZE':300,
+                'L_to_be_normalized':''},
             }
  
 d_training_config = {

@@ -42,9 +42,7 @@ class Stress_term(eqx.Module):
     
     def filter_set_trainable(self, filter_spec):
         return eqx.tree_at(lambda t: t.K0, filter_spec, replace=True)
-    
-    
-    
+     
     
 class Coriolis_term(eqx.Module):
     """
@@ -82,9 +80,7 @@ class Dissipation_Rayleigh(eqx.Module):
     def filter_set_trainable(self, filter_spec):
         return eqx.tree_at(lambda t: t.R, filter_spec, replace=True)
     
-    
-        
-        
+          
 class Dissipation_CNN(eqx.Module):
     """
     Dissipation is parametrized as a CNN.
@@ -137,7 +133,6 @@ class Dissipation_CNN(eqx.Module):
         return filter_spec
     
 
-
 class Dissipation_MLP(eqx.Module):
     """
     Dissipation is parametrized as a MLP.
@@ -184,11 +179,56 @@ class Dissipation_MLP(eqx.Module):
                 filter_spec = eqx.tree_at(lambda t: t.layers[i].weight, filter_spec, replace=True)
                 filter_spec = eqx.tree_at(lambda t: t.layers[i].bias, filter_spec, replace=True)
         return filter_spec
+    
+    
+class Dissipation_MLP_linear(eqx.Module):
+    """
+    Dissipation is parametrized as a MLP, no activation function
+    
+    Inputs are features normalized
+    """
+    layers: list
+    to_train : bool
+    
+    # renormalization values (mean,std)
+    NORMmean  : np.array 
+    NORMstd    : np.array
+    
+    def __init__(self, key, Nfeatures, dtype='float32', to_train=True):
+        key1, key2, key3 = jax.random.split(key, 3)
+        depth = 64
+        self.layers = [jnp.ravel,
+                        eqx.nn.Linear(Nfeatures*128*128, depth, key=key1),
+                        eqx.nn.Linear(depth, depth, key=key2),
+                        eqx.nn.Linear(depth, 2*128*128, key=key3),
+                        ]  
+        # intialization of last linear layers
+        # weights as normal distribution, std=1. and mean=0.
+        # bias as 0.
+        alpha = 1e-4
+        initializer = jax.nn.initializers.normal(stddev=alpha) # mean is 0.
+        self.layers[-1] = eqx.tree_at( lambda t:t.weight, self.layers[-1], initializer(key3, (2*128*128, depth)))
+        self.layers[-1] = eqx.tree_at( lambda t:t.bias, self.layers[-1], self.layers[-1].bias*0.)
+         
+        self.NORMmean, self.NORMstd = np.zeros(2, dtype=dtype), np.ones(2, dtype=dtype)     
+        self.to_train = to_train
+        
+    def __call__(self, x: Float[Array, "Nfeatures Ny Nx"]) -> Float[Array, "Currents Ny Nx"]:
+        for layer in self.layers:
+            x = layer(x)    
+        x = jnp.reshape(x, (2,128,128)) 
+        return x 
 
-####
+    def filter_set_trainable(self, filter_spec):
+        for i, layer in enumerate(filter_spec.layers):
+            if isinstance(layer, eqx.nn.Linear) or isinstance(layer, eqx.nn.Conv):
+                filter_spec = eqx.tree_at(lambda t: t.layers[i].weight, filter_spec, replace=True)
+                filter_spec = eqx.tree_at(lambda t: t.layers[i].bias, filter_spec, replace=True)
+        return filter_spec
+
+####################
 # Utility functions
-###
-
+####################
 def get_number_of_param(model: eqx.Module):
     filtered,_ = my_partition(model)
     leafs, _ = jtu.tree_flatten(filtered)
