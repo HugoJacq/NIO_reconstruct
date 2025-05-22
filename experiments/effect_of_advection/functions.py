@@ -53,26 +53,6 @@ def save_output_as_nc(mymodel, forcing2D, LON_bounds, LAT_bounds, name_save, whe
     
     """
     
-    os.system('mkdir -p ' + where_to_save)
-    
-    # making the dataset
-    # ds = xr.Dataset({"Ua": (["time", "lat", "lon"], np.asarray(Ua)),
-    #                  "Ug": (["time", "lat", "lon"], Ug.data),
-    #                  "Uat": (["time", "lat", "lon"], np.asarray(Ua)+Ug.values),
-    #                  "Ut": (["time", "lat", "lon"], (U+Ug).data),
-    #                 },
-    #                 coords={
-    #                     "lon": (["lon"], x),
-    #                     "lat": (["lat"], y),
-    #                     "time": forcing2D.data.time,
-    #                         },
-    #                 attrs={
-    #                     "made_from":"save_output_as_nc",
-    #                     "model_used":type(mymodel).__name__
-    #                 }
-
-    #                 )
-    
     ds = xr.Dataset({"Ca": (["time", 'current', "lat", "lon"], Ca),
                      "Cg": (["time", 'current', "lat", "lon"], Cg),
                      "C": (["time", 'current', "lat", "lon"], C),
