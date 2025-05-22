@@ -68,18 +68,18 @@ path_save_png = './pngs/'
 path_save_models = './saved_models/'
 path_save_output = './saved_outputs/'
 
-PLOT_TRAJ = False
+PLOT_TRAJ = True
 PLOT_RMSE = False
-PLOT_DIAGFREQ = True
-PLOT_SNAPSHOT = False
+PLOT_DIAGFREQ = False
+PLOT_SNAPSHOT = True
 
 # =================================
 # Forcing, OSSE and observations
 # =================================
-point_loc = [-49.,39.]  # march 8th 0300, t0=60,65 t1=100,75, centered on an eddy
-t0, t0_plot = 60*oneday, 65*oneday   # start day 
-t1, t1_plot = 100*oneday, 75*oneday  # end day
-location_to_plot = [-49.5,39.5]
+# point_loc = [-49.,39.]  # march 8th 0300, t0=60,65 t1=100,75, centered on an eddy
+# t0, t0_plot = 60*oneday, 65*oneday   # start day 
+# t1, t1_plot = 100*oneday, 75*oneday  # end day
+# location_to_plot = [-49.5,39.5]
 
 # point_loc = [-60.,37.]  # february 26th t0=50 ,t1=30
 # t0, t0_plot = 50*oneday, 50*oneday   # start day 
@@ -91,22 +91,33 @@ location_to_plot = [-49.5,39.5]
 # t1, t1_plot = 100*oneday, 75*oneday  # end day
 # location_to_plot = [-49.,39.]
 
+point_loc = [-63.,37.]  # jan 25, t0=25,25 t1=65,65
+t0, t0_plot = 25*oneday, 30*oneday   # start day 
+t1, t1_plot = 65*oneday, 40*oneday  # end day
+location_to_plot = [-64.,40.] # <- centered on eddy
+
 """
 cyclone:
     point_loc = [-49.,39.]  # march 8th 0300, t0=60,65 t1=100,75, centered on an eddy
-    t0, t0_plot = 60*oneday, 65*oneday   # start day 
+    t0, t0_plot = 60*oneday, 65*oneday   # start day 
     t1, t1_plot = 100*oneday, 75*oneday  # end day
     indt = 239
-    location = [-49.5,39.5]
+    location_to_plot = [-49.5,39.5]
     
     point_loc = [-46.5,40.]  # feb 23rd, t0=32 t1=72, centered on a cyclonic eddy
-    t0, t0_plot = 32*oneday, 32*oneday   # start day 
+    t0, t0_plot = 32*oneday, 32*oneday   #start day 
     t1, t1_plot = 72*oneday, 72*oneday  # end day
     indt = 523
-    location = [-49.,39.]
+    location_to_plot = [-49.,39.]
     
     
-anticyclone: ?
+anticyclone: 
+    point_loc = [-63.,37.]  # jan 25, t0=25,25 t1=65,65
+    t0, t0_plot = 25*oneday, 25*oneday   # start day 
+    t1, t1_plot = 65*oneday, 65*oneday  # end day
+    indt = 181
+    location_to_plot = [-64.,40.] # <- centered on eddy
+
 
     
 """
@@ -387,7 +398,7 @@ if __name__ == "__main__":
             axs[1].set_ylim([0,100])
             axs[1].grid('on', which='both')
             axs[1].set_ylabel('Scores (%)')
-            fig.savefig(path_save_png + model_name + '_diagfreq.png')
+            fig.savefig(path_save_png + f'{model_name}_{location[0]}E_{location[1]}N_diagfreq.png')
             
             
     
@@ -395,7 +406,7 @@ if __name__ == "__main__":
     if PLOT_SNAPSHOT:
         cmap = 'BrBG_r'
         vmin, vmax = -0.5, 0.5
-        indt = 239 # 523
+        indt = 181 # 239 # 523
         dir = 0         # 0=U, 1=V
         
         # comparing slabs
