@@ -2,10 +2,13 @@ import xarray as xr
 import numpy as np
 import jax.numpy as jnp
 import jax
-from jax import lax
 from copy import deepcopy
 from functools import partial
 import random
+import sys 
+
+sys.path.insert(0, '../../src')
+import tools
 
 def data_maker(ds               : xr.core.dataset.Dataset,
                 test_ratio      : float = 20., 
@@ -137,7 +140,10 @@ def normalize_batch(batch_data, L_to_be_normalized='', deep_copy=False):
     
     
 def batch_loader(data_set   : dict, 
-                 batch_size : int):
+                 batch_size : int=1,
+                 shuffle    : bool=True,
+                 start_i    : int=1,
+                 end_i      : int=-1):
     """ A simpe batch loader that gives a time batch of size 'batch_size', after a shuffle of indices
     
     INPUTS:
@@ -154,7 +160,10 @@ def batch_loader(data_set   : dict,
         raise Exception(f'Your batch size is {batch_size} but you have data for only {len(indices)} points')
     while True:
         # perm = np.random.permutation(indices)
-        perm = block_shuffle(indices, block_size=batch_size)
+        if shuffle:
+            perm = block_shuffle(indices, block_size=batch_size)
+        else:
+            perm = indices[start_i: end_i]
         start = 0
         if batch_size<=0:
             end = dataset_size # no batch
@@ -208,10 +217,16 @@ def block_shuffle(arr, block_size=2):
     blocks = np.array(blocks, dtype=object)
     # Shuffle the blocks
     blocks = np.random.permutation(blocks)
-    # print('start indice', start)
-    # print('Nblocks',Nblocks)
-    # print(blocks)
     # Flatten the result
     result = np.array(np.concatenate(blocks), dtype=int)
     return result 
+
+def get_dataset_subset(data_set : dict,
+                       t0:int,
+                       t1:int):
+    first_key = list(data_set.keys())[0]
+    dataset_size = data_set[first_key].shape[0]
+    indices = np.arange(dataset_size)
+    indices_subset = indices[t0:t1]
+    return {key:array[indices_subset] for (key,array) in data_set.items() }
 
