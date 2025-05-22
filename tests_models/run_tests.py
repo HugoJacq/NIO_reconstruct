@@ -51,7 +51,9 @@ Nl                  = 2            # number of layers for multilayer models
 dTK                 = 10*oneday     # how much vectork K changes with time, basis change to 'k_base'      
 extra_args = {'AD_mode':'F',        # forward mode for AD (for diffrax' diffeqsolve)
             'use_difx':False,       # use diffrax solver to time integrate
-            'k_base':'gauss'}       # base of K transform. 'gauss' or 'id'
+            'k_base':'gauss'}       # base of K transform. 'gauss' or 'id'    
+USE_AMPLITUDE = True                # loss function based on amplitude of current 
+
 
 # run parameters
 t0                  = 60*oneday    # start day 
@@ -73,7 +75,7 @@ FILTER_AT_FC        = False      # minimize filtered ageo current with obs if m
 IDEALIZED_RUN       = False       # try the model on a step wind stress
 
 # Switches
-L_model_to_test             = ['junsteak_kt_2D'] #'junsteak_kt_2D_adv'] # L_all
+L_model_to_test             = ['jslab','junsteak','jslab_kt_2D','junsteak_kt_2D'] #'junsteak_kt_2D_adv'] # L_all
 
 # PLOT
 dpi=200
@@ -212,7 +214,7 @@ if __name__ == "__main__":
         # model initialization
         #classname = getattr(sys.modules[module_name], model_name)
         mymodel = model_instanciation(model_name, myforcing, args_model, call_args, extra_args)
-        var_dfx = inv.Variational(mymodel, myobservation, filter_at_fc=FILTER_AT_FC)
+        var_dfx = inv.Variational(mymodel, myobservation, filter_at_fc=FILTER_AT_FC, use_amplitude=USE_AMPLITUDE)
         
         if FORWARD_PASS:
             run_forward_cost_grad(mymodel, var_dfx) 

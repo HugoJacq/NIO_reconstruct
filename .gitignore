@@ -922,3 +922,6 @@ experiments/effect_of_advection/saved_outputs/ts25_te65_R5.0_-63.0E_37.0N/slab_k
 experiments/effect_of_advection/saved_outputs/ts25_te65_R5.0_-63.0E_37.0N/unsteak_kt_2D_adv1l_ts25_te65_R5.0_-63.0E_37.0N.nc
 experiments/effect_of_advection/saved_outputs/ts25_te65_R5.0_-63.0E_37.0N/unsteak_kt_2D_adv2l_ts25_te65_R5.0_-63.0E_37.0N.nc
 experiments/effect_of_advection/saved_outputs/ts25_te65_R5.0_-63.0E_37.0N/unsteak_kt_2D_ts25_te65_R5.0_-63.0E_37.0N.nc
+tests_models/saved_outputs/best_jslab_kt_2D.pt
+tests_models/saved_outputs/best_jslab.pt
+tests_models/saved_outputs/jslab_kt_2D_-49.0E_39.0N.nc

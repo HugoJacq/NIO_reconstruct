@@ -15,17 +15,23 @@ from Listes_models import L_nlayers_models, L_models_total_current
 class Variational:
     """
     """
-    def __init__(self, model, observations, filter_at_fc=False):
+    def __init__(self, model, observations, filter_at_fc=False, use_amplitude=False):
         self.observations = observations
         self.obs_period = observations.obs_period
         self.dt_forcing = model.dt_forcing
         self.model = model
         self.filter_at_fc = filter_at_fc
+        self.use_amplitude = use_amplitude
 
     def loss_fn(self, sol, obs):
         sol = jnp.asarray(sol)
         skip = 3    # this skips the 'skip' first observations
-        return jnp.nanmean( jnp.sqrt((sol[0][skip:]-obs[0][skip:])**2 + (sol[1][skip:]-obs[1][skip:])**2 ))
+        # return jnp.nanmean( jnp.sqrt((sol[0][skip:]-obs[0][skip:])**2 + (sol[1][skip:]-obs[1][skip:])**2 ))
+        J = lax.select(self.use_amplitude, 
+                       safe_for_grad_sqrt( (get_amplitude(sol[0],sol[1])[skip:]-get_amplitude(obs[0],obs[1])[skip:])**2 ),
+                       jnp.sqrt((sol[0][skip:]-obs[0][skip:])**2 + (sol[1][skip:]-obs[1][skip:])**2 ))
+        return jnp.nanmean( J )
+
     
     @eqx.filter_jit
     def cost(self, dynamic_model, static_model):
@@ -97,6 +103,8 @@ class Variational:
     def my_minimizer(self, opti, mymodel, itmax, gtol=1e-5, verbose=False):
         """
         wrapper of optax minimizer, updating 'model' as the loop goes
+        
+        work in progress, please use the scipy lbfgs for now
         """
         
         
@@ -257,3 +265,9 @@ def my_partition(mymodel):
 def replace_leaf(fn_where, model, newvalue):
     return eqx.tree_at( fn_where, model, newvalue)
 
+def get_amplitude(U,V):
+    return safe_for_grad_sqrt(U**2+V**2)
+
+def safe_for_grad_sqrt(x):
+    y = jnp.sqrt(jnp.where(x != 0., x, 1.))  # replace x=0. with any non zero real
+    return jnp.where(x != 0., y, 0.)  # replace it back with O. (or x)
