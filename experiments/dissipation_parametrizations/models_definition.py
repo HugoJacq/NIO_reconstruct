@@ -205,7 +205,7 @@ class Dissipation_MLP_linear(eqx.Module):
         # intialization of last linear layers
         # weights as normal distribution, std=1. and mean=0.
         # bias as 0.
-        alpha = 1e-4
+        alpha = 1e-5
         initializer = jax.nn.initializers.normal(stddev=alpha) # mean is 0.
         self.layers[-1] = eqx.tree_at( lambda t:t.weight, self.layers[-1], initializer(key3, (2*128*128, depth)))
         self.layers[-1] = eqx.tree_at( lambda t:t.bias, self.layers[-1], self.layers[-1].bias*0.)

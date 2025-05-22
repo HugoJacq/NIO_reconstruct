@@ -59,14 +59,14 @@ from configs import prepare_config
 
 # training the models
 TRAIN_SLAB      = False     # run the training and save best model
-TRAIN_NN        = False
+TRAIN_NN        = True
 TRAINING_MODE   = 'online'
 NN_MODEL_NAME   = 'MLP_linear'     # CNN MLP MLP_linear
 PLOT_THE_MODEL  = False      # plot a trajectory with model converged
 
 # Comparing models
 PLOTTING        = True      # plot figures that compares models
-COMPARE_TO_NN   = 'CNN'
+COMPARE_TO_NN   = NN_MODEL_NAME
 
 # time steps
 dt_forcing  = 3600.         # time step of forcing (s)
@@ -311,6 +311,8 @@ if NN_MODEL_NAME=='CNN':
     myDissipation = Dissipation_CNN(subkey, len(FEATURES_NAMES)+2, to_train=True)
 elif NN_MODEL_NAME=='MLP':
     myDissipation = Dissipation_MLP(subkey, len(FEATURES_NAMES)+2, to_train=True)
+elif NN_MODEL_NAME=='MLP_linear':
+    myDissipation = Dissipation_MLP_linear(subkey, len(FEATURES_NAMES)+2, to_train=True)
 else:
     raise Exception(f'NN_MODEL_NAME={NN_MODEL_NAME} is not recognized')
 
@@ -438,6 +440,8 @@ if PLOTTING:
         myDissipation = Dissipation_CNN(subkey, len(FEATURES_NAMES)+2, to_train=True)
     elif NN_MODEL_NAME=='MLP':
         myDissipation = Dissipation_MLP(subkey, len(FEATURES_NAMES)+2, to_train=True)
+    elif NN_MODEL_NAME=='MLP_linear':
+        myDissipation = Dissipation_MLP_linear(subkey, len(FEATURES_NAMES)+2, to_train=True)
     else:
         raise Exception(f'NN_MODEL_NAME={NN_MODEL_NAME} is not recognized')
     best_RHS_NN = eqx.tree_deserialise_leaves(name_base_folder+COMPARE_TO_NN+'/'+TRAINING_MODE+f'/best_RHS_{COMPARE_TO_NN}.pt',

@@ -2,7 +2,7 @@ import xarray as xr
 import optax 
 
 d_base_config = {
-        "slab":{'optimizer':'adam',         # lbfgs
+        "slab":{'optimizer':'adam',         # adam or lbfgs
                 'linear_lr': (1e-1, 1e-3, 40, 40), # lr_start, lr_end, ntr, start_tr
                 'MAX_STEP':100,             # number of epochs
                 'PRINT_EVERY':1,            # print infos every 'PRINT_EVERY' epochs
@@ -30,9 +30,9 @@ d_base_config = {
                 'L_to_be_normalized':'features'},
         "MLP_linear":{'optimizer':'adam',
                 'linear_lr': (1e-5, 1e-6, 10, 10), # lr_start, lr_end, ntr, start_tr
-                'MAX_STEP':200,
+                'MAX_STEP':50,
                 'PRINT_EVERY':1,
-                'features_names':[],
+                'features_names':['TAx','TAy'],
                 'forcing_names':[],
                 'BATCH_SIZE':300,
                 'L_to_be_normalized':''},
@@ -46,7 +46,7 @@ d_training_config = {
                         }
 
 """
-Note: N_integration_steps and N_integration_steps_verif start at 2 because you need the initial solution AND at least time step
+Note: N_integration_steps and N_integration_steps_verif start at 2 because you need the initial solution AND at least one time step
 """
 
 
