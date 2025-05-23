@@ -1,3 +1,17 @@
+"""
+This script is using a loss function on the amplitude of the complex current.
+Goal: is the reconstructed current improved compared to a minimization process with comparison of raw trajectories ?
+
+
+
+
+Note: the result of the minimization depends on the starting point. For 2 parameters only models, we can plot the map of J
+        to choose a point 'far but not too far' from the solution. For models with more parameters this cannot be done.
+"""
+
+
+
+
 import numpy as np
 import time as clock
 import matplotlib.pyplot as plt
@@ -48,8 +62,8 @@ ON_2D               = False
 # run parameters
 t0                  = 60*oneday    # start day 
 t1                  = 100*oneday    # end day
-t0_papa             = 60*oneday
-t1_papa             = 100*oneday
+t0_papa             = 270*oneday
+t1_papa             = 310*oneday
 
 
 dt                  = 60.           # timestep of the model (s) 
@@ -72,7 +86,10 @@ L_model_to_test_2D    = ['jslab_kt_2D','junsteak_kt_2D']
 # PLOT
 dpi=200
 path_save_png = './pngs/'
-
+t0_plot                  = 60*oneday    # start day 
+t1_plot                  = 100*oneday    # end day
+t0_papa_plot             = 290*oneday
+t1_papa_plot             = 300*oneday
 
 path_saved_models = './saved_models/'
 path_save_output = './saved_outputs/'
@@ -82,13 +99,6 @@ path_save_output = './saved_outputs/'
 # Forcing, OSSE and observations
 # =================================
 # 1D
-point_loc = [-50.,35.]
-#point_loc = [-50.,46.] # should have more NIOs ?
-point_loc = [-70., 35.]
-point_loc = [-50., 40.]
-point_loc = [-46., 40.] # wind gust from early january 2018
-point_loc = [-55., 37.5] # february 13th
-point_loc = [-47.4,34.6] # march 8th 0300, t0=60 t1=100
 point_loc = [-49.,39.] # march 8th 0300, t0=60 t1=100, centered on an eddy
 
 # 2D
@@ -198,8 +208,6 @@ if __name__ == "__main__":
             print('Location is PAPA station')
             print(f'if multi layer, nl={Nl}')
             print('**************\n')
-            
-            
             dict_model['PAPA'][txt_add_amplitude] = {}
             
             txt_add_location = f'{txt_add_amplitude}_t{int(t0_papa/oneday)}_t{int(t1_papa/oneday)}'
@@ -225,10 +233,11 @@ if __name__ == "__main__":
                     print(' time, minimize',clock.time()-t7)
                     # save the model
                     eqx.tree_serialise_leaves(path_saved_models+f'PAPA/best_{model_name}_{txt_add_location}.pt', mymodel)
-                
-                    
+                   
                 dict_model['PAPA'][txt_add_amplitude][model_name] = eqx.tree_deserialise_leaves(path_saved_models+f'PAPA/best_{model_name}_{txt_add_location}.pt', mymodel)
             
+        
+        
         ######################
         # 1D Croco
         ######################    
@@ -269,26 +278,52 @@ if __name__ == "__main__":
             if PLOT_TRAJ:
                 
                 truth = PAPA_forcing.U, PAPA_forcing.V
-                xtime = PAPA_forcing.time
+                xtime = (t0_papa + PAPA_forcing.time)/oneday
+                xtime_obs = (t0_papa + PAPA_observation.time_obs)/oneday
+                obs = PAPA_observation.get_obs()[dir]
                 fc = PAPA_forcing.fc
                 
                 truth_nio = tools.my_fc_filter(dt_forcing, truth[0]+1j*truth[1], fc)
                 
-                
-                print(dict_model['PAPA'].keys())
-                
                 for model_name in dict_model['PAPA']['amp']:
                     traj_amp = dict_model['PAPA']['amp'][model_name](save_traj_at=mymodel.dt_forcing)
                     traj_cur = dict_model['PAPA']['cur'][model_name](save_traj_at=mymodel.dt_forcing)
-                    
+                    if model_name in L_nlayers_models:
+                        traj_amp = traj_amp[0][:,0], traj_amp[0][:,1]
+                        traj_cur = traj_cur[0][:,0], traj_cur[0][:,1]
                     fig, ax = plt.subplots(2,1,figsize = (10,8),constrained_layout=True,dpi=dpi)
                     ax[0].plot(xtime, traj_amp[dir], label=model_name+' amp',c='b')
                     ax[0].plot(xtime, traj_cur[dir], label=model_name+' cur',c='c')
                     ax[0].plot(xtime, truth[dir], label='truth', c='k', alpha=0.5)
                     ax[0].plot(xtime, truth_nio[dir], label='truth_nio',c='k')
-                    
+                    ax[0].scatter(xtime_obs, obs, label='obs', marker='o', c='r')
                     ax[0].legend()
-            
+                    ax[0].set_ylabel('ageo current (m/s)')
+                    ax[0].set_xlim([t0_papa_plot/oneday, t1_papa_plot/oneday])
+                    ax[1].plot(xtime, PAPA_forcing.TAx, c='b', label=r'$\tau_x$')
+                    ax[1].plot(xtime, PAPA_forcing.TAy, c='orange', label=r'$\tau_y$')
+                    ax[1].set_ylabel('wind stress (N/m2)')
+                    ax[1].set_xlabel('time (days)')
+                    ax[1].set_xlim([t0_papa_plot/oneday, t1_papa_plot/oneday])
             if PLOT_SNAPSHOT:
                 """"""  
     plt.show()
+    
+    
+    
+    """
+    TO DO list:
+    
+        - PAPA plot
+        
+            -> add RMSE of each models reconstruction in the legend
+            -> add grid
+            
+        - other
+        
+            croco 1D: add minimization process and plot
+            croco 2D: add minimization process and plot
+    
+    
+    
+    """
