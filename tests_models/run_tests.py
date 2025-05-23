@@ -52,12 +52,14 @@ dTK                 = 10*oneday     # how much vectork K changes with time, bas
 extra_args = {'AD_mode':'F',        # forward mode for AD (for diffrax' diffeqsolve)
             'use_difx':False,       # use diffrax solver to time integrate
             'k_base':'gauss'}       # base of K transform. 'gauss' or 'id'    
-USE_AMPLITUDE = True                # loss function based on amplitude of current 
+USE_AMPLITUDE = False                # loss function based on amplitude of current 
 
 
 # run parameters
-t0                  = 60*oneday    # start day 
-t1                  = 100*oneday    # end day
+# t0                  = 60*oneday    # start day 
+# t1                  = 100*oneday    # end day
+t0                  = 180*oneday    # start day 
+t1                  = 220*oneday    # end day
 dt                  = 60.           # timestep of the model (s) 
 
 # What to test
@@ -70,12 +72,12 @@ SAVE_AS_NC          = True      # for 2D models
 MEM_PROFILER        = False       # memory profiler
 
 
-ON_PAPA             = False      # use PAPA station data, only for 1D models
+ON_PAPA             = True      # use PAPA station data, only for 1D models
 FILTER_AT_FC        = False      # minimize filtered ageo current with obs if model has this option
 IDEALIZED_RUN       = False       # try the model on a step wind stress
 
 # Switches
-L_model_to_test             = ['jslab','junsteak','jslab_kt_2D','junsteak_kt_2D'] #'junsteak_kt_2D_adv'] # L_all
+L_model_to_test             = ['jslab'] #'junsteak_kt_2D_adv'] # L_all
 
 # PLOT
 dpi=200
@@ -127,7 +129,8 @@ name_papa = ['cur50n145w_hr.nc',
               'sss50n145w_hr.nc',
               'sst50n145w_hr.nc',
               't50n145w_hr.nc',
-              'w50n145w_hr.nc']
+              'w50n145w_hr.nc',
+              'tau50n145w_hr.nc']
 
 # Observations
 period_obs          = oneday #86400      # s, how many second between observations  
@@ -179,6 +182,69 @@ if __name__ == "__main__":
     print(f'2D slice is {LON_bounds}°E {LAT_bounds}°N')
     print(f'if multi layer, nl={Nl}')
     print('**************\n')
+    
+    ###
+    # TEST ZONE
+    # 
+    # goal: plot map of J for slab model when USE_AMPLITUDE=False
+    #       to see why the trajectory solution to minimization is very close to 0
+    if False:
+        model_name = 'jslab'
+        mymodel = model_instanciation(model_name, 
+                                    forcing.Forcing_from_PAPA(dt_forcing, t0, t1, file_papa),
+                                    {'dTK':dTK, 'Nl':Nl}, 
+                                    (t0, t1, dt), 
+                                    extra_args)
+        var_dfx = inv.Variational(mymodel, 
+                                observations.Observation_from_PAPA(period_obs, t0, t1, dt_forcing, file_papa), 
+                                filter_at_fc=FILTER_AT_FC, 
+                                use_amplitude=False)
+        
+        
+        
+        dpk = 0.1
+        range_of_K0 = jnp.arange(-20,-4,dpk)
+        range_of_r = jnp.arange(-20,-4,dpk)
+        
+        # J = np.zeros((len(range_of_K0,len(range_of_r))))
+        
+        
+        def fn_for_vmap(mymodel, K0, r):
+            pk = jnp.asarray([K0,r])
+            if model_name in L_variable_Kt:
+                NdT = len(np.arange(t0, t1,dTK))
+                pk = kt_ini(pk, NdT)
+            mymodel = eqx.tree_at(lambda t:t.pk, mymodel, pk)
+            dyn,stat = my_partition(mymodel)
+            return var_dfx.cost(dyn,stat)
+        
+        J = jax.vmap(jax.vmap(fn_for_vmap, in_axes=(None, None, 0)),
+                                        in_axes=(None, 0, None))(mymodel, range_of_K0, range_of_r)
+        
+        print(J.shape) # len(range_of_K0),len(range_of_r)
+        
+        fig, ax = plt.subplots(1,1,figsize = (10,10),constrained_layout=True,dpi=dpi)
+        s= ax.pcolormesh(range_of_r, range_of_K0, J, cmap='terrain',vmin=0.05,vmax=1, norm='log')
+        plt.colorbar(s,ax=ax)
+        ax.set_ylabel('K0')
+        ax.set_xlabel('r')
+        plt.show()
+        
+        # for j,k0 in enumerate(range_of_K0):
+        #     for i,r in enumerate(range_of_r):
+        #         pk = jnp.asarray([k0,r])
+        #         mymodel = eqx.tree_at(lambda t:t.pk, mymodel, pk)
+        #         dyn,stat = my_partition(mymodel)
+        #         J[j,i] = var_dfx.cost(dyn,stat)
+                
+        raise Exception
+    ####
+    
+    
+    
+    
+    
+    
     
     for model_name in L_model_to_test:
         print('* test '+model_name)

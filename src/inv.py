@@ -29,7 +29,7 @@ class Variational:
         # return jnp.nanmean( jnp.sqrt((sol[0][skip:]-obs[0][skip:])**2 + (sol[1][skip:]-obs[1][skip:])**2 ))
         J = lax.select(self.use_amplitude, 
                        safe_for_grad_sqrt( (get_amplitude(sol[0],sol[1])[skip:]-get_amplitude(obs[0],obs[1])[skip:])**2 ),
-                       jnp.sqrt((sol[0][skip:]-obs[0][skip:])**2 + (sol[1][skip:]-obs[1][skip:])**2 ))
+                       safe_for_grad_sqrt( (sol[0][skip:]-obs[0][skip:])**2 + (sol[1][skip:]-obs[1][skip:])**2 ) )
         return jnp.nanmean( J )
 
     

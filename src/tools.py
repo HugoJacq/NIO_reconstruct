@@ -735,7 +735,7 @@ def my_fc_filter(dt_timeserie, VAR, fc):
 def open_PAPA_station_file(file_list):
 	"""
 	Note: by default, files are .cdf, but if you convert it to .nc they can be opened with xarray.
-	not sure, to be verified: the conversion is just changing the extension name from .cdf to .nc
+		the conversion is just changing the extension name from .cdf to .nc
 	"""
 	selected_depth = [-4.,0.,15.] # [15., 35.] m, 15 or 35, winds are at -4 of depth, stress at 0.
 
@@ -743,11 +743,11 @@ def open_PAPA_station_file(file_list):
 	ds = xr.open_mfdataset(file_list)  
 	ds = ds.sel(depth=selected_depth, method='nearest')
 	# filter nans
-	ds['WU_422'] = ds.WU_422.where(ds.WU_422<10e3,other=0.).isel(lat=1,lon=1)
-	ds['WV_423'] = ds.WV_423.where(ds.WV_423<10e3,other=0.).isel(lat=1,lon=1)
-	# renaming with nicer names
-	ds = ds.rename({'U_320':'U','V_321':'V'})
+	ds['WU_422'] = ds.WU_422.where(ds.WU_422<10e3, other=0.).isel(lat=1, lon=1)
+	ds['WV_423'] = ds.WV_423.where(ds.WV_423<10e3, other=0.).isel(lat=1, lon=1)
 	
+ 	# renaming with nicer names
+	ds = ds.rename({'U_320':'U','V_321':'V'})
 	ds['U'] = ds['U'].sel(depth=15.,method='nearest').isel(lat=1,lon=1)/100
 	ds['V'] = ds['V'].sel(depth=15.,method='nearest').isel(lat=1,lon=1)/100 # cm/s to m/s
 	

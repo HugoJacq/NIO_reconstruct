@@ -406,7 +406,7 @@ def model_instanciation(model_name, forcing, args_model, call_args, extra_args):
     
     # MODELS FROM MODULE classic_slab
     if model_name=='jslab':
-        pk = jnp.asarray([-11., -10.]) 
+        pk = jnp.asarray([-12., -12.]) 
         model = classic_slab.jslab(pk, forcing, call_args, extra_args)
         
     elif model_name=='jslab_fft':

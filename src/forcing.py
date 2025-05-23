@@ -92,7 +92,8 @@ class Forcing_from_PAPA:
         self.TAx,self.TAy = self.data.TAx.values, self.data.TAy.values # stress = Cd*U**2 !
         self.fc = 2*2*np.pi/86164*np.sin(LAT*np.pi/180)
         self.nt = len(self.data.time)
-        self.time = np.arange(t0,t1,dt_forcing) 
+        # self.time = np.arange(t0,t1,dt_forcing) 
+        self.time = np.arange(0,self.nt*dt_forcing,dt_forcing)
         self.dt_forcing = dt_forcing
 
 

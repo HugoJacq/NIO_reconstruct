@@ -925,3 +925,12 @@ experiments/effect_of_advection/saved_outputs/ts25_te65_R5.0_-63.0E_37.0N/unstea
 tests_models/saved_outputs/best_jslab_kt_2D.pt
 tests_models/saved_outputs/best_jslab.pt
 tests_models/saved_outputs/jslab_kt_2D_-49.0E_39.0N.nc
+experiments/minimize_on_amplitude/saved_models/PAPA/best_jslab_amp_t60_t100.pt
+experiments/minimize_on_amplitude/saved_models/PAPA/best_jslab_cur_t60_t100.pt
+experiments/minimize_on_amplitude/saved_models/PAPA/best_jslab_kt_amp_t60_t100.pt
+experiments/minimize_on_amplitude/saved_models/PAPA/best_jslab_kt_cur_t60_t100.pt
+experiments/minimize_on_amplitude/saved_models/PAPA/best_junsteak_amp_t60_t100.pt
+experiments/minimize_on_amplitude/saved_models/PAPA/best_junsteak_cur_t60_t100.pt
+experiments/minimize_on_amplitude/saved_models/PAPA/best_junsteak_kt_amp_t60_t100.pt
+experiments/minimize_on_amplitude/saved_models/PAPA/best_junsteak_kt_cur_t60_t100.pt
+tests_models/saved_outputs/best_junsteak_kt.pt
