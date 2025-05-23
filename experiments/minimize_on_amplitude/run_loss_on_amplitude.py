@@ -62,14 +62,14 @@ ON_2D               = False
 # run parameters
 t0                  = 60*oneday    # start day 
 t1                  = 100*oneday    # end day
-t0_papa             = 270*oneday
-t1_papa             = 310*oneday
+t0_papa             = 20*oneday
+t1_papa             = 50*oneday
 
 
 dt                  = 60.           # timestep of the model (s) 
 
 # What to test
-MINIMIZE            = False      # Does the model converges to a solution ?
+MINIMIZE            = True      # Does the model converges to a solution ?
 maxiter             = 50        # if MINIMIZE: max number of iteration
 SAVE_AS_NC          = True      # for 2D models
 
@@ -88,8 +88,8 @@ dpi=200
 path_save_png = './pngs/'
 t0_plot                  = 60*oneday    # start day 
 t1_plot                  = 100*oneday    # end day
-t0_papa_plot             = 290*oneday
-t1_papa_plot             = 300*oneday
+t0_papa_plot             = 25*oneday
+t1_papa_plot             = 35*oneday
 
 path_saved_models = './saved_models/'
 path_save_output = './saved_outputs/'
