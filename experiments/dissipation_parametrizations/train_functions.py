@@ -189,7 +189,8 @@ def train(the_model          : eqx.Module,
                                  N_integration_steps=test_data['target'].shape[0],
                                  dt=dt,
                                  dt_forcing=dt_forcing, 
-                                 norms_features=test_norms)
+                                 norms_features=test_norms,
+                                 use_amplitude=use_amplitude)
             print(
                 f"{step=}, train_loss={train_loss.item()}, "    # train loss of current epoch (uses the old model)
                 f"test_loss={test_loss.item()}"                 # test loss of next epoch (uses the new model)

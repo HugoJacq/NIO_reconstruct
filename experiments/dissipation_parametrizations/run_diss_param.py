@@ -38,6 +38,7 @@ sys.path.insert(0, '../../src')
 # jax.config.update('jax_platform_name', 'cpu')
 os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false" # for jax
 jax.config.update("jax_enable_x64", True)
+from jax import lax
 
 # my imports
 from train_preprocessing import data_maker, batch_loader, normalize_batch, get_dataset_subset
@@ -54,11 +55,11 @@ from configs import prepare_config
 # => see configs.py for configuration specific parameters
 
 # training the models
-TRAIN_SLAB      = False     # run the training and save best model
+TRAIN_SLAB      = True     # run the training and save best model
 TRAIN_NN        = True
 TRAINING_MODE   = 'offline'
 NN_MODEL_NAME   = 'MLP_linear'     # CNN MLP MLP_linear
-USE_AMPLITUDE   = False      # loss on amplitude of currents (True) or on currents themselves (False)
+USE_AMPLITUDE   = True      # loss on amplitude of currents (True) or on currents themselves (False)
 PLOT_THE_MODEL  = False      # plot a trajectory with model converged
 
 # Comparing models
@@ -105,7 +106,10 @@ TO DO:
 #====================================================================================================
 
 # create folder for each set of features
-name_base_folder = 'features'+''.join('_'+variable for variable in [])+'/'
+if USE_AMPLITUDE:
+    name_base_folder = 'on_amplitude/features'+''.join('_'+variable for variable in [])+'/'
+else:
+    name_base_folder = 'on_currents/features'+''.join('_'+variable for variable in [])+'/'
 os.system(f'mkdir -p {name_base_folder}')
 
 filename =  [
@@ -435,7 +439,8 @@ if PLOTTING:
     
     t0 = 0
     t1 = 31*24
-    
+    t0_test = 0
+    t1_test = 291
     
     ###########
     # NN output
@@ -461,8 +466,8 @@ if PLOTTING:
                                         t0 = t0,
                                         t1 = t1)
     data_test_plot = get_dataset_subset(data_set=test_data,
-                                        t0 = t0,
-                                        t1 = t1)
+                                        t0 = t0_test,
+                                        t1 = t1_test)
         
     # NN_test_data, NN_norms_te = normalize_batch(test_data, 
     #                               L_to_be_normalized=L_TO_BE_NORMALIZED)
@@ -501,10 +506,28 @@ if PLOTTING:
     coriolis_NN_test = jax.vmap(best_RHS_NN.coriolis_term)(traj_NN_test)
     stress_NN_train = jax.vmap(best_RHS_NN.stress_term)(NN_train_data['forcing'][:,2:4,:,:])
     stress_NN_test = jax.vmap(best_RHS_NN.stress_term)(NN_test_data['forcing'][:,2:4,:,:])
+    # Now we need to construct inputs for the NN
+    #   -> they need to be normed
+    #   -> and we want to reuse the trajectory computed just above
+    #       so we normalize it then add the other features (already normed)
+    #   -> need to use lax.slice_in_dim that is equivalent to array[:,2:,:,:]
     normed_traj_NN_train = (traj_NN_train - NN_norms_tr['features']['mean'][np.newaxis,0:2,np.newaxis,np.newaxis])/NN_norms_tr['features']['std'][np.newaxis,0:2,np.newaxis,np.newaxis]
-    diss_NN_train = jax.vmap(best_RHS_NN.dissipation_term)(normed_traj_NN_train)
-    normed_traj_NN_test = (traj_NN_test - NN_norms_te['features']['mean'][np.newaxis,:,np.newaxis,np.newaxis])/NN_norms_te['features']['std'][np.newaxis,:,np.newaxis,np.newaxis]
-    diss_NN_test = jax.vmap(best_RHS_NN.dissipation_term)(normed_traj_NN_test)
+    normed_features = jnp.stack([normed_traj_NN_train, 
+                                 lax.slice_in_dim(NN_train_data['features'], 
+                                                  start_index=2, 
+                                                  limit_index=NN_train_data['features'].shape[1], 
+                                                  axis=1)],
+                                axis=1) # 
+    diss_NN_train = jax.vmap(best_RHS_NN.dissipation_term)(normed_features)
+    # now same for test data:
+    normed_traj_NN_test = (traj_NN_test - NN_norms_te['features']['mean'][np.newaxis,0:2,np.newaxis,np.newaxis])/NN_norms_te['features']['std'][np.newaxis,0:2,np.newaxis,np.newaxis]
+    normed_features = jnp.stack([normed_traj_NN_test, 
+                                 lax.slice_in_dim(NN_test_data['features'], 
+                                                  start_index=2, 
+                                                  limit_index=NN_train_data['features'].shape[1], 
+                                                  axis=1)],
+                                axis=1)
+    diss_NN_test = jax.vmap(best_RHS_NN.dissipation_term)(normed_features)
     
     #############
     # slab output
@@ -524,8 +547,8 @@ if PLOTTING:
                                         t0 = t0,
                                         t1 = t1)
     data_test_plot = get_dataset_subset(data_set=test_data,
-                                        t0 = t0,
-                                        t1 = t1)
+                                        t0 = t0_test,
+                                        t1 = t1_test)
         
     # slab_test_data, slab_norms_te = normalize_batch(test_data, 
     #                               L_to_be_normalized='') # <- here no need to normalize as there is no NN
@@ -597,7 +620,7 @@ if PLOTTING:
     
     # trajectory on test set
     # xtime = np.arange(Ntrain, len(ds.time), 1.)*onehour/oneday
-    xtime_test = np.arange(Ntrain+t0,Ntrain+t1,1)*onehour/oneday
+    xtime_test = np.arange(Ntrain+t0_test,Ntrain+t1_test,1)*onehour/oneday
     fig, ax = plt.subplots(2,1,figsize = (10,10), constrained_layout=True,dpi=100)
     ax[0].plot(xtime_test, slab_test_data['target'].mean(axis=(2,3))[:,0], c='k', label='true U')
     ax[0].plot(xtime_test, traj_slab_test.mean(axis=(2,3))[:,0], c='b', label='estimated U (slab)')

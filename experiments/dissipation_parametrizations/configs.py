@@ -46,7 +46,10 @@ d_training_config = {
                         }
 
 """
-Note: N_integration_steps and N_integration_steps_verif start at 2 because you need the initial solution AND at least one time step
+Note: 
+
+-> N_integration_steps and N_integration_steps_verif start at 2 because you need the initial solution AND at least one time step
+-> features_names has already U and V if set to []
 """
 
 
