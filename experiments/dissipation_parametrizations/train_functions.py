@@ -14,10 +14,14 @@ from train_preprocessing import normalize_batch
 from time_integration import Integration_Euler    
   
   
-def fn_loss(sol, obs):
-    return jnp.mean( safe_for_grad_sqrt( (sol[:,0]-obs[:,0])**2 + (sol[:,1]-obs[:,1])**2 ))
+def fn_loss(sol, obs, use_amplitude=False):
+    # return jnp.mean( safe_for_grad_sqrt( (sol[:,0]-obs[:,0])**2 + (sol[:,1]-obs[:,1])**2 ))
+    J = lax.select(use_amplitude, 
+                    safe_for_grad_sqrt( (get_amplitude(sol[0],sol[1]) - get_amplitude(obs[0],obs[1]))**2 ),
+                    safe_for_grad_sqrt( (sol[0]-obs[0])**2 + (sol[1]-obs[1])**2 ) )
+    return jnp.nanmean( J )
     
-def loss(dynamic_model, static_model, forcing, features, target, N_integration_steps, dt, dt_forcing, norms_features):
+def loss(dynamic_model, static_model, forcing, features, target, N_integration_steps, dt, dt_forcing, norms_features, use_amplitude):
     """
     Compute the distance between target and the integrated trajectory. 
     if N_integration_steps==1, estimates only the next time currents, otherwise compares trajectories
@@ -29,13 +33,13 @@ def loss(dynamic_model, static_model, forcing, features, target, N_integration_s
     
     # integration
     sol = Integration_Euler(X0, TA, features, RHS_model, dt, dt_forcing, N_integration_steps, norms_features)  
-    return fn_loss(sol, target)  
+    return fn_loss(sol, target, use_amplitude)  
     
-@partial( jax.jit, static_argnames=['N_integration_steps','dt','dt_forcing'])
-def vmap_loss(dynamic_model, static_model, data_batch, N_integration_steps, dt, dt_forcing, norms_features):
+# @partial( jax.jit, static_argnames=['N_integration_steps','dt','dt_forcing'])
+def vmap_loss(dynamic_model, static_model, data_batch, N_integration_steps, dt, dt_forcing, norms_features, use_amplitude):
     """
-    vmap on the initial condition, generates a number of trajectories (batch_size//N_integration_steps)
-    at most: batch_size trajectories (each of length 1), at less: 1 trajectory (of length batch_size)
+    vmap-like on a set of initial conditions, generates a number of trajectories (batch_size//N_integration_steps)
+        at most: batch_size trajectories (each of length 1), at less: 1 trajectory (of length batch_size)
     
     Note: it has been assured beforehand that
                 batch_size % N_integration_steps == 0
@@ -57,7 +61,8 @@ def vmap_loss(dynamic_model, static_model, data_batch, N_integration_steps, dt, 
                         N_integration_steps,
                         dt,
                         dt_forcing, 
-                        norms_features)
+                        norms_features,
+                        use_amplitude)
         
         # jax.debug.print('loss_value {}',loss_value)
         
@@ -80,10 +85,11 @@ def train(the_model          : eqx.Module,
         print_every         : int = 10,
         tol                 = None,
         retol               : float = 0.001,
-        N_integration_steps : int = 1, # default is offline mode
+        N_integration_steps : int = 2, # default is offline mode
         dt                  : float = 60.,
         dt_forcing          : float = 3600.,
         L_to_be_normalized  : list = [],
+        use_amplitude       : bool = False,
         # verbose             : bool = False
             ):
     """
@@ -111,10 +117,6 @@ def train(the_model          : eqx.Module,
             - Train_loss    : list of value of train loss
             - Test_loss     : list of value of test loss
             - opt_state_save : optimizer state for saving
-        
-    
-    
-    
     """
     
     @eqx.filter_jit
@@ -125,7 +127,8 @@ def train(the_model          : eqx.Module,
                                                           N_integration_steps,
                                                           dt,
                                                           dt_forcing, 
-                                                          norms)
+                                                          norms,
+                                                          use_amplitude)
         # loss_value = vmap_loss(model, static_model, train_batch, N_integration_steps,
         #                         dt, dt_forcing, norms)
         # grads = jax.jacfwd(vmap_loss)(model, static_model, train_batch, N_integration_steps,
@@ -138,7 +141,8 @@ def train(the_model          : eqx.Module,
                                                                     N_integration_steps,
                                                                     dt,
                                                                     dt_forcing, 
-                                                                    norms)
+                                                                    norms,
+                                                                    use_amplitude)
                                           )
         new_dyn = eqx.apply_updates(model, updates)
         # jax.debug.print('New K0 {}, new R {}', new_dyn.stress_term.K0, new_dyn.dissipation_term.R)
@@ -252,3 +256,6 @@ def my_partition(model):
 def safe_for_grad_sqrt(x):
   y = jnp.sqrt(jnp.where(x != 0., x, 1.))  # replace x=0. with any non zero real
   return jnp.where(x != 0., y, 0.)  # replace it back with O. (or x)
+
+def get_amplitude(U,V):
+    return safe_for_grad_sqrt(U**2+V**2)

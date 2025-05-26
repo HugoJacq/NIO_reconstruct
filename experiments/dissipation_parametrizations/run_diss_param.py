@@ -56,8 +56,9 @@ from configs import prepare_config
 # training the models
 TRAIN_SLAB      = False     # run the training and save best model
 TRAIN_NN        = True
-TRAINING_MODE   = 'online'
+TRAINING_MODE   = 'offline'
 NN_MODEL_NAME   = 'MLP_linear'     # CNN MLP MLP_linear
+USE_AMPLITUDE   = False      # loss on amplitude of currents (True) or on currents themselves (False)
 PLOT_THE_MODEL  = False      # plot a trajectory with model converged
 
 # Comparing models
@@ -189,7 +190,8 @@ if TRAIN_SLAB:
                                                                 N_integration_steps = N_integration_steps,
                                                                 dt          = dt_Euler,
                                                                 dt_forcing  = dt_forcing,
-                                                                L_to_be_normalized = L_TO_BE_NORMALIZED)
+                                                                L_to_be_normalized = L_TO_BE_NORMALIZED,
+                                                                use_amplitude = USE_AMPLITUDE)
     # save the model
     eqx.tree_serialise_leaves(path_save+f'best_RHS_{model_name}.pt', bestmodel)
         
@@ -253,7 +255,7 @@ if PLOT_THE_MODEL:
         fig.savefig(path_save+f'traj_{name_data}.png')
    
 # map of the cost function
-if True:
+if False:
     print('* map of cost function for full train dataset')
    
     n_train_data, norms = normalize_batch(next(train_iterator),  # train_data
@@ -351,7 +353,8 @@ if TRAIN_NN:
                                                                 N_integration_steps = N_integration_steps,
                                                                 dt          = dt_Euler,
                                                                 dt_forcing  = dt_forcing,
-                                                                L_to_be_normalized = L_TO_BE_NORMALIZED)
+                                                                L_to_be_normalized = L_TO_BE_NORMALIZED,
+                                                                use_amplitude = USE_AMPLITUDE)
     # save the model
     eqx.tree_serialise_leaves(path_save+f'best_RHS_{model_name}.pt', bestmodel)
         
