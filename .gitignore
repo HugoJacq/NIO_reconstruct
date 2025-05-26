@@ -986,3 +986,9 @@ experiments/minimize_on_amplitude/saved_outputs/2D/junsteak_kt_2D_2D_t60_t100_-4
 experiments/minimize_on_amplitude/saved_outputs/2D/junsteak_kt_2D_adv_amp_t60_t100_-48.95E_38.95N.nc
 experiments/minimize_on_amplitude/saved_outputs/2D/junsteak_kt_2D_adv_cur_t60_t100_-48.95E_38.95N.nc
 experiments/minimize_on_amplitude/saved_outputs/2D/junsteak_kt_2D_cur_t60_t100_-48.95E_38.95N.nc
+experiments/minimize_on_amplitude/pngs/CROCO_1D/jslab_kt_t65_t75.png
+experiments/minimize_on_amplitude/pngs/CROCO_1D/jslab_t65_t75.png
+experiments/minimize_on_amplitude/pngs/CROCO_1D/junsteak_kt_t65_t75.png
+experiments/minimize_on_amplitude/pngs/CROCO_1D/junsteak_t65_t75.png
+.gitignore
+experiments/minimize_on_amplitude/run_loss_on_amplitude.py

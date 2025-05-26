@@ -85,8 +85,8 @@ L_model_to_test_2D    = ['jslab_kt_2D_adv','junsteak_kt_2D_adv']
 # PLOT
 dpi=200
 path_save_png = './pngs/'
-t0_plot                  = 60*oneday    # start day 
-t1_plot                  = 100*oneday    # end day
+t0_plot                  = 65*oneday    # start day 
+t1_plot                  = 75*oneday    # end day
 t0_papa_plot             = 25*oneday
 t1_papa_plot             = 35*oneday
 
@@ -410,7 +410,7 @@ if __name__ == "__main__":
                     myRMSE_amp = tools.score_RMSE(traj_amp, truth)    
                     myRMSE_cur = tools.score_RMSE(traj_cur, truth)
                     
-                    fig, ax = plt.subplots(2,1,figsize = (10,8),constrained_layout=True,dpi=dpi)
+                    fig, ax = plt.subplots(2,1,figsize = (10,8),constrained_layout=True,dpi=dpi, gridspec_kw={'height_ratios': [4, 1.5]})
                     ax[0].plot(xtime, traj_amp[dir], label=model_name+f' amp ({np.round(myRMSE_amp*100,2)})',c='b') # rmse in cm/s
                     ax[0].plot(xtime, traj_cur[dir], label=model_name+f' cur ({np.round(myRMSE_cur*100,2)})',c='c')
                     ax[0].plot(xtime, truth[dir], label='truth', c='k', alpha=0.5)
@@ -430,6 +430,7 @@ if __name__ == "__main__":
                     ax[1].grid()
                     ax[1].legend(loc='lower right')
                     fig.savefig(path_save_png+f'CROCO_1D/{model_name}_t{int(t0_plot/oneday)}_t{int(t1_plot/oneday)}.png')
+        
                 
         if ON_2D:
             os.system(f'mkdir -p {path_save_png}CROCO_2D/')
