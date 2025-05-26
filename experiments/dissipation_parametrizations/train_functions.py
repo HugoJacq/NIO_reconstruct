@@ -1,3 +1,4 @@
+from functools import partial
 from tabnanny import verbose
 import jax
 import equinox as eqx
@@ -30,6 +31,7 @@ def loss(dynamic_model, static_model, forcing, features, target, N_integration_s
     sol = Integration_Euler(X0, TA, features, RHS_model, dt, dt_forcing, N_integration_steps, norms_features)  
     return fn_loss(sol, target)  
     
+@partial( jax.jit, static_argnames=['N_integration_steps','dt','dt_forcing'])
 def vmap_loss(dynamic_model, static_model, data_batch, N_integration_steps, dt, dt_forcing, norms_features):
     """
     vmap on the initial condition, generates a number of trajectories (batch_size//N_integration_steps)
@@ -43,7 +45,6 @@ def vmap_loss(dynamic_model, static_model, data_batch, N_integration_steps, dt, 
     
     def fn_for_scan(L, k):
         start = k*N_integration_steps
-        # print(data_batch['forcing'].shape, (N_integration_steps+1, data_batch['forcing'].shape[1], Ny, Nx))
         forcing_for_this_traj = lax.dynamic_slice(data_batch['forcing'],    (start, 0, 0, 0),   (N_integration_steps, data_batch['forcing'].shape[1], Ny, Nx))
         features_for_this_traj = lax.dynamic_slice(data_batch['features'],  (start, 0, 0, 0),   (N_integration_steps, data_batch['features'].shape[1], Ny, Nx))
         target_for_this_traj = lax.dynamic_slice(data_batch['target'],      (start, 0, 0, 0),   (N_integration_steps, data_batch['target'].shape[1], Ny, Nx))
@@ -247,7 +248,7 @@ def my_partition(model):
             filter_spec = eqx.tree_at( lambda t:t.__dict__[term_name], filter_spec, filter_for_term)
     return eqx.partition(model, filter_spec) 
     
-    
+@jax.jit
 def safe_for_grad_sqrt(x):
   y = jnp.sqrt(jnp.where(x != 0., x, 1.))  # replace x=0. with any non zero real
   return jnp.where(x != 0., y, 0.)  # replace it back with O. (or x)

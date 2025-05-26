@@ -992,3 +992,4 @@ experiments/minimize_on_amplitude/pngs/CROCO_1D/junsteak_kt_t65_t75.png
 experiments/minimize_on_amplitude/pngs/CROCO_1D/junsteak_t65_t75.png
 .gitignore
 experiments/minimize_on_amplitude/run_loss_on_amplitude.py
+experiments/dissipation_parametrizations/features/slab/online/cost_function_map.png

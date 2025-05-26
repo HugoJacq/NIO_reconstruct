@@ -60,6 +60,8 @@ class Coriolis_term(eqx.Module):
     def __call__(self, C: Float[Array, "2 Ny Nx"]) -> Float[Array, "2 Ny Nx"]:
         return jnp.stack([self.fc*C[1], -self.fc*C[0]])
     
+    def filter_set_trainable(self, filter_spec):
+        return filter_spec # nothing is trained here, so this function is identity
     
 class Dissipation_Rayleigh(eqx.Module):
     """

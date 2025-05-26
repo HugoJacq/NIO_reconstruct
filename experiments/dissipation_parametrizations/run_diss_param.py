@@ -26,16 +26,12 @@ subquestions:
 """
 
 # regular modules import
-import pickle
-import pprint
 from re import L
 import xarray as xr
 import numpy as np
 import jax
 import equinox as eqx
-import optax
 import matplotlib.pyplot as plt
-import matplotlib as mpl
 import os
 import sys
 sys.path.insert(0, '../../src')
@@ -111,18 +107,19 @@ TO DO:
 name_base_folder = 'features'+''.join('_'+variable for variable in [])+'/'
 os.system(f'mkdir -p {name_base_folder}')
 
-filename =  ['../../data_regrid/croco_1h_inst_surf_2005-01-01-2005-01-31_0.1deg_conservative.nc',
-              '../../data_regrid/croco_1h_inst_surf_2005-02-01-2005-02-28_0.1deg_conservative.nc',
+filename =  [
+            # '../../data_regrid/croco_1h_inst_surf_2005-01-01-2005-01-31_0.1deg_conservative.nc',
+            #   '../../data_regrid/croco_1h_inst_surf_2005-02-01-2005-02-28_0.1deg_conservative.nc',
               '../../data_regrid/croco_1h_inst_surf_2005-03-01-2005-03-31_0.1deg_conservative.nc',
               '../../data_regrid/croco_1h_inst_surf_2005-04-01-2005-04-30_0.1deg_conservative.nc',
-              '../../data_regrid/croco_1h_inst_surf_2005-05-01-2005-05-31_0.1deg_conservative.nc',
-              '../../data_regrid/croco_1h_inst_surf_2005-06-01-2005-06-30_0.1deg_conservative.nc',
-              '../../data_regrid/croco_1h_inst_surf_2005-07-01-2005-07-31_0.1deg_conservative.nc',
-              '../../data_regrid/croco_1h_inst_surf_2005-08-01-2005-08-31_0.1deg_conservative.nc',
-              '../../data_regrid/croco_1h_inst_surf_2005-09-01-2005-09-30_0.1deg_conservative.nc',
-              '../../data_regrid/croco_1h_inst_surf_2005-10-01-2005-10-31_0.1deg_conservative.nc',
-              '../../data_regrid/croco_1h_inst_surf_2005-11-01-2005-11-30_0.1deg_conservative.nc',
-              '../../data_regrid/croco_1h_inst_surf_2005-12-01-2005-12-31_0.1deg_conservative.nc'
+            #   '../../data_regrid/croco_1h_inst_surf_2005-05-01-2005-05-31_0.1deg_conservative.nc',
+            #   '../../data_regrid/croco_1h_inst_surf_2005-06-01-2005-06-30_0.1deg_conservative.nc',
+            #   '../../data_regrid/croco_1h_inst_surf_2005-07-01-2005-07-31_0.1deg_conservative.nc',
+            #   '../../data_regrid/croco_1h_inst_surf_2005-08-01-2005-08-31_0.1deg_conservative.nc',
+            #   '../../data_regrid/croco_1h_inst_surf_2005-09-01-2005-09-30_0.1deg_conservative.nc',
+            #   '../../data_regrid/croco_1h_inst_surf_2005-10-01-2005-10-31_0.1deg_conservative.nc',
+            #   '../../data_regrid/croco_1h_inst_surf_2005-11-01-2005-11-30_0.1deg_conservative.nc',
+            #   '../../data_regrid/croco_1h_inst_surf_2005-12-01-2005-12-31_0.1deg_conservative.nc'
               ]
 
 # prepare data
@@ -256,31 +253,36 @@ if PLOT_THE_MODEL:
         fig.savefig(path_save+f'traj_{name_data}.png')
    
 # map of the cost function
-if False:
+if True:
     print('* map of cost function for full train dataset')
    
-    n_train_data, norms = normalize_batch(train_data, 
-                                  L_to_be_normalized=[])
+    n_train_data, norms = normalize_batch(next(train_iterator),  # train_data
+                                  L_to_be_normalized='')
     
     R_range     = np.arange(-14, -3, 1)
     K0_range    = np.arange(-14, -3, 1)
     
-    L = np.zeros((len(R_range),len(K0_range)))
-    for j,r in enumerate(R_range):
-        for i,k in enumerate(K0_range):
-            mymodel = eqx.tree_at( lambda t:t.dissipation_term.R, myRHS, r)
-            mymodel = eqx.tree_at( lambda t:t.stress_term.K0, mymodel, k)
-            dynamic_model, static_model = my_partition(mymodel)
-            L[j,i] = vmap_loss(dynamic_model, static_model, n_train_data, N_integration_steps, dt_Euler, dt_forcing, norms)
+    def fn_for_vmap(mymodel, K0, r):
+            mymodel = eqx.tree_at( lambda t:t.dissipation_term.R, mymodel, r)
+            mymodel = eqx.tree_at( lambda t:t.stress_term.K0, mymodel, K0)
+            dyn,stat = my_partition(mymodel)
+            return vmap_loss(dyn, stat, n_train_data, N_integration_steps, dt_Euler, dt_forcing, norms)
+        
+    J = jax.vmap(jax.vmap(fn_for_vmap, in_axes=(None, None, 0)),
+                                        in_axes=(None, 0, None))(myRHS, K0_range, R_range)
     
-    fig, ax = plt.subplots(1,1,figsize = (10,5), constrained_layout=True,dpi=100)
-    s = ax.pcolormesh(K0_range, R_range, L, cmap='jet', norm='log',vmin=1e-3,vmax=10.)
+    
+    
+    fig, ax = plt.subplots(1,1,figsize = (5,5), constrained_layout=True,dpi=100)
+    s = ax.pcolormesh(K0_range, R_range, J, cmap='terrain', norm='log',vmin=1e-1,vmax=10.)
     plt.colorbar(s, ax=ax)
     ax.set_xlabel('log(K0)')
     ax.set_ylabel('log(R)')
+    ax.set_aspect(1)
     ax.set_title('cost function map (train_data)')
     fig.savefig(path_save+'cost_function_map.png')
-    
+    plt.show()
+    raise Exception
 
 ##########################################
 # EXPERIMENT 2:

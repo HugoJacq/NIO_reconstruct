@@ -87,7 +87,8 @@ def Integration_Euler(X0        : Float[Array, "2 Ny Nx"],
 
         init = Cold, forcing, features, iout
         # loop on time steps every 'dt'
-        final, _ = lax.scan(inner_loop, init, jnp.arange(nsubstep))
+        # final, _ = lax.scan(inner_loop, init, jnp.arange(nsubstep))
+        final, _ =  eqx.internal.scan(inner_loop, init, xs=jnp.arange(nsubstep), kind='checkpointed')
         Cnext, _, _, _ = final
         
         
