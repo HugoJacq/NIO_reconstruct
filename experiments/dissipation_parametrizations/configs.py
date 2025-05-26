@@ -13,16 +13,16 @@ d_base_config = {
         
         "CNN":{'optimizer':'adam',
                 'linear_lr': (1e-4, 1e-6, 20, 50), # lr_start, lr_end, ntr, start_tr
-                'MAX_STEP':200,
+                'MAX_STEP':50,
                 'PRINT_EVERY':1,
-                'features_names':[],
+                'features_names':['TAx','TAy'],
                 'forcing_names':[],
                 'BATCH_SIZE':300,
                 'L_to_be_normalized':'features'},
         
         "MLP":{'optimizer':'adam',
                 'linear_lr': (1e-5, 1e-6, 10, 10), # lr_start, lr_end, ntr, start_tr
-                'MAX_STEP':200,
+                'MAX_STEP':50,
                 'PRINT_EVERY':1,
                 'features_names':[],
                 'forcing_names':[],

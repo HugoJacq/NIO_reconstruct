@@ -190,7 +190,7 @@ if TRAIN_SLAB:
                                                                 test_data   = test_data,
                                                                 maxstep     = MAX_STEP,
                                                                 print_every = PRINT_EVERY,
-                                                                tol         = 1e-6,
+                                                                tol         = 1e-5,
                                                                 N_integration_steps = N_integration_steps,
                                                                 dt          = dt_Euler,
                                                                 dt_forcing  = dt_forcing,
@@ -272,7 +272,7 @@ if False:
             mymodel = eqx.tree_at( lambda t:t.dissipation_term.R, mymodel, r)
             mymodel = eqx.tree_at( lambda t:t.stress_term.K0, mymodel, K0)
             dyn,stat = my_partition(mymodel)
-            return vmap_loss(dyn, stat, n_train_data, N_integration_steps, dt_Euler, dt_forcing, norms)
+            return vmap_loss(dyn, stat, n_train_data, N_integration_steps, dt_Euler, dt_forcing, norms, USE_AMPLITUDE)
         
     J = jax.vmap(jax.vmap(fn_for_vmap, in_axes=(None, None, 0)),
                                         in_axes=(None, 0, None))(myRHS, K0_range, R_range)
@@ -434,7 +434,16 @@ if PLOT_THE_MODEL:
 
 if PLOTTING:
     print('* Plotting ....')
+    # os.system(f'mkdir -p {path_save_png}')
+    
+    if USE_AMPLITUDE:
+        path_save_png = 'on_amplitude/'+path_save_png
+    else:
+        path_save_png = 'on_currents/'+path_save_png
     os.system(f'mkdir -p {path_save_png}')
+    
+    
+    
     colors = ['b','g']
     
     t0 = 0
