@@ -954,3 +954,7 @@ experiments/minimize_on_amplitude/saved_models/PAPA/best_junsteak_amp_t20_t50.pt
 experiments/minimize_on_amplitude/saved_models/PAPA/best_junsteak_cur_t20_t50.pt
 experiments/minimize_on_amplitude/saved_models/PAPA/best_junsteak_kt_amp_t20_t50.pt
 experiments/minimize_on_amplitude/saved_models/PAPA/best_junsteak_kt_cur_t20_t50.pt
+experiments/minimize_on_amplitude/pngs/PAPA/jslab_kt_t25_t35.png
+experiments/minimize_on_amplitude/pngs/PAPA/jslab_t25_t35.png
+experiments/minimize_on_amplitude/pngs/PAPA/junsteak_kt_t25_t35.png
+experiments/minimize_on_amplitude/pngs/PAPA/junsteak_t25_t35.png

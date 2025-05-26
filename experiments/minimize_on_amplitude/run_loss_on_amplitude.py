@@ -69,7 +69,7 @@ t1_papa             = 50*oneday
 dt                  = 60.           # timestep of the model (s) 
 
 # What to test
-MINIMIZE            = True      # Does the model converges to a solution ?
+MINIMIZE            = False      # Does the model converges to a solution ?
 maxiter             = 50        # if MINIMIZE: max number of iteration
 SAVE_AS_NC          = True      # for 2D models
 
@@ -205,8 +205,9 @@ if __name__ == "__main__":
         ######################
         if ON_PAPA:
             print('**************')
-            print('Location is PAPA station')
-            print(f'if multi layer, nl={Nl}')
+            print(' Location is PAPA station')
+            print(f' if multi layer, nl={Nl}')
+            print(f' use_amplitude = {USE_AMPLITUDE}')
             print('**************\n')
             dict_model['PAPA'][txt_add_amplitude] = {}
             
@@ -234,6 +235,7 @@ if __name__ == "__main__":
                     # save the model
                     eqx.tree_serialise_leaves(path_saved_models+f'PAPA/best_{model_name}_{txt_add_location}.pt', mymodel)
                    
+                # get back the models
                 dict_model['PAPA'][txt_add_amplitude][model_name] = eqx.tree_deserialise_leaves(path_saved_models+f'PAPA/best_{model_name}_{txt_add_location}.pt', mymodel)
             
         
@@ -246,8 +248,9 @@ if __name__ == "__main__":
             indy = tools.nearest(dsfull.lat.values,point_loc[1])
             txt_location = f'{dsfull.lon.values[indx]}°E, {dsfull.lat.values[indy]}°N'
             print('**************')
-            print('Location is '+txt_location)
-            print(f'if multi layer, nl={Nl}')
+            print(' Location is '+txt_location)
+            print(f' if multi layer, nl={Nl}')
+            print(f' use_amplitude = {USE_AMPLITUDE}')
             print('**************\n')
         
         
@@ -262,9 +265,10 @@ if __name__ == "__main__":
             indy = tools.nearest(dsfull.lat.values,point_loc[1])
             txt_location = f'{dsfull.lon.values[indx]}°E, {dsfull.lat.values[indy]}°N'
             print('**************')
-            print('Location is '+txt_location)
-            print(f'2D slice is {LON_bounds}°E {LAT_bounds}°N')
-            print(f'if multi layer, nl={Nl}')
+            print(' Location is '+txt_location)
+            print(f' 2D slice is {LON_bounds}°E {LAT_bounds}°N')
+            print(f' if multi layer, nl={Nl}')
+            print(f' use_amplitude = {USE_AMPLITUDE}')
             print('**************\n')
     
 
@@ -274,7 +278,7 @@ if __name__ == "__main__":
         
         # at PAPA
         if ON_PAPA:
-            
+            os.system(f'mkdir -p {path_save_png}PAPA/')
             if PLOT_TRAJ:
                 
                 truth = PAPA_forcing.U, PAPA_forcing.V
@@ -289,24 +293,48 @@ if __name__ == "__main__":
                     traj_amp = dict_model['PAPA']['amp'][model_name](save_traj_at=mymodel.dt_forcing)
                     traj_cur = dict_model['PAPA']['cur'][model_name](save_traj_at=mymodel.dt_forcing)
                     if model_name in L_nlayers_models:
-                        traj_amp = traj_amp[0][:,0], traj_amp[0][:,1]
+                        traj_amp = traj_amp[0][:,0], traj_amp[0][:,1] # <- get first layer currents
                         traj_cur = traj_cur[0][:,0], traj_cur[0][:,1]
+                        
+                    # compute rmse
+                    myRMSE_amp = tools.score_RMSE(traj_amp, truth)    
+                    myRMSE_cur = tools.score_RMSE(traj_cur, truth)
+                    
                     fig, ax = plt.subplots(2,1,figsize = (10,8),constrained_layout=True,dpi=dpi)
-                    ax[0].plot(xtime, traj_amp[dir], label=model_name+' amp',c='b')
-                    ax[0].plot(xtime, traj_cur[dir], label=model_name+' cur',c='c')
-                    ax[0].plot(xtime, truth[dir], label='truth', c='k', alpha=0.5)
-                    ax[0].plot(xtime, truth_nio[dir], label='truth_nio',c='k')
+                    ax[0].plot(xtime, traj_amp[dir], label=model_name+f' amp ({np.round(myRMSE_amp*100,2)})',c='b')
+                    ax[0].plot(xtime, traj_cur[dir], label=model_name+f' cur ({np.round(myRMSE_cur*100,2)})',c='c')
+                    ax[0].plot(xtime, truth[dir], label='truth', c='k', alpha=1)
+                    # ax[0].plot(xtime, truth_nio[dir], label='truth_nio',c='k')
                     ax[0].scatter(xtime_obs, obs, label='obs', marker='o', c='r')
-                    ax[0].legend()
+                    ax[0].legend(loc='lower left')
                     ax[0].set_ylabel('ageo current (m/s)')
+                    ax[0].set_ylim([-0.4,0.4])
+                    ax[0].grid()
                     ax[0].set_xlim([t0_papa_plot/oneday, t1_papa_plot/oneday])
-                    ax[1].plot(xtime, PAPA_forcing.TAx, c='b', label=r'$\tau_x$')
+                    ax[1].plot(xtime, PAPA_forcing.TAx, c='g', label=r'$\tau_x$')
                     ax[1].plot(xtime, PAPA_forcing.TAy, c='orange', label=r'$\tau_y$')
                     ax[1].set_ylabel('wind stress (N/m2)')
                     ax[1].set_xlabel('time (days)')
                     ax[1].set_xlim([t0_papa_plot/oneday, t1_papa_plot/oneday])
+                    ax[1].set_ylim([-1.2,1.2])
+                    ax[1].grid()
+                    ax[1].legend(loc='lower left')
+                    fig.savefig(path_save_png+f'PAPA/{model_name}_t{int(t0_papa_plot/oneday)}_t{int(t1_papa_plot/oneday)}.png')
+                    
+            
+        if ON_1D:
+            os.system(f'mkdir -p {path_save_png}CROCO_1D/')
+            if PLOT_TRAJ:
+                """"""
+                
+        if ON_2D:
+            os.system(f'mkdir -p {path_save_png}CROCO_2D/')
+            if PLOT_TRAJ:
+                """"""
             if PLOT_SNAPSHOT:
                 """"""  
+                
+                
     plt.show()
     
     
@@ -317,7 +345,6 @@ if __name__ == "__main__":
         - PAPA plot
         
             -> add RMSE of each models reconstruction in the legend
-            -> add grid
             
         - other
         
