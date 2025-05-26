@@ -69,7 +69,7 @@ dt                  = 60.           # timestep of the model (s)
 
 # What to test
 MINIMIZE            = False      # Does the model converges to a solution ?
-maxiter             = 50        # if MINIMIZE: max number of iteration
+maxiter             = 100        # if MINIMIZE: max number of iteration
 SAVE_AS_NC          = True      # for 2D models
 
 
@@ -79,7 +79,7 @@ PLOT_SNAPSHOT           = True      # 2D models: XY snapshot
 
 # what to test
 L_model_to_test_1D    = ['jslab','junsteak','jslab_kt','junsteak_kt'] 
-L_model_to_test_2D    = ['jslab_kt_2D','junsteak_kt_2D']
+L_model_to_test_2D    = ['jslab_kt_2D_adv','junsteak_kt_2D_adv']
 
 
 # PLOT
@@ -161,8 +161,7 @@ if __name__ == "__main__":
         
     ### WARNINGS
     dsfull = xr.open_mfdataset(file)
-    # warning about t1>length of forcing
-    if t1 > len(dsfull.time)*dt_forcing:
+    if t1 > len(dsfull.time)*dt_forcing: # warning about t1>length of forcing
         print(f'You chose to run the model for t1={t1//oneday} days but the forcing is available up to t={len(dsfull.time)*dt_forcing//oneday} days\n'
                         +f'I will use t1={len(dsfull.time)*dt_forcing//oneday} days')
         t1 = len(dsfull.time)*dt_forcing
@@ -184,9 +183,9 @@ if __name__ == "__main__":
     if ON_1D:
         CROCO_1D_forcing = forcing.Forcing1D(point_loc, t0, t1, dt_forcing, file)
         CROCO_1D_obs    = observations.Observation1D(point_loc, period_obs, t0, t1, dt_OSSE, file)
-    
-    # CROCO_2D_forcing = 
-    # CROCO_2D_obs    = 
+    if ON_2D:
+        CROCO_2D_forcing = forcing.Forcing2D(dt_forcing, t0, t1, file, LON_bounds, LAT_bounds)
+        CROCO_2D_obs    = observations.Observation2D(period_obs, t0, t1, dt_OSSE, file, LON_bounds, LAT_bounds)
     
     
     dict_model = {} 
@@ -292,13 +291,50 @@ if __name__ == "__main__":
         if ON_2D:
             indx = tools.nearest(dsfull.lon.values,point_loc[0])
             indy = tools.nearest(dsfull.lat.values,point_loc[1])
-            txt_location = f'{dsfull.lon.values[indx]}°E, {dsfull.lat.values[indy]}°N'
+            txt_location = f'{np.round(dsfull.lon.values[indx],2)}°E, {np.round(dsfull.lat.values[indy],2)}°N'
             print('**************')
             print(' Location is '+txt_location)
             print(f' 2D slice is {LON_bounds}°E {LAT_bounds}°N')
             print(f' if multi layer, nl={Nl}')
             print(f' use_amplitude = {USE_AMPLITUDE}')
             print('**************\n')
+    
+            dict_model['2D'][txt_add_amplitude] = {}
+            
+            txt_add_location = f'{txt_add_amplitude}_t{int(t0/oneday)}_t{int(t1/oneday)}'
+            os.system('mkdir -p '+path_saved_models+'2D/')
+            os.system('mkdir -p '+path_save_output+'2D/')
+            for model_name in L_model_to_test_2D:
+                print('* test '+model_name)
+                name_save = model_name+f'_{txt_add_amplitude}_t{int(t0_plot/oneday)}_t{int(t1_plot/oneday)}_{np.round(dsfull.lon.values[indx],2)}E_{np.round(dsfull.lat.values[indy],2)}N'
+                
+                
+                    
+                call_args = t0, t1, dt
+                args_model = {'dTK':dTK, 'Nl':Nl}
+                args_2D = {}
+                
+                # model initialization
+                mymodel = model_instanciation(model_name, CROCO_2D_forcing, args_model, call_args, extra_args)
+                var_dfx = inv.Variational(mymodel, CROCO_2D_obs, use_amplitude=USE_AMPLITUDE)
+                if MINIMIZE:
+                    print(' minimizing ...')
+                    t7 = clock.time()
+                    mymodel, _ = var_dfx.scipy_lbfgs_wrapper(mymodel, maxiter, verbose=True)   
+                    print(' time, minimize',clock.time()-t7)
+                    # save the model
+                    eqx.tree_serialise_leaves(path_saved_models+f'2D/best_{model_name}_{txt_add_location}.pt', mymodel)
+                   
+                # get back the models
+                dict_model['2D'][txt_add_amplitude][model_name] = eqx.tree_deserialise_leaves(path_saved_models+f'2D/best_{model_name}_{txt_add_location}.pt', mymodel)
+    
+                if SAVE_AS_NC:
+                    # save the ouput of the model in a .nc file
+                    print(' saving output file as .nc')
+                    save_output_as_nc(mymodel, CROCO_2D_forcing, LON_bounds, LAT_bounds, name_save, where_to_save=path_save_output+'2D/')
+                    
+                    
+                    
     
 
     if PLOT:
@@ -375,12 +411,12 @@ if __name__ == "__main__":
                     myRMSE_cur = tools.score_RMSE(traj_cur, truth)
                     
                     fig, ax = plt.subplots(2,1,figsize = (10,8),constrained_layout=True,dpi=dpi)
-                    ax[0].plot(xtime, traj_amp[dir], label=model_name+f' amp ({np.round(myRMSE_amp*100,2)})',c='b')
+                    ax[0].plot(xtime, traj_amp[dir], label=model_name+f' amp ({np.round(myRMSE_amp*100,2)})',c='b') # rmse in cm/s
                     ax[0].plot(xtime, traj_cur[dir], label=model_name+f' cur ({np.round(myRMSE_cur*100,2)})',c='c')
                     ax[0].plot(xtime, truth[dir], label='truth', c='k', alpha=0.5)
                     ax[0].plot(xtime, truth_nio[dir], label='truth_nio',c='k')
                     ax[0].scatter(xtime_obs, obs, label='obs', marker='o', c='r')
-                    ax[0].legend(loc='lower left')
+                    ax[0].legend(loc='lower right')
                     ax[0].set_ylabel('ageo current (m/s)')
                     ax[0].set_ylim([-0.6,0.6])
                     ax[0].grid()
@@ -392,13 +428,16 @@ if __name__ == "__main__":
                     ax[1].set_xlim([t0_plot/oneday, t1_plot/oneday])
                     ax[1].set_ylim([-3,3])
                     ax[1].grid()
-                    ax[1].legend(loc='lower left')
+                    ax[1].legend(loc='lower right')
                     fig.savefig(path_save_png+f'CROCO_1D/{model_name}_t{int(t0_plot/oneday)}_t{int(t1_plot/oneday)}.png')
                 
         if ON_2D:
             os.system(f'mkdir -p {path_save_png}CROCO_2D/')
             if PLOT_TRAJ:
                 """"""
+                
+                
+                
             if PLOT_SNAPSHOT:
                 """"""  
                 
@@ -409,15 +448,7 @@ if __name__ == "__main__":
     
     """
     TO DO list:
-    
-        - PAPA plot
-        
-            -> add RMSE of each models reconstruction in the legend
-            
-        - other
-        
-            croco 1D: add minimization process and plot
-            croco 2D: add minimization process and plot
+        ->    croco 2D: add minimization process and plot
     
     
     
