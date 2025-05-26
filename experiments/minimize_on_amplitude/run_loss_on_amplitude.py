@@ -55,8 +55,8 @@ extra_args = {'AD_mode':'F',        # forward mode for AD (for diffrax' diffeqso
             'k_base':'gauss'}       # base of K transform. 'gauss' or 'id'    
 
 
-ON_PAPA             = True      # use PAPA station data, only for 1D models
-ON_1D               = False
+ON_PAPA             = False      # use PAPA station data, only for 1D models
+ON_1D               = True      # use CROCO data at 'point_loc'
 ON_2D               = False
 
 # run parameters
@@ -64,7 +64,6 @@ t0                  = 60*oneday    # start day
 t1                  = 100*oneday    # end day
 t0_papa             = 20*oneday
 t1_papa             = 50*oneday
-
 
 dt                  = 60.           # timestep of the model (s) 
 
@@ -74,9 +73,9 @@ maxiter             = 50        # if MINIMIZE: max number of iteration
 SAVE_AS_NC          = True      # for 2D models
 
 
-PLOT = True
-PLOT_TRAJ           = True      # Show a trajectory
-PLOT_SNAPSHOT       = True
+PLOT                = True
+PLOT_TRAJ               = True      # Show a trajectory
+PLOT_SNAPSHOT           = True      # 2D models: XY snapshot
 
 # what to test
 L_model_to_test_1D    = ['jslab','junsteak','jslab_kt','junsteak_kt'] 
@@ -179,10 +178,13 @@ if __name__ == "__main__":
     
     
      # forcing
-    PAPA_forcing = forcing.Forcing_from_PAPA(dt_forcing, t0_papa, t1_papa, file_papa)
-    PAPA_observation = observations.Observation_from_PAPA(period_obs, t0_papa, t1_papa, dt_forcing, file_papa)
-    # CROCO_1D_forcing =
-    # CROCO_1D_obs    =
+    if ON_PAPA:
+        PAPA_forcing = forcing.Forcing_from_PAPA(dt_forcing, t0_papa, t1_papa, file_papa)
+        PAPA_observation = observations.Observation_from_PAPA(period_obs, t0_papa, t1_papa, dt_forcing, file_papa)
+    if ON_1D:
+        CROCO_1D_forcing = forcing.Forcing1D(point_loc, t0, t1, dt_forcing, file)
+        CROCO_1D_obs    = observations.Observation1D(point_loc, period_obs, t0, t1, dt_OSSE, file)
+    
     # CROCO_2D_forcing = 
     # CROCO_2D_obs    = 
     
@@ -212,7 +214,7 @@ if __name__ == "__main__":
             dict_model['PAPA'][txt_add_amplitude] = {}
             
             txt_add_location = f'{txt_add_amplitude}_t{int(t0_papa/oneday)}_t{int(t1_papa/oneday)}'
-            os.system('mkdir -p '+path_saved_models+'./')
+            os.system('mkdir -p '+path_saved_models+'PAPA/')
             
             for model_name in L_model_to_test_1D:
                 print('* test '+model_name)
@@ -246,14 +248,41 @@ if __name__ == "__main__":
         if ON_1D:
             indx = tools.nearest(dsfull.lon.values,point_loc[0])
             indy = tools.nearest(dsfull.lat.values,point_loc[1])
-            txt_location = f'{dsfull.lon.values[indx]}°E, {dsfull.lat.values[indy]}°N'
+            txt_location = f'{np.round(dsfull.lon.values[indx],2)}°E, {np.round(dsfull.lat.values[indy],2)}°N'
             print('**************')
             print(' Location is '+txt_location)
             print(f' if multi layer, nl={Nl}')
             print(f' use_amplitude = {USE_AMPLITUDE}')
             print('**************\n')
         
-        
+            dict_model['1D'][txt_add_amplitude] = {}
+            
+            txt_add_location = f'{txt_add_amplitude}_t{int(t0/oneday)}_t{int(t1/oneday)}'
+            os.system('mkdir -p '+path_saved_models+'1D/')
+            
+            for model_name in L_model_to_test_1D:
+                print('* test '+model_name)
+                name_save = model_name+'_1D'
+                
+                
+                    
+                call_args = t0, t1, dt
+                args_model = {'dTK':dTK, 'Nl':Nl}
+                args_2D = {}
+                
+                # model initialization
+                mymodel = model_instanciation(model_name, CROCO_1D_forcing, args_model, call_args, extra_args)
+                var_dfx = inv.Variational(mymodel, CROCO_1D_obs, use_amplitude=USE_AMPLITUDE)
+                if MINIMIZE:
+                    print(' minimizing ...')
+                    t7 = clock.time()
+                    mymodel, _ = var_dfx.scipy_lbfgs_wrapper(mymodel, maxiter, verbose=True)   
+                    print(' time, minimize',clock.time()-t7)
+                    # save the model
+                    eqx.tree_serialise_leaves(path_saved_models+f'1D/best_{model_name}_{txt_add_location}.pt', mymodel)
+                   
+                # get back the models
+                dict_model['1D'][txt_add_amplitude][model_name] = eqx.tree_deserialise_leaves(path_saved_models+f'1D/best_{model_name}_{txt_add_location}.pt', mymodel)
         
         
         
@@ -325,7 +354,46 @@ if __name__ == "__main__":
         if ON_1D:
             os.system(f'mkdir -p {path_save_png}CROCO_1D/')
             if PLOT_TRAJ:
-                """"""
+                
+                truth = CROCO_1D_forcing.U, CROCO_1D_forcing.V
+                xtime = (t0 + CROCO_1D_forcing.time)/oneday
+                xtime_obs = (t0 + CROCO_1D_obs.time_obs)/oneday
+                obs = CROCO_1D_obs.get_obs()[dir]
+                fc = CROCO_1D_obs.fc
+                
+                truth_nio = tools.my_fc_filter(dt_forcing, truth[0]+1j*truth[1], fc)
+                
+                for model_name in dict_model['1D']['amp']:
+                    traj_amp = dict_model['1D']['amp'][model_name](save_traj_at=mymodel.dt_forcing)
+                    traj_cur = dict_model['1D']['cur'][model_name](save_traj_at=mymodel.dt_forcing)
+                    if model_name in L_nlayers_models:
+                        traj_amp = traj_amp[0][:,0], traj_amp[0][:,1] # <- get first layer currents
+                        traj_cur = traj_cur[0][:,0], traj_cur[0][:,1]
+                        
+                    # compute rmse
+                    myRMSE_amp = tools.score_RMSE(traj_amp, truth)    
+                    myRMSE_cur = tools.score_RMSE(traj_cur, truth)
+                    
+                    fig, ax = plt.subplots(2,1,figsize = (10,8),constrained_layout=True,dpi=dpi)
+                    ax[0].plot(xtime, traj_amp[dir], label=model_name+f' amp ({np.round(myRMSE_amp*100,2)})',c='b')
+                    ax[0].plot(xtime, traj_cur[dir], label=model_name+f' cur ({np.round(myRMSE_cur*100,2)})',c='c')
+                    ax[0].plot(xtime, truth[dir], label='truth', c='k', alpha=0.5)
+                    ax[0].plot(xtime, truth_nio[dir], label='truth_nio',c='k')
+                    ax[0].scatter(xtime_obs, obs, label='obs', marker='o', c='r')
+                    ax[0].legend(loc='lower left')
+                    ax[0].set_ylabel('ageo current (m/s)')
+                    ax[0].set_ylim([-0.6,0.6])
+                    ax[0].grid()
+                    ax[0].set_xlim([t0_plot/oneday, t1_plot/oneday])
+                    ax[1].plot(xtime, CROCO_1D_forcing.TAx, c='g', label=r'$\tau_x$')
+                    ax[1].plot(xtime, CROCO_1D_forcing.TAy, c='orange', label=r'$\tau_y$')
+                    ax[1].set_ylabel('wind stress (N/m2)')
+                    ax[1].set_xlabel('time (days)')
+                    ax[1].set_xlim([t0_plot/oneday, t1_plot/oneday])
+                    ax[1].set_ylim([-3,3])
+                    ax[1].grid()
+                    ax[1].legend(loc='lower left')
+                    fig.savefig(path_save_png+f'CROCO_1D/{model_name}_t{int(t0_plot/oneday)}_t{int(t1_plot/oneday)}.png')
                 
         if ON_2D:
             os.system(f'mkdir -p {path_save_png}CROCO_2D/')

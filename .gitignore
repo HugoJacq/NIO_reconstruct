@@ -958,3 +958,15 @@ experiments/minimize_on_amplitude/pngs/PAPA/jslab_kt_t25_t35.png
 experiments/minimize_on_amplitude/pngs/PAPA/jslab_t25_t35.png
 experiments/minimize_on_amplitude/pngs/PAPA/junsteak_kt_t25_t35.png
 experiments/minimize_on_amplitude/pngs/PAPA/junsteak_t25_t35.png
+experiments/minimize_on_amplitude/pngs/CROCO_1D/jslab_kt_t60_t100.png
+experiments/minimize_on_amplitude/pngs/CROCO_1D/jslab_t60_t100.png
+experiments/minimize_on_amplitude/pngs/CROCO_1D/junsteak_kt_t60_t100.png
+experiments/minimize_on_amplitude/pngs/CROCO_1D/junsteak_t60_t100.png
+experiments/minimize_on_amplitude/saved_models/1D/best_jslab_amp_t60_t100.pt
+experiments/minimize_on_amplitude/saved_models/1D/best_jslab_cur_t60_t100.pt
+experiments/minimize_on_amplitude/saved_models/1D/best_jslab_kt_amp_t60_t100.pt
+experiments/minimize_on_amplitude/saved_models/1D/best_jslab_kt_cur_t60_t100.pt
+experiments/minimize_on_amplitude/saved_models/1D/best_junsteak_amp_t60_t100.pt
+experiments/minimize_on_amplitude/saved_models/1D/best_junsteak_cur_t60_t100.pt
+experiments/minimize_on_amplitude/saved_models/1D/best_junsteak_kt_amp_t60_t100.pt
+experiments/minimize_on_amplitude/saved_models/1D/best_junsteak_kt_cur_t60_t100.pt
