@@ -36,8 +36,9 @@ import os
 import sys
 sys.path.insert(0, '../../src')
 # jax.config.update('jax_platform_name', 'cpu')
-os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false" # for jax
+os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "true" # for jax
 jax.config.update("jax_enable_x64", True)
+# jax.config.update("jax_disable_jit", True)
 from jax import lax
 
 # my imports
@@ -55,11 +56,11 @@ from configs import prepare_config
 # => see configs.py for configuration specific parameters
 
 # training the models
-TRAIN_SLAB      = True     # run the training and save best model
-TRAIN_NN        = True
+TRAIN_SLAB      = False     # run the training and save best model
+TRAIN_NN        = False
 TRAINING_MODE   = 'offline'
 NN_MODEL_NAME   = 'MLP_linear'     # CNN MLP MLP_linear
-USE_AMPLITUDE   = True      # loss on amplitude of currents (True) or on currents themselves (False)
+USE_AMPLITUDE   = False      # loss on amplitude of currents (True) or on currents themselves (False)
 PLOT_THE_MODEL  = False      # plot a trajectory with model converged
 
 # Comparing models
@@ -107,9 +108,10 @@ TO DO:
 
 # create folder for each set of features
 if USE_AMPLITUDE:
-    name_base_folder = 'on_amplitude/features'+''.join('_'+variable for variable in [])+'/'
+    add_txt_amplitude = 'on_amplitude/'
 else:
-    name_base_folder = 'on_currents/features'+''.join('_'+variable for variable in [])+'/'
+    add_txt_amplitude = 'on_currents/'
+name_base_folder = add_txt_amplitude +'features'+''.join('_'+variable for variable in [])+'/'
 os.system(f'mkdir -p {name_base_folder}')
 
 filename =  [
@@ -320,7 +322,8 @@ if NN_MODEL_NAME=='CNN':
 elif NN_MODEL_NAME=='MLP':
     myDissipation = Dissipation_MLP(subkey, len(FEATURES_NAMES)+2, to_train=True)
 elif NN_MODEL_NAME=='MLP_linear':
-    myDissipation = Dissipation_MLP_linear(subkey, len(FEATURES_NAMES)+2, to_train=True)
+    # myDissipation = Dissipation_MLP_linear(subkey, len(FEATURES_NAMES)+2, to_train=True)
+    myDissipation = Dissipation_MLP_linear_1D(subkey, len(FEATURES_NAMES)+2, to_train=True)
 else:
     raise Exception(f'NN_MODEL_NAME={NN_MODEL_NAME} is not recognized')
 
@@ -460,7 +463,8 @@ if PLOTTING:
     elif NN_MODEL_NAME=='MLP':
         myDissipation = Dissipation_MLP(subkey, len(FEATURES_NAMES)+2, to_train=True)
     elif NN_MODEL_NAME=='MLP_linear':
-        myDissipation = Dissipation_MLP_linear(subkey, len(FEATURES_NAMES)+2, to_train=True)
+        # myDissipation = Dissipation_MLP_linear(subkey, len(FEATURES_NAMES)+2, to_train=True)
+        myDissipation = Dissipation_MLP_linear_1D(subkey, len(FEATURES_NAMES)+2, to_train=True)
     else:
         raise Exception(f'NN_MODEL_NAME={NN_MODEL_NAME} is not recognized')
     best_RHS_NN = eqx.tree_deserialise_leaves(name_base_folder+COMPARE_TO_NN+'/'+TRAINING_MODE+f'/best_RHS_{COMPARE_TO_NN}.pt',
@@ -521,16 +525,23 @@ if PLOTTING:
     #       so we normalize it then add the other features (already normed)
     #   -> need to use lax.slice_in_dim that is equivalent to array[:,2:,:,:]
     normed_traj_NN_train = (traj_NN_train - NN_norms_tr['features']['mean'][np.newaxis,0:2,np.newaxis,np.newaxis])/NN_norms_tr['features']['std'][np.newaxis,0:2,np.newaxis,np.newaxis]
-    normed_features = jnp.stack([normed_traj_NN_train, 
+    normed_features = jnp.concatenate([normed_traj_NN_train, 
                                  lax.slice_in_dim(NN_train_data['features'], 
                                                   start_index=2, 
                                                   limit_index=NN_train_data['features'].shape[1], 
                                                   axis=1)],
                                 axis=1) # 
+    # print(normed_traj_NN_train.shape)
+    # print(lax.slice_in_dim(NN_train_data['features'], 
+    #                                               start_index=2, 
+    #                                               limit_index=NN_train_data['features'].shape[1], 
+    #                                               axis=1).shape)
+    # print(normed_features.shape)
+    # raise Exception
     diss_NN_train = jax.vmap(best_RHS_NN.dissipation_term)(normed_features)
     # now same for test data:
     normed_traj_NN_test = (traj_NN_test - NN_norms_te['features']['mean'][np.newaxis,0:2,np.newaxis,np.newaxis])/NN_norms_te['features']['std'][np.newaxis,0:2,np.newaxis,np.newaxis]
-    normed_features = jnp.stack([normed_traj_NN_test, 
+    normed_features = jnp.concatenate([normed_traj_NN_test, 
                                  lax.slice_in_dim(NN_test_data['features'], 
                                                   start_index=2, 
                                                   limit_index=NN_train_data['features'].shape[1], 
