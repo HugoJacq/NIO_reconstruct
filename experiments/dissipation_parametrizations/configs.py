@@ -36,6 +36,14 @@ d_base_config = {
                 'forcing_names':[],
                 'BATCH_SIZE':300,
                 'L_to_be_normalized':''},
+        # "MLP_linear":{'optimizer':'adam',
+        #         'linear_lr': (1e-5, 1e-6, 10, 10), # lr_start, lr_end, ntr, start_tr
+        #         'MAX_STEP':50,
+        #         'PRINT_EVERY':1,
+        #         'features_names':['TAx','TAy'],
+        #         'forcing_names':[],
+        #         'BATCH_SIZE':300,
+        #         'L_to_be_normalized':''},
             }
  
 d_training_config = {

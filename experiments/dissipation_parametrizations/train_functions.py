@@ -70,7 +70,7 @@ def vmap_loss(dynamic_model, static_model, data_batch, N_integration_steps, dt, 
         return L, None
         
     L = 0.
-    L, _ = lax.scan(fn_for_scan, L, jnp.arange(0,Ntraj))
+    L, _ = eqx.internal.scan(fn_for_scan, L, jnp.arange(0,Ntraj), kind='checkpointed')
 
     return L / Ntraj
     
@@ -129,10 +129,31 @@ def train(the_model          : eqx.Module,
                                                           dt_forcing, 
                                                           norms,
                                                           use_amplitude)
-        # loss_value = vmap_loss(model, static_model, train_batch, N_integration_steps,
-        #                         dt, dt_forcing, norms)
+        
+        # loss_value = vmap_loss(model, 
+        #                                                   static_model, 
+        #                                                   train_batch,
+        #                                                   N_integration_steps,
+        #                                                   dt,
+        #                                                   dt_forcing, 
+        #                                                   norms,
+        #                                                   use_amplitude)
+        # jax.debug.print('loss {}', loss_value)
+        # grads = jax.grad(vmap_loss)(model, 
+        #                                                   static_model, 
+        #                                                   train_batch,
+        #                                                   N_integration_steps,
+        #                                                   dt,
+        #                                                   dt_forcing, 
+        #                                                   norms,
+        #                                                   use_amplitude)
+        # jax.debug.print('grads {}', grads)
+        
+        
+        # loss_value = vmap_loss(model, static_model, train_batch, N_integration_steps, #  <- forward AD
+        #                         dt, dt_forcing, norms, use_amplitude)
         # grads = jax.jacfwd(vmap_loss)(model, static_model, train_batch, N_integration_steps,
-        #                         dt, dt_forcing, norms)
+        #                         dt, dt_forcing, norms, use_amplitude)
         updates, opt_state = optim.update(grads, opt_state, model,
                                           value=loss_value,
                                           grad=grads,
