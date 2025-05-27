@@ -29,10 +29,10 @@ d_base_config = {
                 'BATCH_SIZE':300,
                 'L_to_be_normalized':'features'},
         "MLP_linear":{'optimizer':'adam',
-                'linear_lr': (1e-5, 1e-6, 10, 10), # lr_start, lr_end, ntr, start_tr
-                'MAX_STEP':50,
+                'linear_lr': (1e-6, 1e-8, 0, 10), # lr_start, lr_end, ntr, start_tr
+                'MAX_STEP':20,
                 'PRINT_EVERY':1,
-                'features_names':['TAx','TAy'],
+                'features_names':[],
                 'forcing_names':[],
                 'BATCH_SIZE':300,
                 'L_to_be_normalized':''},

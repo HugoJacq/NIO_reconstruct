@@ -247,16 +247,18 @@ class Dissipation_MLP_linear_1D(eqx.Module):
     
     def __init__(self, key, Nfeatures, dtype='float32', to_train=True):
         key1, key2, key3 = jax.random.split(key, 3)
-        depth = 5
+        depth = 1
         self.layers = [jnp.ravel,
-                        eqx.nn.Linear(Nfeatures, depth, key=key1),
-                        eqx.nn.Linear(depth, depth, key=key2),
-                        eqx.nn.Linear(depth, 2, key=key3),
+                       eqx.nn.Linear(Nfeatures, depth, key=key1),
+                       eqx.nn.Linear(depth, 2, key=key2),
+                        # eqx.nn.Linear(Nfeatures, depth, key=key1),
+                        # eqx.nn.Linear(depth, depth, key=key2),
+                        # eqx.nn.Linear(depth, 2, key=key3),
                         ]  
         # intialization of last linear layers
         # weights as normal distribution, std=1. and mean=0.
         # bias as 0.
-        alpha = 1e-5
+        alpha = 1e-4
         initializer = jax.nn.initializers.normal(stddev=alpha) # mean is 0.
         self.layers[-1] = eqx.tree_at( lambda t:t.weight, self.layers[-1], initializer(key3, (2, depth)))
         self.layers[-1] = eqx.tree_at( lambda t:t.bias, self.layers[-1], self.layers[-1].bias*0.)
@@ -265,9 +267,7 @@ class Dissipation_MLP_linear_1D(eqx.Module):
         self.to_train = to_train
         
     def __call__(self, x: Float[Array, "Nfeatures Ny Nx"]) -> Float[Array, "Currents Ny Nx"]:
-        # print(x.shape)
-        # _, ny, nx = x.shape
-        
+
         def fn_on_features(array):
             for layer in self.layers:
                 array = layer(array)

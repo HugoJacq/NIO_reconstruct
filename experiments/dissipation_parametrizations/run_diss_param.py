@@ -36,7 +36,7 @@ import os
 import sys
 sys.path.insert(0, '../../src')
 # jax.config.update('jax_platform_name', 'cpu')
-os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "true" # for jax
+# os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "true" # for jax
 jax.config.update("jax_enable_x64", True)
 # jax.config.update("jax_disable_jit", True)
 from jax import lax
@@ -57,8 +57,8 @@ from configs import prepare_config
 
 # training the models
 TRAIN_SLAB      = False     # run the training and save best model
-TRAIN_NN        = False
-TRAINING_MODE   = 'offline'
+TRAIN_NN        = True
+TRAINING_MODE   = 'online'
 NN_MODEL_NAME   = 'MLP_linear'     # CNN MLP MLP_linear
 USE_AMPLITUDE   = False      # loss on amplitude of currents (True) or on currents themselves (False)
 PLOT_THE_MODEL  = False      # plot a trajectory with model converged
@@ -142,6 +142,7 @@ print(' Global parameters:')
 print(f' - TRAIN_SLAB       = {TRAIN_SLAB}')
 print(f' - TRAIN_NN         = {TRAIN_NN}')
 print(f' - TRAINING_MODE    = {TRAINING_MODE}')
+print(f' - USE_AMPLITUDE    = {USE_AMPLITUDE}')
 print(f' - NN_MODEL_NAME    = {NN_MODEL_NAME}')
 print(f' - PLOT_THE_MODEL   = {PLOT_THE_MODEL}')
 print('* ==================================================\n')

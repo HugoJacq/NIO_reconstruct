@@ -128,27 +128,7 @@ def train(the_model          : eqx.Module,
                                                           dt,
                                                           dt_forcing, 
                                                           norms,
-                                                          use_amplitude)
-        
-        # loss_value = vmap_loss(model, 
-        #                                                   static_model, 
-        #                                                   train_batch,
-        #                                                   N_integration_steps,
-        #                                                   dt,
-        #                                                   dt_forcing, 
-        #                                                   norms,
-        #                                                   use_amplitude)
-        # jax.debug.print('loss {}', loss_value)
-        # grads = jax.grad(vmap_loss)(model, 
-        #                                                   static_model, 
-        #                                                   train_batch,
-        #                                                   N_integration_steps,
-        #                                                   dt,
-        #                                                   dt_forcing, 
-        #                                                   norms,
-        #                                                   use_amplitude)
-        # jax.debug.print('grads {}', grads)
-        
+                                                          use_amplitude)        
         
         # loss_value = vmap_loss(model, static_model, train_batch, N_integration_steps, #  <- forward AD
         #                         dt, dt_forcing, norms, use_amplitude)
