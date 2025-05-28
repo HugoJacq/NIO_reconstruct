@@ -214,7 +214,21 @@ def train(the_model          : eqx.Module,
         
         grads_array_only = eqx.filter(grads, eqx.is_array, replace=0.)
         maxgrad = optax.tree_utils.tree_max(jtu.tree_map(jnp.abs, grads_array_only))
-        print(f'    max of grad is {maxgrad}')
+        # print(f'    max of grad is {maxgrad}')
+        # print(f'    Linear 1 grads = {grads_array_only.dissipation_term.layers[1].weight, grads_array_only.dissipation_term.layers[1].bias}')
+        # print(f'    Linear 2 grads = {grads_array_only.dissipation_term.layers[2].weight, grads_array_only.dissipation_term.layers[2].bias}')
+        
+        # value of the weights
+        print(f'    Linear 1:')
+        print(f'            weights = {dynamic_model.dissipation_term.layers[1].weight[0]}')
+        print(f'            biases  = {dynamic_model.dissipation_term.layers[1].bias}')
+        print(f'       grad weights = {grads_array_only.dissipation_term.layers[1].weight[0]}')
+        print(f'       grad biases  = {grads_array_only.dissipation_term.layers[1].bias}')
+        # print(f'    Linear 2:')
+        # print(f'            weights = {dynamic_model.dissipation_term.layers[2].weight[0]}')
+        # print(f'            biases  = {dynamic_model.dissipation_term.layers[2].bias}')
+        # print(f'       grad weights = {grads_array_only.dissipation_term.layers[2].weight[0]}')
+        # print(f'       grad biases  = {grads_array_only.dissipation_term.layers[2].bias}\n')
         
         if tol is not None:
             # leafs, _ = jtu.tree_flatten(grads, is_leaf=eqx.is_array)

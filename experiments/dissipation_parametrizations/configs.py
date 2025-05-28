@@ -28,14 +28,22 @@ d_base_config = {
                 'forcing_names':[],
                 'BATCH_SIZE':300,
                 'L_to_be_normalized':'features'},
-        "MLP_linear":{'optimizer':'adam',
-                'linear_lr': (1e-6, 1e-8, 0, 10), # lr_start, lr_end, ntr, start_tr
-                'MAX_STEP':100,
+        "MLP_linear":{'optimizer':'sgd',
+                'linear_lr': (1e-2, 1e-2, 0, 5), # lr_start, lr_end, ntr, start_tr
+                'MAX_STEP':10,
                 'PRINT_EVERY':1,
                 'features_names':[],
                 'forcing_names':[],
                 'BATCH_SIZE':300,
                 'L_to_be_normalized':''},
+        # "MLP_linear":{'optimizer':'adam', # <- only last layer init as N(0,1e-4)
+        #         'linear_lr': (1e-6, 1e-8, 0, 10), # lr_start, lr_end, ntr, start_tr
+        #         'MAX_STEP':100,
+        #         'PRINT_EVERY':1,
+        #         'features_names':[],
+        #         'forcing_names':[],
+        #         'BATCH_SIZE':300,
+        #         'L_to_be_normalized':''},
         # "MLP_linear":{'optimizer':'adam',
         #         'linear_lr': (1e-5, 1e-6, 10, 10), # lr_start, lr_end, ntr, start_tr
         #         'MAX_STEP':50,
@@ -76,6 +84,9 @@ def get_config(name_model, mode):
         OPTI = optax.adam(optax.linear_schedule(lr_start, lr_end, transition_steps=ntr, transition_begin=start_tr))
     elif d_base_config[name_model]['optimizer']=='lbfgs':
         OPTI = optax.lbfgs(linesearch=optax.scale_by_zoom_linesearch( max_linesearch_steps=55, verbose=True))
+    elif d_base_config[name_model]['optimizer']=='sgd':
+        lr_start, lr_end, ntr, start_tr = d_base_config[name_model]['linear_lr']
+        OPTI = optax.sgd(optax.linear_schedule(lr_start, lr_end, transition_steps=ntr, transition_begin=start_tr))
     else:
         raise Exception(f'Optimizer {d_base_config[name_model]["optimizer"]} is not recognized')
     MAX_STEP = d_base_config[name_model]['MAX_STEP']

@@ -249,8 +249,11 @@ class Dissipation_MLP_linear_1D(eqx.Module):
         key1, key2, key3 = jax.random.split(key, 3)
         depth = 1
         self.layers = [jnp.ravel,
-                       eqx.nn.Linear(Nfeatures, depth, key=key1),
-                       eqx.nn.Linear(depth, 2, key=key2),
+                       eqx.nn.Linear(Nfeatures, 2, key=key1),
+                       
+                    #    eqx.nn.Linear(Nfeatures, depth, key=key1),
+                    #    eqx.nn.Linear(depth, 2, key=key2),
+                       
                         # eqx.nn.Linear(Nfeatures, depth, key=key1),
                         # eqx.nn.Linear(depth, depth, key=key2),
                         # eqx.nn.Linear(depth, 2, key=key3),
@@ -258,10 +261,16 @@ class Dissipation_MLP_linear_1D(eqx.Module):
         # intialization of last linear layers
         # weights as normal distribution, std=1. and mean=0.
         # bias as 0.
-        alpha = 1e-4
-        initializer = jax.nn.initializers.normal(stddev=alpha) # mean is 0.
-        self.layers[-1] = eqx.tree_at( lambda t:t.weight, self.layers[-1], initializer(key3, (2, depth)))
-        self.layers[-1] = eqx.tree_at( lambda t:t.bias, self.layers[-1], self.layers[-1].bias*0.)
+        alpha1 = 1e-5
+        alpha2 = 1e-2
+        initializer1 = jax.nn.initializers.normal(stddev=alpha1) # mean is 0.
+        initializer2 = jax.nn.initializers.normal(stddev=alpha2) # mean is 0.
+        
+        # self.layers[-2] = eqx.tree_at( lambda t:t.weight, self.layers[-2], initializer1(key1, (depth, Nfeatures)))
+        # self.layers[-2] = eqx.tree_at( lambda t:t.bias, self.layers[-2], self.layers[-2].bias*0.+alpha1)
+        
+        # self.layers[-1] = eqx.tree_at( lambda t:t.weight, self.layers[-1], initializer2(key2, (2, Nfeatures))) # (2, depth)
+        # self.layers[-1] = eqx.tree_at( lambda t:t.bias, self.layers[-1], self.layers[-1].bias*0.+1e-6)
          
         self.NORMmean, self.NORMstd = np.zeros(2, dtype=dtype), np.ones(2, dtype=dtype)     
         self.to_train = to_train
@@ -271,7 +280,7 @@ class Dissipation_MLP_linear_1D(eqx.Module):
         def fn_on_features(array):
             for layer in self.layers:
                 array = layer(array)
-            return array
+            return array*1e-4
 
         result = jax.vmap(jax.vmap(fn_on_features, in_axes=1, out_axes=1), in_axes=2, out_axes=2)(x)
         return result

@@ -57,10 +57,10 @@ from configs import prepare_config
 
 # training the models
 TRAIN_SLAB      = False     # run the training and save best model
-TRAIN_NN        = False
+TRAIN_NN        = True
 TRAINING_MODE   = 'offline'
 NN_MODEL_NAME   = 'MLP_linear'     # CNN MLP MLP_linear
-USE_AMPLITUDE   = True      # loss on amplitude of currents (True) or on currents themselves (False)
+USE_AMPLITUDE   = False      # loss on amplitude of currents (True) or on currents themselves (False)
 PLOT_THE_MODEL  = False      # plot a trajectory with model converged
 
 # Comparing models
@@ -314,7 +314,7 @@ my_RHS_slab = eqx.tree_deserialise_leaves(name_base_folder+'slab/'+TRAINING_MODE
                                                 )
 K0_slab = my_RHS_slab.stress_term.K0
 myCoriolis = Coriolis_term(fc = fc)
-myStress = Stress_term(K0 = K0_slab, to_train=True)
+myStress = Stress_term(K0 = K0_slab, to_train=False)
 
 key = jax.random.PRNGKey(SEED)
 key, subkey = jax.random.split(key, 2)
@@ -349,6 +349,7 @@ os.system(f'mkdir -p {path_save}')
 if TRAIN_NN:
     print(f'* Training the {model_name} model ...')
     print(f'    number of param = {get_number_of_param(myRHS)}')
+    print('K0 value is',myRHS.stress_term.K0)
     # train loop
     lastmodel, bestmodel, Train_loss, Test_loss, opt_state_save = train(
                                                                 the_model   = myRHS,
@@ -473,7 +474,7 @@ if PLOTTING:
                                                      Stress_term(K0 = K0), 
                                                      myDissipation)                  
                                                 )
-    
+    print('K0 value is',best_RHS_NN.stress_term.K0)
     # here we get a subset as for long integration (= long rollout)
     #   the data doesnt fit in memory
     data_train_plot = get_dataset_subset(data_set=train_data,
