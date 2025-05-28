@@ -57,10 +57,10 @@ from configs import prepare_config
 
 # training the models
 TRAIN_SLAB      = False     # run the training and save best model
-TRAIN_NN        = True
-TRAINING_MODE   = 'online'
+TRAIN_NN        = False
+TRAINING_MODE   = 'offline'
 NN_MODEL_NAME   = 'MLP_linear'     # CNN MLP MLP_linear
-USE_AMPLITUDE   = False      # loss on amplitude of currents (True) or on currents themselves (False)
+USE_AMPLITUDE   = True      # loss on amplitude of currents (True) or on currents themselves (False)
 PLOT_THE_MODEL  = False      # plot a trajectory with model converged
 
 # Comparing models
@@ -725,9 +725,6 @@ if PLOTTING:
     """
     
     """Plot: comparison of the dissipation term with different parametrizations, same models as above
-    """
-    
-    """Plot: U budget for each parametrization
     """
     
     """Plot: accuracy of the reconstruction with respect to the length of integration time, from offline to full online

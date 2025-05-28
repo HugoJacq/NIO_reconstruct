@@ -30,7 +30,7 @@ d_base_config = {
                 'L_to_be_normalized':'features'},
         "MLP_linear":{'optimizer':'adam',
                 'linear_lr': (1e-6, 1e-8, 0, 10), # lr_start, lr_end, ntr, start_tr
-                'MAX_STEP':20,
+                'MAX_STEP':100,
                 'PRINT_EVERY':1,
                 'features_names':[],
                 'forcing_names':[],
