@@ -56,8 +56,8 @@ extra_args = {'AD_mode':'F',        # forward mode for AD (for diffrax' diffeqso
 
 
 ON_PAPA             = False      # use PAPA station data, only for 1D models
-ON_1D               = True      # use CROCO data at 'point_loc'
-ON_2D               = False
+ON_1D               = False      # use CROCO data at 'point_loc'
+ON_2D               = True
 
 # run parameters
 t0                  = 60*oneday    # start day 
@@ -68,7 +68,7 @@ t1_papa             = 50*oneday
 dt                  = 60.           # timestep of the model (s) 
 
 # What to test
-MINIMIZE            = False      # Does the model converges to a solution ?
+MINIMIZE            = True      # Does the model converges to a solution ?
 maxiter             = 100        # if MINIMIZE: max number of iteration
 SAVE_AS_NC          = True      # for 2D models
 
@@ -79,7 +79,7 @@ PLOT_SNAPSHOT           = True      # 2D models: XY snapshot
 
 # what to test
 L_model_to_test_1D    = ['jslab','junsteak','jslab_kt','junsteak_kt'] 
-L_model_to_test_2D    = ['jslab_kt_2D_adv','junsteak_kt_2D_adv']
+L_model_to_test_2D    = ['jslab_kt_2D_adv','junsteak_kt_2D_adv'] # 'jslab_kt_2D','jslab_kt_2D_adv','junsteak_kt_2D','junsteak_kt_2D_adv'
 
 
 # PLOT

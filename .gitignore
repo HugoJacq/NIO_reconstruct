@@ -1207,3 +1207,11 @@ experiments/dissipation_parametrizations/on_amplitude/pngs/online/0D_MLP_linear/
 experiments/dissipation_parametrizations/on_amplitude/pngs/online/0D_MLP_linear/test_set_U_budget_slab_MLP_linear.png
 experiments/dissipation_parametrizations/on_amplitude/pngs/online/0D_MLP_linear/train_set_U_budget_slab_MLP_linear.png
 experiments/dissipation_parametrizations/on_amplitude/pngs/online/0D_MLP_linear/train_slab_MLP_linear.png
+experiments/minimize_on_amplitude/saved_outputs/2D/jslab_kt_2D_adv_amp_t65_t75_-48.95E_38.95N.nc
+experiments/minimize_on_amplitude/saved_outputs/2D/jslab_kt_2D_adv_cur_t65_t75_-48.95E_38.95N.nc
+experiments/minimize_on_amplitude/saved_outputs/2D/jslab_kt_2D_amp_t65_t75_-48.95E_38.95N.nc
+experiments/minimize_on_amplitude/saved_outputs/2D/jslab_kt_2D_cur_t65_t75_-48.95E_38.95N.nc
+experiments/minimize_on_amplitude/saved_outputs/2D/junsteak_kt_2D_adv_amp_t65_t75_-48.95E_38.95N.nc
+experiments/minimize_on_amplitude/saved_outputs/2D/junsteak_kt_2D_adv_cur_t65_t75_-48.95E_38.95N.nc
+experiments/minimize_on_amplitude/saved_outputs/2D/junsteak_kt_2D_amp_t65_t75_-48.95E_38.95N.nc
+experiments/minimize_on_amplitude/saved_outputs/2D/junsteak_kt_2D_cur_t65_t75_-48.95E_38.95N.nc
