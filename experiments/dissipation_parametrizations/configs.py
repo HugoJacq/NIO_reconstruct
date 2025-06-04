@@ -2,13 +2,21 @@ import xarray as xr
 import optax 
 
 d_base_config = {
-        "slab":{'optimizer':'adam',         # adam or lbfgs
-                'linear_lr': (1e-1, 1e-3, 40, 40), # lr_start, lr_end, ntr, start_tr
+        # "slab":{'optimizer':'adam',         # adam or lbfgs
+        #         'linear_lr': (1e-1, 1e-3, 40, 40), # lr_start, lr_end, ntr, start_tr
+        #         'MAX_STEP':100,             # number of epochs
+        #         'PRINT_EVERY':1,            # print infos every 'PRINT_EVERY' epochs
+        #         'features_names':[],        # what features to use in the NN (U,V in by default)
+        #         'forcing_names':[],         # U,V,TAx,TAy already in by default
+        #         'BATCH_SIZE':300,            # size of a batch (time), set to -1 for no batching
+        #         'L_to_be_normalized':''},
+        "slab":{'optimizer':'lbfgs',         # adam or lbfgs
+                'linear_lr': (1e-1, 1e-1, 40, 40), # lr_start, lr_end, ntr, start_tr
                 'MAX_STEP':100,             # number of epochs
                 'PRINT_EVERY':1,            # print infos every 'PRINT_EVERY' epochs
                 'features_names':[],        # what features to use in the NN (U,V in by default)
                 'forcing_names':[],         # U,V,TAx,TAy already in by default
-                'BATCH_SIZE':300,            # size of a batch (time), set to -1 for no batching
+                'BATCH_SIZE':-1,            # size of a batch (time), set to -1 for no batching
                 'L_to_be_normalized':''},
         
         "CNN":{'optimizer':'adam',
@@ -28,13 +36,21 @@ d_base_config = {
                 'forcing_names':[],
                 'BATCH_SIZE':300,
                 'L_to_be_normalized':'features'},
-        "MLP_linear":{'optimizer':'sgd',
-                'linear_lr': (1e-2, 1e-2, 0, 5), # lr_start, lr_end, ntr, start_tr
-                'MAX_STEP':10,
+        # "MLP_linear":{'optimizer':'sgd',
+        #         'linear_lr': (10, 1, 5, 5), # lr_start, lr_end, ntr, start_tr
+        #         'MAX_STEP':20,
+        #         'PRINT_EVERY':1,
+        #         'features_names':['TAx','TAy'],
+        #         'forcing_names':[],
+        #         'BATCH_SIZE':-1, # 300
+        #         'L_to_be_normalized':'features'},
+        "MLP_linear":{'optimizer':'lbfgs',
+                'linear_lr': (1e-1, 1e-1, 40, 40), # lr_start, lr_end, ntr, start_tr
+                'MAX_STEP':20,
                 'PRINT_EVERY':1,
-                'features_names':[],
+                'features_names':['TAx','TAy'],
                 'forcing_names':[],
-                'BATCH_SIZE':300,
+                'BATCH_SIZE':-1, # 300
                 'L_to_be_normalized':''},
         # "MLP_linear":{'optimizer':'adam', # <- only last layer init as N(0,1e-4)
         #         'linear_lr': (1e-6, 1e-8, 0, 10), # lr_start, lr_end, ntr, start_tr

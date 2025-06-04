@@ -17,8 +17,8 @@ from time_integration import Integration_Euler
 def fn_loss(sol, obs, use_amplitude=False):
     # return jnp.mean( safe_for_grad_sqrt( (sol[:,0]-obs[:,0])**2 + (sol[:,1]-obs[:,1])**2 ))
     J = lax.select(use_amplitude, 
-                    safe_for_grad_sqrt( (get_amplitude(sol[0],sol[1]) - get_amplitude(obs[0],obs[1]))**2 ),
-                    safe_for_grad_sqrt( (sol[0]-obs[0])**2 + (sol[1]-obs[1])**2 ) )
+                    safe_for_grad_sqrt( (get_amplitude(sol[:,0],sol[:,1]) - get_amplitude(obs[:,0],obs[:,1]))**2 ),
+                    safe_for_grad_sqrt( (sol[:,0]-obs[:,0])**2 + (sol[:,1]-obs[:,1])**2 ) )
     return jnp.nanmean( J )
     
 def loss(dynamic_model, static_model, forcing, features, target, N_integration_steps, dt, dt_forcing, norms_features, use_amplitude):
@@ -219,16 +219,20 @@ def train(the_model          : eqx.Module,
         # print(f'    Linear 2 grads = {grads_array_only.dissipation_term.layers[2].weight, grads_array_only.dissipation_term.layers[2].bias}')
         
         # value of the weights
-        print(f'    Linear 1:')
-        print(f'            weights = {dynamic_model.dissipation_term.layers[1].weight[0]}')
-        print(f'            biases  = {dynamic_model.dissipation_term.layers[1].bias}')
-        print(f'       grad weights = {grads_array_only.dissipation_term.layers[1].weight[0]}')
-        print(f'       grad biases  = {grads_array_only.dissipation_term.layers[1].bias}')
-        # print(f'    Linear 2:')
-        # print(f'            weights = {dynamic_model.dissipation_term.layers[2].weight[0]}')
-        # print(f'            biases  = {dynamic_model.dissipation_term.layers[2].bias}')
-        # print(f'       grad weights = {grads_array_only.dissipation_term.layers[2].weight[0]}')
-        # print(f'       grad biases  = {grads_array_only.dissipation_term.layers[2].bias}\n')
+        if type(static_model.dissipation_term).__name__ == 'Dissipation_MLP_linear_1D':
+            print(f'    Linear 1:')
+            print(f'            weights[0] = {dynamic_model.dissipation_term.layers[1].weight[0]}')
+            print(f'            weights[1] = {dynamic_model.dissipation_term.layers[1].weight[1]}')
+            # print(f'            biases  = {dynamic_model.dissipation_term.layers[1].bias}')
+            print(f'       grad weights[0] = {grads_array_only.dissipation_term.layers[1].weight[0]}')
+            print(f'       grad weights[1] = {grads_array_only.dissipation_term.layers[1].weight[1]}')
+            # print(f'       grad biases  = {grads_array_only.dissipation_term.layers[1].bias}')
+            
+            # print(f'    Linear 2:')
+            # print(f'            weights = {dynamic_model.dissipation_term.layers[2].weight[0]}')
+            # print(f'            biases  = {dynamic_model.dissipation_term.layers[2].bias}')
+            # print(f'       grad weights = {grads_array_only.dissipation_term.layers[2].weight[0]}')
+            # print(f'       grad biases  = {grads_array_only.dissipation_term.layers[2].bias}\n')
         
         if tol is not None:
             # leafs, _ = jtu.tree_flatten(grads, is_leaf=eqx.is_array)

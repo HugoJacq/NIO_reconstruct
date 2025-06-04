@@ -73,6 +73,8 @@ def Integration_Euler(X0        : Float[Array, "2 Ny Nx"],
         features_now = linear_interpolator(t, dt, dt_forcing, features)
         
         # replacing the current for next iteration in the features        
+        
+        # print(features_now.shape, Cold.shape, norms['features']['mean'].shape, norms['features']['std'].shape)
         features_now = features_now.at[0,:,:].set( (Cold[0]-norms['features']['mean'][0])*norms['features']['std'][0] )
         features_now = features_now.at[1,:,:].set( (Cold[0]-norms['features']['mean'][1])*norms['features']['std'][1] )
         
