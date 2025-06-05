@@ -240,12 +240,15 @@ class Dissipation_MLP_linear_1D(eqx.Module):
     """
     layers: list
     to_train : bool
+    coeff_end : jnp.ndarray # see also the set_trainable and initialisation
     
     # renormalization values (mean,std)
     NORMmean  : np.array 
     NORMstd    : np.array
     
     def __init__(self, key, Nfeatures, dtype='float32', to_train=True):
+        self.coeff_end = jnp.asarray(1e-5)
+        
         key1, key2, key3 = jax.random.split(key, 3)
         depth = 1
         self.layers = [jnp.ravel,
@@ -257,7 +260,7 @@ class Dissipation_MLP_linear_1D(eqx.Module):
                         # eqx.nn.Linear(Nfeatures, depth, key=key1),
                         # eqx.nn.Linear(depth, depth, key=key2),
                         # eqx.nn.Linear(depth, 2, key=key3),
-                        # lambda x: x*1e-5
+                        lambda x: x*self.coeff_end
                         ] 
         # intialization of last linear layers
         # weights as normal distribution, std=1. and mean=0.
@@ -270,7 +273,7 @@ class Dissipation_MLP_linear_1D(eqx.Module):
         # self.layers[-2] = eqx.tree_at( lambda t:t.weight, self.layers[-2], initializer1(key1, (depth, Nfeatures)))
         # self.layers[-2] = eqx.tree_at( lambda t:t.bias, self.layers[-2], self.layers[-2].bias*0.+alpha1)
         
-        self.layers[-1] = eqx.tree_at( lambda t:t.weight, self.layers[-1], initializer2(key2, (2, Nfeatures))) # (2, depth)
+        # self.layers[-1] = eqx.tree_at( lambda t:t.weight, self.layers[-1], initializer2(key2, (2, Nfeatures))) # (2, depth)
         # self.layers[-1] = eqx.tree_at( lambda t:t.bias, self.layers[-1], self.layers[-1].bias*0.+1e-6)
          
         self.NORMmean, self.NORMstd = np.zeros(2, dtype=dtype), np.ones(2, dtype=dtype)     
@@ -285,18 +288,13 @@ class Dissipation_MLP_linear_1D(eqx.Module):
 
         result = jax.vmap(jax.vmap(fn_on_features, in_axes=1, out_axes=1), in_axes=2, out_axes=2)(x)
         return result
-        
-
-        # for layer in self.layers:
-        #     x = layer(x)    
-        # x = jnp.reshape(x, (2,128,128)) 
-        # return x 
 
     def filter_set_trainable(self, filter_spec):
         for i, layer in enumerate(filter_spec.layers):
             if isinstance(layer, eqx.nn.Linear) or isinstance(layer, eqx.nn.Conv):
                 filter_spec = eqx.tree_at(lambda t: t.layers[i].weight, filter_spec, replace=True)
                 # filter_spec = eqx.tree_at(lambda t: t.layers[i].bias, filter_spec, replace=True)
+        filter_spec = eqx.tree_at(lambda t: t.coeff_end, filter_spec, replace=True)
         return filter_spec
 
 ####################

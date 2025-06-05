@@ -33,11 +33,12 @@ to be explored : better conditionning of the problem
 - comment avoir un entrainement des poids de la même maniere pour tes les poids ?
 - comment mixer l'entrainement d'un NN et l'estimation d'un parametre dans une equation physique ?
     example de K0 et les poids d'un NN pour le slab
+- utiliser un terme de loss additionnel comme les PINNs:
+    L = L(courant) + L(termes equations 1)
 
 """
 
 # regular modules import
-from re import L
 import xarray as xr
 import numpy as np
 import jax
@@ -328,7 +329,7 @@ my_RHS_slab = eqx.tree_deserialise_leaves(path_save+f'best_RHS_slab.pt',
                                                 )
 K0_slab = my_RHS_slab.stress_term.K0
 myCoriolis = Coriolis_term(fc = fc)
-myStress = Stress_term(K0 = K0_slab, to_train=True) # False
+myStress = Stress_term(K0 = K0_slab, to_train=False) # False
 
 key = jax.random.PRNGKey(SEED)
 key, subkey = jax.random.split(key, 2)
@@ -490,6 +491,7 @@ if PLOTTING:
                                                      myDissipation)                  
                                                 )
     print('K0 value is',best_RHS_NN.stress_term.K0)
+    print('coeff value is', best_RHS_NN.dissipation_term.coeff_end)
     # here we get a subset as for long integration (= long rollout)
     #   the data doesnt fit in memory
     data_train_plot = get_dataset_subset(data_set=train_data,
@@ -868,15 +870,15 @@ if PLOTTING:
     #     U_array[1,k] = mytraj_slab
     #     U_array[2,k] = truth
     
-    
-    xtime = np.arange(1,nt)*onehour/oneday
-    fig, ax = plt.subplots(1,1,figsize = (7,4), constrained_layout=True,dpi=100)
-    ax.plot(xtime, U_array[0].mean(axis=(1,2)), c='b', label='hybrid')
-    ax.plot(xtime, U_array[1].mean(axis=(1,2)), c='r', label='slab', ls='--')
-    ax.plot(xtime, U_array[2].mean(axis=(1,2)), c='k', label='truth')
-    ax.set_xlabel('time (days)')
-    ax.set_ylabel('U ageo (m/s)')
-    ax.legend()
+    if TRAINING_MODE=="offline":
+        xtime = np.arange(1,nt)*onehour/oneday
+        fig, ax = plt.subplots(1,1,figsize = (7,4), constrained_layout=True,dpi=100)
+        ax.plot(xtime, U_array[0].mean(axis=(1,2)), c='b', label='hybrid')
+        ax.plot(xtime, U_array[1].mean(axis=(1,2)), c='r', label='slab', ls='--')
+        ax.plot(xtime, U_array[2].mean(axis=(1,2)), c='k', label='truth')
+        ax.set_xlabel('time (days)')
+        ax.set_ylabel('U ageo (m/s)')
+        ax.legend()
     
     
     """Plot: trajectory reconstructed on train dataset (and next on test data set)

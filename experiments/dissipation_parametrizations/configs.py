@@ -44,14 +44,22 @@ d_base_config = {
         #         'forcing_names':[],
         #         'BATCH_SIZE':-1, # 300
         #         'L_to_be_normalized':'features'},
-        "MLP_linear":{'optimizer':'lbfgs',
-                'linear_lr': (1e-1, 1e-1, 40, 40), # lr_start, lr_end, ntr, start_tr
+        # "MLP_linear":{'optimizer':'sgd', # <- good for offline
+        #         'linear_lr': (1000, 1, 20, 0), # lr_start, lr_end, ntr, start_tr
+        #         'MAX_STEP':40,
+        #         'PRINT_EVERY':1,
+        #         'features_names':['TAx','TAy'],
+        #         'forcing_names':[],
+        #         'BATCH_SIZE':-1, # 300
+        #         'L_to_be_normalized':'features'},
+        "MLP_linear":{'optimizer':'sgd', # <- good for online
+                'linear_lr': (10, 0.1, 5, 0), # lr_start, lr_end, ntr, start_tr
                 'MAX_STEP':20,
                 'PRINT_EVERY':1,
                 'features_names':['TAx','TAy'],
                 'forcing_names':[],
                 'BATCH_SIZE':-1, # 300
-                'L_to_be_normalized':''},
+                'L_to_be_normalized':'features'},
         # "MLP_linear":{'optimizer':'adam', # <- only last layer init as N(0,1e-4)
         #         'linear_lr': (1e-6, 1e-8, 0, 10), # lr_start, lr_end, ntr, start_tr
         #         'MAX_STEP':100,

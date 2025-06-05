@@ -33,7 +33,18 @@ def loss(dynamic_model, static_model, forcing, features, target, N_integration_s
     
     # integration
     sol = Integration_Euler(X0, TA, features, RHS_model, dt, dt_forcing, N_integration_steps, norms_features)  
-    return fn_loss(sol, target, use_amplitude)  
+    J1 = fn_loss(sol, target, use_amplitude)  
+    
+    
+    # adding a physical terms like in PINNs
+    dCdt = jnp.gradient(forcing[:,0:2,:,:], 3600., axis=0)
+    coriolis = jax.vmap(RHS_model.coriolis_term, in_axes=0, out_axes=0)(forcing[:,0:2,:,:])
+    stress = jax.vmap(RHS_model.stress_term, in_axes=0, out_axes=0)(forcing[:,2:4,:,:])
+    diss = jax.vmap(RHS_model.dissipation_term, in_axes=0, out_axes=0)(features[:,:,:,:])
+    y = dCdt - coriolis - stress
+    J2 = jnp.nanmean( safe_for_grad_sqrt( (y-diss)**2 ) )
+    
+    return J1 + J2
     
 # @partial( jax.jit, static_argnames=['N_integration_steps','dt','dt_forcing'])
 def vmap_loss(dynamic_model, static_model, data_batch, N_integration_steps, dt, dt_forcing, norms_features, use_amplitude):
@@ -152,7 +163,7 @@ def train(the_model          : eqx.Module,
     # =================
     # INITIALIZATION
     # =================
-    dynamic_model, static_model = my_partition(the_model)
+    dynamic_model, static_model = my_partition(the_model)   
     opt_state = optim.init(dynamic_model)
     
     Test_loss = []
@@ -226,6 +237,9 @@ def train(the_model          : eqx.Module,
             # print(f'            biases  = {dynamic_model.dissipation_term.layers[1].bias}')
             print(f'       grad weights[0] = {grads_array_only.dissipation_term.layers[1].weight[0]}')
             print(f'       grad weights[1] = {grads_array_only.dissipation_term.layers[1].weight[1]}')
+            print(f'    coeff_end:')
+            print(f'        value = {dynamic_model.dissipation_term.coeff_end}')
+            print(f'        grad  = {grads_array_only.dissipation_term.coeff_end}')
             # print(f'       grad biases  = {grads_array_only.dissipation_term.layers[1].bias}')
             
             # print(f'    Linear 2:')
