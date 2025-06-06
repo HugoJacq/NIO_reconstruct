@@ -16,6 +16,8 @@ The unsteady Ekman model (N layers):
 ## The science
 
 The file `Near Inertial Oscillations Reconstruction Using A Simple Model.zip` is overleaf project where the motivation / methods and first results are gathered.
+https://www.overleaf.com/read/wxqfrwhxhfvb#d00499
+
 Look into `experiment` to find the scientific question and what the code Idid to answer them.
 
 ## Environment
