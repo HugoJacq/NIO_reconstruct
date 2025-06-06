@@ -26,4 +26,4 @@ Be carefull if a new version of any of the JAX packages is up, make sure to upda
 
 ## License
 
-MIT License, see LICENCE.txt
+MIT License, see LICENSE.txt
