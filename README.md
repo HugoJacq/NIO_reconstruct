@@ -23,3 +23,7 @@ Look into `experiment` to find the scientific question and what the code Idid to
 create a conda env, then install using conda packages listed in `packages_list_conda.txt` then install using pip packages listed in `packages_list_pip.txt`.
 
 Be carefull if a new version of any of the JAX packages is up, make sure to update them together. Theses librairies evolve at a fast rate and incompatibilities happen rather sooner than later.
+
+## License
+
+MIT License, see LICENCE.txt
